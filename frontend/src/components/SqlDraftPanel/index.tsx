@@ -91,6 +91,7 @@ export default function SqlDraftPanel({ open, onToggle }: SqlSheetProps) {
       <div
         style={{
           width,
+          flexShrink: 0,
           height: '100%',
           display: 'flex',
           flexDirection: 'column',
@@ -245,90 +246,96 @@ export default function SqlDraftPanel({ open, onToggle }: SqlSheetProps) {
               flexShrink: 0,
             }}
           >
-            {/* 토글 헤더 */}
-            <button
-              type="button"
-              onClick={() => setExplainOpen((v) => !v)}
-              aria-expanded={explainOpen}
+            {/* 헤더 — 좌측 Explanation 토글(펼침/접힘), 우측 EN/한국어 언어 스위치 */}
+            <div
               style={{
-                width: '100%',
                 display: 'flex',
                 alignItems: 'center',
                 gap: 'var(--space-sm)',
                 padding: 'var(--space-sm) var(--space-md)',
-                background: 'transparent',
-                border: 'none',
-                cursor: 'pointer',
-                textAlign: 'left',
               }}
             >
-              <span
+              {/* 펼침/접힘 클릭 영역 */}
+              <button
+                type="button"
+                onClick={() => setExplainOpen((v) => !v)}
+                aria-expanded={explainOpen}
                 style={{
-                  fontSize: 'var(--font-size-xs)',
-                  fontWeight: 700,
-                  color: 'var(--text-secondary)',
-                  letterSpacing: '0.06em',
-                  textTransform: 'uppercase',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: 0,
                 }}
               >
-                Explanation
-              </span>
+                <span
+                  style={{
+                    fontSize: 'var(--font-size-xs)',
+                    fontWeight: 700,
+                    color: 'var(--text-secondary)',
+                    letterSpacing: '0.06em',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  Explanation
+                </span>
+                <span
+                  style={{
+                    fontSize: 11,
+                    color: 'var(--text-tertiary)',
+                    transition: 'transform var(--transition-fast)',
+                    transform: explainOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                  }}
+                >
+                  ▾
+                </span>
+              </button>
+
               <span style={{ flex: 1 }} />
-              <span
-                style={{
-                  fontSize: 11,
-                  color: 'var(--text-tertiary)',
-                  transition: 'transform var(--transition-fast)',
-                  transform: explainOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-                }}
-              >
-                ▾
-              </span>
-            </button>
+
+              {/* 언어 스위치 — 한국어 있을 때만. 헤더에 항상 노출(펼침 여부 무관). */}
+              {explanationKo && (
+                <div style={{ display: 'flex', gap: 4 }}>
+                  {(['en', 'ko'] as ExplainLang[]).map((lang) => {
+                    const active = explainLang === lang;
+                    return (
+                      <button
+                        key={lang}
+                        type="button"
+                        onClick={() => {
+                          setExplainLang(lang);
+                          setExplainOpen(true); // 언어 누르면 자동 펼침
+                        }}
+                        style={{
+                          padding: '2px 10px',
+                          fontSize: 'var(--font-size-xs)',
+                          fontWeight: 600,
+                          borderRadius: 'var(--radius-sm)',
+                          border: `1px solid ${active ? 'var(--border-strong)' : 'var(--border)'}`,
+                          background: active ? 'var(--bg-tertiary)' : 'transparent',
+                          color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {lang === 'en' ? 'EN' : '한국어'}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
 
             {/* 펼친 본문 */}
             {explainOpen && (
               <div style={{ padding: '0 var(--space-md) var(--space-md)' }}>
-                {/* 언어 토글 — 한국어 있을 때만 노출 */}
-                {explanationKo && (
-                  <div
-                    style={{
-                      display: 'flex',
-                      gap: 4,
-                      marginBottom: 'var(--space-sm)',
-                    }}
-                  >
-                    {(['en', 'ko'] as ExplainLang[]).map((lang) => {
-                      const active = explainLang === lang;
-                      return (
-                        <button
-                          key={lang}
-                          type="button"
-                          onClick={() => setExplainLang(lang)}
-                          style={{
-                            padding: '2px 10px',
-                            fontSize: 'var(--font-size-xs)',
-                            fontWeight: 600,
-                            borderRadius: 'var(--radius-sm)',
-                            border: `1px solid ${active ? 'var(--border-strong)' : 'var(--border)'}`,
-                            background: active ? 'var(--bg-tertiary)' : 'transparent',
-                            color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
-                            cursor: 'pointer',
-                          }}
-                        >
-                          {lang === 'en' ? 'EN' : '한국어'}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-
                 <p
                   style={{
                     margin: 0,
-                    fontSize: 'var(--font-size-md)',
+                    fontSize: 15,
                     color: 'var(--text-primary)',
-                    lineHeight: 1.65,
+                    lineHeight: 1.7,
                   }}
                 >
                   {explainText}
@@ -379,6 +386,7 @@ export default function SqlDraftPanel({ open, onToggle }: SqlSheetProps) {
         aria-expanded={isOpen}
         style={{
           alignSelf: 'center',
+          flexShrink: 0,
           writingMode: 'vertical-rl',
           textOrientation: 'mixed',
           background: 'var(--bg-secondary)',

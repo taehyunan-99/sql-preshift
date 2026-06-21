@@ -47,6 +47,7 @@ export default function InputPanel() {
         detectedConfidence: res.detectedConfidence,
         sql: res.sql,
         explanation: res.explanation,
+        explanationKo: res.explanationKo,
         schemaDiff: res.schemaDiff,
         dataSim: res.dataSim,
         risks: res.risks,
