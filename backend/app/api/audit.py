@@ -1,0 +1,62 @@
+"""GET /api/audit, POST /api/audit/{id}/rollback."""
+
+from __future__ import annotations
+
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+
+from app.db import get_meta_session
+from app.pipeline.executor import rollback
+from app.pipeline.validation import ValidationError
+from app.schemas.analysis import AuditEntry, RollbackResult
+
+router = APIRouter(prefix="/api/audit", tags=["audit"])
+
+
+@router.get("", response_model=list[AuditEntry])
+async def list_audit(
+    limit: int = 50,
+    session: Session = Depends(get_meta_session),
+):
+    """적용 이력을 최신순으로 반환한다. #6: §5 계약 키 id/sql/appliedAt/rolledBack."""
+    from app.models.audit import AuditLog, MigrationHistory
+
+    logs = (
+        session.query(AuditLog)
+        .order_by(AuditLog.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+    entries = []
+    for log in logs:
+        migration = session.get(MigrationHistory, log.migration_id) if log.migration_id else None
+        sql = migration.sql if migration else ""
+        applied_at = log.created_at.isoformat() if log.created_at else ""
+        rolled_back = log.action == "rollback"
+        entries.append(
+            AuditEntry(
+                id=str(log.id),
+                sql=sql,
+                appliedAt=applied_at,
+                rolledBack=rolled_back,
+            )
+        )
+    return entries
+
+
+@router.post("/{audit_id}/rollback", response_model=RollbackResult)
+async def api_rollback(
+    audit_id: int,
+    session: Session = Depends(get_meta_session),
+):
+    """저장된 down 스크립트로 롤백한다."""
+    try:
+        result = rollback(audit_id, session)
+        session.commit()
+        return result
+    except ValidationError as e:
+        session.rollback()
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=500, detail=f"롤백 중 오류: {e}")
