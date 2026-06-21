@@ -1,13 +1,13 @@
 'use client';
 
-import { createContext, useContext, useEffect } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import {
   ReactFlow,
   Background,
   ReactFlowProvider,
   useReactFlow,
-  type OnMove,
   type Node,
+  type Viewport,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import TableNode from './TableNode';
@@ -177,12 +177,21 @@ function applyHighlight(nodes: Node[], highlightTable: string | null | undefined
 interface PanelProps {
   graph: SchemaGraph;
   label: string;
-  onMove?: OnMove;
   highlightTable?: string | null;
   riskMap?: RiskMap;
+  // Split뷰 pan/zoom 동기화: 공유 viewport(있으면 controlled) + 변경 콜백.
+  viewport?: Viewport;
+  onViewportChange?: (vp: Viewport) => void;
 }
 
-function ErdPanel({ graph, label, onMove, highlightTable, riskMap = {} }: PanelProps) {
+function ErdPanel({
+  graph,
+  label,
+  highlightTable,
+  riskMap = {},
+  viewport,
+  onViewportChange,
+}: PanelProps) {
   const { nodes: rawNodes, edges } = useErdLayout(graph);
   // 합성 순서 고정: 위험 ring → hover focus-ring 덮어쓰기. (위험 > diff, hover > 위험)
   const nodes = applyHighlight(applyRisk(rawNodes, riskMap), highlightTable);
@@ -210,10 +219,12 @@ function ErdPanel({ graph, label, onMove, highlightTable, riskMap = {} }: PanelP
             nodes={nodes}
             edges={edges}
             nodeTypes={NODE_TYPES}
-            fitView
+            // viewport 미설정(초기)일 땐 fitView로 자동 정렬, 첫 이동 후부터 controlled 동기화.
+            fitView={!viewport}
             fitViewOptions={{ padding: 0.2 }}
+            viewport={viewport}
+            onViewportChange={onViewportChange}
             proOptions={{ hideAttribution: true }}
-            onMove={onMove}
             style={{ background: 'var(--bg-primary)' }}
           >
             <Background color="var(--border-subtle)" gap={20} />
@@ -225,6 +236,8 @@ function ErdPanel({ graph, label, onMove, highlightTable, riskMap = {} }: PanelP
 }
 
 // ── side-by-side: 좌 before / 우 after ──
+// 두 패널이 공유 viewport state를 controlled로 보므로 pan/zoom이 동기화된다.
+// 한쪽 조작 → onViewportChange → state 갱신 → 양쪽 viewport 동일 → 미러링.
 function SideBySideView({
   diff,
   highlightTable,
@@ -234,11 +247,27 @@ function SideBySideView({
   highlightTable?: string | null;
   riskMap?: RiskMap;
 }) {
+  // undefined = 초기(각 패널 fitView 자동정렬). 첫 이동 후 controlled로 전환돼 동기화.
+  const [viewport, setViewport] = useState<Viewport | undefined>(undefined);
   return (
     <div style={{ display: 'flex', flex: 1, gap: 4, minHeight: 0 }}>
-      <ErdPanel graph={diff.before} label="Before" highlightTable={highlightTable} riskMap={riskMap} />
+      <ErdPanel
+        graph={diff.before}
+        label="Before"
+        highlightTable={highlightTable}
+        riskMap={riskMap}
+        viewport={viewport}
+        onViewportChange={setViewport}
+      />
       <div style={{ width: 1, background: 'var(--border)', flexShrink: 0 }} />
-      <ErdPanel graph={diff.after} label="After" highlightTable={highlightTable} riskMap={riskMap} />
+      <ErdPanel
+        graph={diff.after}
+        label="After"
+        highlightTable={highlightTable}
+        riskMap={riskMap}
+        viewport={viewport}
+        onViewportChange={setViewport}
+      />
     </div>
   );
 }
