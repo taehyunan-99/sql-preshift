@@ -1,10 +1,10 @@
 /* Calm Clarity 디자인 토큰 — SQLPreShift (그래파이트 다크 단일 테마) */
 :root {
   /* 배경 — 그래파이트 다크(보라기 제거) */
-  --bg-primary: #14181B;   /* 앱/캔버스 베이스 */
-  --bg-secondary: #1B2025; /* floating 패널/시트/탑바 표면 */
-  --bg-tertiary: #283036;  /* 노드 헤더/카드/elevated — 캔버스 대비 강화 */
-  --bg-input: #0F1316;     /* textarea/Monaco 배경 */
+  --bg-primary: #1A2024;   /* 앱/캔버스 베이스 — 한 단계 밝게(warm graphite) */
+  --bg-secondary: #222A30; /* floating 패널/시트/탑바 표면 */
+  --bg-tertiary: #2E373E;  /* 노드 헤더/카드/elevated — 캔버스 대비 강화 */
+  --bg-input: #141A1E;     /* textarea/Monaco 배경 */
   --bg-hover: rgba(255, 255, 255, 0.04);
   --bg-scrim: rgba(10, 13, 15, 0.55); /* analyzing/applying dim, AuditDrawer scrim */
 
@@ -43,9 +43,9 @@
   --color-info-border: rgba(90, 143, 196, 0.4);
 
   /* 테두리 */
-  --border: #2A3338;
-  --border-subtle: #222A2F; /* 약한 구분선, ERD Background dot */
-  --border-strong: #3A464C;
+  --border: #313B41;
+  --border-subtle: #2A333A; /* 약한 구분선, ERD Background dot */
+  --border-strong: #44515A;
   --border-focus: var(--color-accent); /* 블루→teal */
 
   /* 그림자/elevation */
