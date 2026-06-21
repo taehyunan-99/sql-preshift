@@ -27,7 +27,7 @@ export default function ApprovalBar() {
       await applySQL(analyzeResult.token);
       setStage('applied');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'apply 실패');
+      setError(e instanceof Error ? e.message : 'Apply failed');
       setStage('preview');
     } finally {
       setIsApplying(false);
@@ -91,7 +91,7 @@ export default function ApprovalBar() {
             cursor: 'pointer',
           }}
         >
-          취소
+          Cancel
         </button>
 
         {/* Dry-run 다시 */}
@@ -114,7 +114,7 @@ export default function ApprovalBar() {
         <button
           onClick={handleApply}
           disabled={isApplying}
-          title={hasCritical ? 'CRITICAL 위험이 있습니다. 클릭하면 확인 모달이 열립니다.' : undefined}
+          title={hasCritical ? 'Critical risk present. Click to open the confirmation dialog.' : undefined}
           style={{
             padding: '6px 14px',
             fontSize: 12,
@@ -127,7 +127,7 @@ export default function ApprovalBar() {
             opacity: isApplying ? 0.6 : 1,
           }}
         >
-          {isApplying ? '적용 중…' : '적용하기'}
+          {isApplying ? 'Applying…' : 'Apply'}
         </button>
       </div>
 
@@ -165,12 +165,12 @@ export default function ApprovalBar() {
                 color: 'var(--color-error)',
               }}
             >
-              ⚠ CRITICAL 위험 경고
+              ⚠ Critical risk warning
             </p>
             <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-              이 SQL에는 심각한 위험이 포함되어 있습니다. 정말 적용하시겠습니까?
+              This SQL contains a critical risk. Are you sure you want to apply it?
               <br />
-              적용 후 데이터 손실이 발생할 수 있습니다.
+              Applying it may cause data loss.
             </p>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
               <button
@@ -185,7 +185,7 @@ export default function ApprovalBar() {
                   cursor: 'pointer',
                 }}
               >
-                취소
+                Cancel
               </button>
               <button
                 onClick={handleApply}
@@ -200,7 +200,7 @@ export default function ApprovalBar() {
                   cursor: 'pointer',
                 }}
               >
-                위험 인지 후 적용
+                Acknowledge & apply
               </button>
             </div>
           </div>

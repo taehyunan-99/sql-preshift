@@ -12,14 +12,15 @@ interface DiffControlsProps {
 
 // diff 3색 범례 (색 의미 불변)
 const LEGEND = [
-  { color: 'var(--color-success)', label: '추가' },
-  { color: 'var(--color-error)', label: '삭제' },
-  { color: 'var(--color-warning)', label: '변경' },
+  { color: 'var(--color-success)', label: 'Added' },
+  { color: 'var(--color-error)', label: 'Removed' },
+  { color: 'var(--color-warning)', label: 'Modified' },
 ];
 
+// 뷰 토글 라벨 — git diff 표준 용어(Split/Unified). mode 값은 내부 식별자라 유지.
 const MODES: { mode: DiffMode; label: string }[] = [
-  { mode: 'side-by-side', label: 'Side-by-side' },
-  { mode: 'overlay', label: 'Overlay' },
+  { mode: 'side-by-side', label: 'Split' },
+  { mode: 'overlay', label: 'Unified' },
 ];
 
 // 우상단 floating: DiffLegend + side/overlay 모드 토글 묶음

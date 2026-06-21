@@ -10,31 +10,31 @@ const STAGE_STYLE: Record<
   { label: string; color: string; border: string; bg: string }
 > = {
   idle: {
-    label: '준비',
+    label: 'Ready',
     color: 'var(--text-secondary)',
     border: 'var(--border)',
     bg: 'transparent',
   },
   analyzing: {
-    label: '분석 중',
+    label: 'Analyzing',
     color: 'var(--color-info)',
     border: 'var(--color-info-border)',
     bg: 'var(--color-info-bg)',
   },
   preview: {
-    label: '미리보기',
+    label: 'Preview',
     color: 'var(--color-accent)',
     border: 'var(--color-accent-border)',
     bg: 'var(--color-accent-10)',
   },
   applying: {
-    label: '적용 중',
+    label: 'Applying',
     color: 'var(--color-accent)',
     border: 'var(--color-accent-border)',
     bg: 'var(--color-accent-10)',
   },
   applied: {
-    label: '적용 완료',
+    label: 'Applied',
     color: 'var(--color-success)',
     border: 'var(--color-success-border)',
     bg: 'var(--color-success-bg)',

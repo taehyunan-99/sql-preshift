@@ -144,7 +144,7 @@ function RiskCard({
               marginBottom: 'var(--space-xs)',
             }}
           >
-            LLM 해설
+            AI explanation
           </div>
           <p
             style={{
@@ -234,7 +234,7 @@ export default function RiskPanel({
           boxShadow: 'var(--shadow-float)',
           padding: 'var(--space-sm) 0',
         }}
-        title={collapsed ? '위험 패널 열기' : '위험 패널 접기'}
+        title={collapsed ? 'Open risk panel' : 'Collapse risk panel'}
       >
         <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
           {collapsed ? '◀' : '▶'}
@@ -289,7 +289,7 @@ export default function RiskPanel({
                 textTransform: 'uppercase',
               }}
             >
-              위험 분석
+              Risks
             </span>
             <div style={{ flex: 1 }} />
             {criticalCount > 0 && (
@@ -327,7 +327,7 @@ export default function RiskPanel({
                 fontWeight: 600,
               }}
             >
-              🚨 CRITICAL 위험이 감지되었습니다. 적용 전 반드시 확인 모달을 통해 위험을 인지하세요.
+              🚨 Critical risk detected. Review and acknowledge it in the confirmation dialog before applying.
             </p>
           )}
         </div>

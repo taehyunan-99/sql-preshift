@@ -1,9 +1,9 @@
 'use client';
 
 const ITEMS = [
-  { color: 'var(--color-success)', label: '추가 (added)' },
-  { color: 'var(--color-error)', label: '삭제 (removed)' },
-  { color: 'var(--color-warning)', label: '변경 (modified)' },
+  { color: 'var(--color-success)', label: 'Added' },
+  { color: 'var(--color-error)', label: 'Removed' },
+  { color: 'var(--color-warning)', label: 'Modified' },
 ];
 
 export default function DiffLegend() {

@@ -10,7 +10,7 @@ const jakarta = Plus_Jakarta_Sans({
 
 export const metadata: Metadata = {
   title: "SQLPreShift",
-  description: "SQL 스키마 변경 안전 워크플로우",
+  description: "Safe SQL schema migration workflow",
 };
 
 export default function RootLayout({

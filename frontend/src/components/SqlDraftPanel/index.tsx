@@ -83,7 +83,7 @@ export default function SqlDraftPanel({ open, onToggle }: SqlSheetProps) {
               textTransform: 'uppercase',
             }}
           >
-            SQL 초안
+            SQL Draft
           </span>
 
           {analyzeResult && (
@@ -98,7 +98,7 @@ export default function SqlDraftPanel({ open, onToggle }: SqlSheetProps) {
                 fontWeight: 600,
               }}
             >
-              {analyzeResult.mode === 'nl' ? 'NL→SQL' : 'SQL 입력'}
+              {analyzeResult.mode === 'nl' ? 'NL→SQL' : 'SQL'}
             </span>
           )}
 
@@ -106,7 +106,7 @@ export default function SqlDraftPanel({ open, onToggle }: SqlSheetProps) {
           <button
             type="button"
             onClick={toggle}
-            aria-label="SQL 초안 시트 접기"
+            aria-label="Collapse SQL draft"
             style={{
               marginLeft: 'auto',
               background: 'transparent',
@@ -145,7 +145,7 @@ export default function SqlDraftPanel({ open, onToggle }: SqlSheetProps) {
                 animation: 'spin 0.8s linear infinite',
               }}
             />
-            <span style={{ fontSize: 'var(--font-size-sm)' }}>SQL 생성 중…</span>
+            <span style={{ fontSize: 'var(--font-size-sm)' }}>Generating SQL…</span>
           </div>
         )}
 
@@ -163,7 +163,7 @@ export default function SqlDraftPanel({ open, onToggle }: SqlSheetProps) {
             }}
           >
             <span style={{ fontSize: 32, opacity: 0.4 }}>📝</span>
-            <span style={{ fontSize: 'var(--font-size-sm)' }}>분석 결과가 여기 표시됩니다</span>
+            <span style={{ fontSize: 'var(--font-size-sm)' }}>Analysis results will appear here</span>
           </div>
         )}
 
@@ -214,7 +214,7 @@ export default function SqlDraftPanel({ open, onToggle }: SqlSheetProps) {
                 marginBottom: 'var(--space-xs)',
               }}
             >
-              설명
+              Explanation
             </div>
             <p
               style={{
@@ -238,8 +238,8 @@ export default function SqlDraftPanel({ open, onToggle }: SqlSheetProps) {
                   color: 'var(--text-muted)',
                 }}
               >
-                <span>예상 영향 행: <strong style={{ color: 'var(--text-secondary)' }}>{analyzeResult.dataSim.estimatedRows.toLocaleString()}</strong></span>
-                <span>확정 영향 행: <strong style={{ color: 'var(--text-secondary)' }}>{analyzeResult.dataSim.affectedRows.toLocaleString()}</strong></span>
+                <span>Estimated rows: <strong style={{ color: 'var(--text-secondary)' }}>{analyzeResult.dataSim.estimatedRows.toLocaleString()}</strong></span>
+                <span>Affected rows: <strong style={{ color: 'var(--text-secondary)' }}>{analyzeResult.dataSim.affectedRows.toLocaleString()}</strong></span>
               </div>
             )}
           </div>
@@ -250,7 +250,7 @@ export default function SqlDraftPanel({ open, onToggle }: SqlSheetProps) {
       <button
         type="button"
         onClick={toggle}
-        aria-label="SQL 초안 시트 펼치기"
+        aria-label="Expand SQL draft"
         aria-expanded={isOpen}
         style={{
           alignSelf: 'center',
@@ -274,7 +274,7 @@ export default function SqlDraftPanel({ open, onToggle }: SqlSheetProps) {
           transition: 'margin-left var(--transition-slow)',
         }}
       >
-        {'</> SQL 초안'}
+        {'</> SQL Draft'}
       </button>
     </div>
   );

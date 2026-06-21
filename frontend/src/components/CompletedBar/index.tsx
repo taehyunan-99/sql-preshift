@@ -35,7 +35,7 @@ export default function CompletedBar() {
           marginRight: 4,
         }}
       >
-        ✓ 적용 완료
+        ✓ Applied
       </span>
 
       {/* 롤백 — AuditDrawer를 열어 최근 적용 항목 롤백 */}
@@ -52,7 +52,7 @@ export default function CompletedBar() {
           fontWeight: 600,
         }}
       >
-        롤백
+        Rollback
       </button>
 
       {/* 새 작업 — 파이프라인 초기화 */}
@@ -69,7 +69,7 @@ export default function CompletedBar() {
           fontWeight: 600,
         }}
       >
-        새 작업
+        New
       </button>
     </div>
   );

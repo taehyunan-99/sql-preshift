@@ -5,8 +5,8 @@ import { usePipelineStore, type InputMode } from '../../store/pipeline';
 import { analyzeInput } from '../../lib/api';
 
 const MODE_LABELS: Record<InputMode, string> = {
-  auto: '자동감지',
-  nl: '자연어',
+  auto: 'Auto',
+  nl: 'Natural Language',
   sql: 'SQL',
 };
 
@@ -55,7 +55,7 @@ export default function InputPanel() {
         hasCritical: res.risks.some((r) => r.level === 'critical'),
       });
     } catch (e) {
-      setAnalyzeError(e instanceof Error ? e.message : '분석 실패');
+      setAnalyzeError(e instanceof Error ? e.message : 'Analysis failed');
       setAnalyzing(false);
     }
   };
@@ -123,7 +123,7 @@ export default function InputPanel() {
               fontWeight: 600,
             }}
           >
-            {detectedMode === 'sql' ? 'SQL' : 'NL'}로 감지됨 {Math.round(confidence * 100)}%
+            {detectedMode === 'sql' ? 'Detected: SQL' : 'Detected: Natural Language'} {Math.round(confidence * 100)}%
           </span>
         )}
 
@@ -142,10 +142,10 @@ export default function InputPanel() {
         rows={collapsed ? 1 : 3}
         placeholder={
           inputMode === 'sql'
-            ? 'SQL을 입력하세요 (예: ALTER TABLE users ADD COLUMN age integer;)'
+            ? 'Enter SQL (e.g. ALTER TABLE users ADD COLUMN age integer;)'
             : inputMode === 'nl'
-            ? '자연어로 요청하세요 (예: users 테이블에 나이 컬럼을 추가해줘)'
-            : '자연어 또는 SQL을 입력하세요 (자동 감지)'
+            ? 'Describe your change (e.g. add an age column to the users table)'
+            : 'Enter natural language or SQL (auto-detected)'
         }
         style={{
           resize: 'none',
@@ -223,7 +223,7 @@ export default function InputPanel() {
             }}
           />
         )}
-        {isAnalyzing ? '분석 중…' : '분석'}
+        {isAnalyzing ? 'Analyzing…' : 'Analyze'}
       </button>
 
       <style jsx global>{`

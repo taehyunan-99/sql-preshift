@@ -85,7 +85,7 @@ export default function Home() {
 
   // analyzing/applying dim 오버레이.
   const showDim = stage === 'analyzing' || stage === 'applying';
-  const dimLabel = stage === 'applying' ? '적용 중…' : '분석 중…';
+  const dimLabel = stage === 'applying' ? 'Applying…' : 'Analyzing…';
 
   return (
     <main
@@ -171,7 +171,7 @@ export default function Home() {
       >
         <span style={{ fontWeight: 700, fontSize: 15, letterSpacing: '-0.01em' }}>SQLPreShift</span>
         <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
-          DB 작업 안전 관제탑
+          Safe schema migration control
         </span>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
           <StageBadge />
@@ -270,7 +270,7 @@ function AuditButton() {
         transition: 'all var(--transition-fast)',
       }}
     >
-      감사 이력
+      History
     </button>
   );
 }

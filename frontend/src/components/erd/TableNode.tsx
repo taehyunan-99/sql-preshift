@@ -6,9 +6,9 @@ import { useRiskMap } from './ErdDiffViewer';
 import type { NodeDef } from '../../lib/api';
 
 const DIFF_BADGE: Record<string, { label: string; color: string }> = {
-  added: { label: '+추가', color: 'var(--color-success)' },
-  removed: { label: '−삭제', color: 'var(--color-error)' },
-  modified: { label: '~변경', color: 'var(--color-warning)' },
+  added: { label: '+Added', color: 'var(--color-success)' },
+  removed: { label: '−Removed', color: 'var(--color-error)' },
+  modified: { label: '~Modified', color: 'var(--color-warning)' },
   unchanged: { label: '', color: 'transparent' },
 };
 
@@ -38,8 +38,8 @@ const DIFF_HEADER_BG: Record<string, string> = {
 
 // 위험 배지 (헤더, diff 배지 좌측). RiskPanel 시각언어와 일관.
 const RISK_BADGE: Record<'critical' | 'warning', { icon: string; color: string; label: string }> = {
-  critical: { icon: '🚨', color: 'var(--color-error)', label: 'CRITICAL 위험' },
-  warning: { icon: '⚠', color: 'var(--color-warning)', label: 'WARNING 위험' },
+  critical: { icon: '🚨', color: 'var(--color-error)', label: 'Critical risk' },
+  warning: { icon: '⚠', color: 'var(--color-warning)', label: 'Warning' },
 };
 
 export default function TableNode({ data }: NodeProps) {
