@@ -203,18 +203,22 @@ function ErdPanel({ graph, label, onMove, highlightTable, riskMap = {} }: PanelP
         {label}
       </div>
       <div style={{ flex: 1, position: 'relative' }}>
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          nodeTypes={NODE_TYPES}
-          fitView
-          fitViewOptions={{ padding: 0.2 }}
-          proOptions={{ hideAttribution: true }}
-          onMove={onMove}
-          style={{ background: 'var(--bg-primary)' }}
-        >
-          <Background color="var(--border-subtle)" gap={20} />
-            </ReactFlow>
+        {/* 각 패널을 독립 Provider로 — Side-by-side 두 ReactFlow가 store를 공유하면
+            한쪽(After) 노드가 양쪽에 그려지는 충돌 발생. Provider 분리로 Before/After 격리. */}
+        <ReactFlowProvider>
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            nodeTypes={NODE_TYPES}
+            fitView
+            fitViewOptions={{ padding: 0.2 }}
+            proOptions={{ hideAttribution: true }}
+            onMove={onMove}
+            style={{ background: 'var(--bg-primary)' }}
+          >
+            <Background color="var(--border-subtle)" gap={20} />
+          </ReactFlow>
+        </ReactFlowProvider>
       </div>
     </div>
   );
