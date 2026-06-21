@@ -53,38 +53,51 @@ def test_extract_sql_strips_comment_lines():
 # ─── _fallback_explain ──────────────────────────────────────────────────
 
 def test_fallback_explain_alter():
-    assert "변경" in _fallback_explain("ALTER TABLE users ADD COLUMN age int")
+    en, ko = _fallback_explain("ALTER TABLE users ADD COLUMN age int")
+    assert "Alter" in en and "변경" in ko
 
 
 def test_fallback_explain_drop():
-    assert "삭제" in _fallback_explain("DROP TABLE users")
+    en, ko = _fallback_explain("DROP TABLE users")
+    assert "Drop" in en and "삭제" in ko
 
 
 def test_fallback_explain_select():
-    assert "조회" in _fallback_explain("SELECT * FROM users")
+    en, ko = _fallback_explain("SELECT * FROM users")
+    assert "Reads" in en and "조회" in ko
 
 
 def test_fallback_explain_unknown():
-    result = _fallback_explain("")
-    assert isinstance(result, str)
+    en, ko = _fallback_explain("")
+    assert isinstance(en, str) and isinstance(ko, str)
 
 
 # ─── explain_sql (mock Ollama) ──────────────────────────────────────────
 
 @pytest.mark.asyncio
 async def test_explain_sql_ollama_success():
-    with patch("app.pipeline.explain.complete", new=AsyncMock(return_value="users 테이블에 age 컬럼을 추가합니다.")):
-        result = await explain_sql("ALTER TABLE users ADD COLUMN age int")
-    assert len(result) > 0
+    raw = "EN: Adds an age column to users.\nKO: users 테이블에 age 컬럼을 추가합니다."
+    with patch("app.pipeline.explain.complete", new=AsyncMock(return_value=raw)):
+        en, ko = await explain_sql("ALTER TABLE users ADD COLUMN age int")
+    assert "age column" in en and "age 컬럼" in ko
+
+
+@pytest.mark.asyncio
+async def test_explain_sql_markdown_stripped():
+    # ** 볼드 등 마크다운이 평문화되는지
+    raw = "EN: This **alters** the table.\nKO: 테이블을 **변경**합니다."
+    with patch("app.pipeline.explain.complete", new=AsyncMock(return_value=raw)):
+        en, ko = await explain_sql("ALTER TABLE users ADD COLUMN age int")
+    assert "**" not in en and "**" not in ko
+    assert "alters" in en
 
 
 @pytest.mark.asyncio
 async def test_explain_sql_ollama_unavailable_fallback():
     from app.llm.client import OllamaError
     with patch("app.pipeline.explain.complete", new=AsyncMock(side_effect=OllamaError("연결 실패"))):
-        result = await explain_sql("ALTER TABLE users ADD COLUMN age int")
-    assert isinstance(result, str)
-    assert len(result) > 0
+        en, ko = await explain_sql("ALTER TABLE users ADD COLUMN age int")
+    assert len(en) > 0 and len(ko) > 0
 
 
 # ─── generate_sql (mock Ollama) ─────────────────────────────────────────

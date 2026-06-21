@@ -1,12 +1,16 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePipelineStore } from '../../store/pipeline';
 
 const MonacoEditor = dynamic(() => import('@monaco-editor/react'), { ssr: false });
 
-const SHEET_WIDTH = 360;
+const DEFAULT_WIDTH = 360;
+const MIN_WIDTH = 280;
+const MAX_WIDTH = 720;
+
+type ExplainLang = 'en' | 'ko';
 
 interface SqlSheetProps {
   /** 시트 열림 상태(통합 단계 page.tsx가 제어). 미전달 시 자체 로컬 state로 폴백. */
@@ -32,7 +36,43 @@ export default function SqlDraftPanel({ open, onToggle }: SqlSheetProps) {
     if (!isControlled) setLocalOpen((v) => !v);
   };
 
+  // 시트 폭 — 우측 가장자리 드래그로 조절.
+  const [width, setWidth] = useState(DEFAULT_WIDTH);
+  const dragging = useRef(false);
+
+  const onDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    dragging.current = true;
+  }, []);
+
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      if (!dragging.current) return;
+      // 시트는 좌측 고정 → 마우스 x가 그대로 폭. 범위 클램프.
+      setWidth(Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, e.clientX)));
+    };
+    const onUp = () => {
+      dragging.current = false;
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+  }, []);
+
+  // EXPLANATION — 기본 접힘, 클릭 시 펼침. 언어 토글(en/ko).
+  const [explainOpen, setExplainOpen] = useState(false);
+  const [explainLang, setExplainLang] = useState<ExplainLang>('en');
+
   const showLoading = isAnalyzing || stage === 'analyzing';
+
+  const explanationKo = analyzeResult?.explanationKo ?? '';
+  const explanationEn = analyzeResult?.explanation ?? '';
+  // ko 선택했는데 한국어가 없으면 영어로 폴백.
+  const explainText = explainLang === 'ko' ? explanationKo || explanationEn : explanationEn;
+  const hasExplanation = Boolean(explanationEn || explanationKo);
 
   return (
     <div
@@ -50,7 +90,7 @@ export default function SqlDraftPanel({ open, onToggle }: SqlSheetProps) {
       {/* 시트 본문 — 접힘 시 translateX(-100%)로 화면 밖 슬라이드 */}
       <div
         style={{
-          width: SHEET_WIDTH,
+          width,
           height: '100%',
           display: 'flex',
           flexDirection: 'column',
@@ -58,9 +98,11 @@ export default function SqlDraftPanel({ open, onToggle }: SqlSheetProps) {
           borderRight: '1px solid var(--border)',
           boxShadow: 'var(--shadow-float)',
           transform: isOpen ? 'translateX(0)' : `translateX(-100%)`,
-          transition: 'transform var(--transition-slow)',
+          // 드래그 중엔 transition 끔(끊김 방지), 열고닫기 슬라이드만 transition.
+          transition: dragging.current ? 'none' : 'transform var(--transition-slow)',
           pointerEvents: isOpen ? 'auto' : 'none',
           overflow: 'hidden',
+          position: 'relative',
         }}
       >
         {/* 헤더 */}
@@ -194,56 +236,139 @@ export default function SqlDraftPanel({ open, onToggle }: SqlSheetProps) {
           />
         </div>
 
-        {/* explanation + dataSim 통합 영역 (Monaco 하단) */}
-        {!showLoading && analyzeResult && analyzeResult.explanation && (
+        {/* explanation 아코디언 (Monaco 하단) — 기본 접힘, 헤더 클릭 시 펼침 */}
+        {!showLoading && analyzeResult && hasExplanation && (
           <div
             style={{
-              padding: 'var(--space-md)',
               borderTop: '1px solid var(--border)',
               background: 'var(--bg-input)',
               flexShrink: 0,
             }}
           >
-            <div
+            {/* 토글 헤더 */}
+            <button
+              type="button"
+              onClick={() => setExplainOpen((v) => !v)}
+              aria-expanded={explainOpen}
               style={{
-                fontSize: 'var(--font-size-xs)',
-                fontWeight: 700,
-                color: 'var(--text-muted)',
-                letterSpacing: '0.06em',
-                textTransform: 'uppercase',
-                marginBottom: 'var(--space-xs)',
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 'var(--space-sm)',
+                padding: 'var(--space-sm) var(--space-md)',
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                textAlign: 'left',
               }}
             >
-              Explanation
-            </div>
-            <p
-              style={{
-                margin: 0,
-                fontSize: 'var(--font-size-sm)',
-                color: 'var(--text-secondary)',
-                lineHeight: 1.6,
-              }}
-            >
-              {analyzeResult.explanation}
-            </p>
-
-            {/* 영향 행 수 (dataSim) */}
-            {analyzeResult.dataSim && (
-              <div
+              <span
                 style={{
-                  marginTop: 'var(--space-sm)',
-                  display: 'flex',
-                  gap: 'var(--space-md)',
                   fontSize: 'var(--font-size-xs)',
-                  color: 'var(--text-muted)',
+                  fontWeight: 700,
+                  color: 'var(--text-secondary)',
+                  letterSpacing: '0.06em',
+                  textTransform: 'uppercase',
                 }}
               >
-                <span>Estimated rows: <strong style={{ color: 'var(--text-secondary)' }}>{analyzeResult.dataSim.estimatedRows.toLocaleString()}</strong></span>
-                <span>Affected rows: <strong style={{ color: 'var(--text-secondary)' }}>{analyzeResult.dataSim.affectedRows.toLocaleString()}</strong></span>
+                Explanation
+              </span>
+              <span style={{ flex: 1 }} />
+              <span
+                style={{
+                  fontSize: 11,
+                  color: 'var(--text-tertiary)',
+                  transition: 'transform var(--transition-fast)',
+                  transform: explainOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                }}
+              >
+                ▾
+              </span>
+            </button>
+
+            {/* 펼친 본문 */}
+            {explainOpen && (
+              <div style={{ padding: '0 var(--space-md) var(--space-md)' }}>
+                {/* 언어 토글 — 한국어 있을 때만 노출 */}
+                {explanationKo && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      gap: 4,
+                      marginBottom: 'var(--space-sm)',
+                    }}
+                  >
+                    {(['en', 'ko'] as ExplainLang[]).map((lang) => {
+                      const active = explainLang === lang;
+                      return (
+                        <button
+                          key={lang}
+                          type="button"
+                          onClick={() => setExplainLang(lang)}
+                          style={{
+                            padding: '2px 10px',
+                            fontSize: 'var(--font-size-xs)',
+                            fontWeight: 600,
+                            borderRadius: 'var(--radius-sm)',
+                            border: `1px solid ${active ? 'var(--border-strong)' : 'var(--border)'}`,
+                            background: active ? 'var(--bg-tertiary)' : 'transparent',
+                            color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {lang === 'en' ? 'EN' : '한국어'}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: 'var(--font-size-md)',
+                    color: 'var(--text-primary)',
+                    lineHeight: 1.65,
+                  }}
+                >
+                  {explainText}
+                </p>
+
+                {/* 영향 행 수 (dataSim) */}
+                {analyzeResult.dataSim && (
+                  <div
+                    style={{
+                      marginTop: 'var(--space-sm)',
+                      display: 'flex',
+                      gap: 'var(--space-md)',
+                      fontSize: 'var(--font-size-xs)',
+                      color: 'var(--text-muted)',
+                    }}
+                  >
+                    <span>Estimated rows: <strong style={{ color: 'var(--text-secondary)' }}>{analyzeResult.dataSim.estimatedRows.toLocaleString()}</strong></span>
+                    <span>Affected rows: <strong style={{ color: 'var(--text-secondary)' }}>{analyzeResult.dataSim.affectedRows.toLocaleString()}</strong></span>
+                  </div>
+                )}
               </div>
             )}
           </div>
         )}
+
+        {/* 우측 리사이즈 핸들 — 드래그로 폭 조절 */}
+        <div
+          onMouseDown={onDragStart}
+          title="Drag to resize"
+          style={{
+            position: 'absolute',
+            top: 0,
+            right: 0,
+            bottom: 0,
+            width: 6,
+            cursor: 'col-resize',
+            background: 'transparent',
+            zIndex: 1,
+          }}
+        />
       </div>
 
       {/* 좌단 세로 핸들 — 접힘 시 노출. 클릭하면 slide-in */}
@@ -270,8 +395,8 @@ export default function SqlDraftPanel({ open, onToggle }: SqlSheetProps) {
           cursor: 'pointer',
           pointerEvents: 'auto',
           // 시트가 열려 있으면 핸들은 시트 우측 모서리에 붙어 보이도록 자연스럽게 위치
-          marginLeft: isOpen ? 0 : -SHEET_WIDTH,
-          transition: 'margin-left var(--transition-slow)',
+          marginLeft: isOpen ? 0 : -width,
+          transition: dragging.current ? 'none' : 'margin-left var(--transition-slow)',
         }}
       >
         {'</> SQL Draft'}

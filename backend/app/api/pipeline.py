@@ -109,8 +109,8 @@ async def analyze(req: AnalyzeRequest, session: Session = Depends(get_meta_sessi
         risk_note = await llm_explain_risk(sql, risks, schema_diff)
         risks = [r.model_copy(update={"llm_note": risk_note}) if i == 0 else r for i, r in enumerate(risks)]
 
-    # 7. LLM 자연어 설명 (explain_sql — Ollama 미기동 시 폴백)
-    explanation = await explain_sql(sql)
+    # 7. LLM 자연어 설명 (explain_sql — 영/한 동시 생성, Ollama 미기동 시 폴백)
+    explanation, explanation_ko = await explain_sql(sql)
 
     # #1: hasCritical 파생 필드
     has_critical = any(r.level == "critical" for r in risks)
@@ -121,6 +121,7 @@ async def analyze(req: AnalyzeRequest, session: Session = Depends(get_meta_sessi
         detectedConfidence=confidence,
         sql=sql,
         explanation=explanation,
+        explanationKo=explanation_ko,
         valid=valid,
         violations=violation_messages,
         schemaDiff=schema_diff,

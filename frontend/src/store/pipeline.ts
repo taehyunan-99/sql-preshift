@@ -18,6 +18,7 @@ export interface AnalyzeResult {
   detectedConfidence: number;
   sql: string;
   explanation: string;
+  explanationKo?: string;
   schemaDiff: SchemaDiff;
   dataSim: { affectedRows: number; estimatedRows: number } | null;
   risks: RiskItem[];

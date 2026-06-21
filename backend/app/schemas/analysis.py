@@ -60,7 +60,8 @@ class AnalyzeResponse(BaseModel):
     mode: str
     detectedConfidence: float
     sql: str
-    explanation: str
+    explanation: str  # 영어 설명(기본)
+    explanationKo: str = ""  # 한국어 설명(UI 토글용)
     valid: bool
     violations: list[str]  # #4: message 문자열 배열
     schemaDiff: Optional[SchemaSimResult] = None

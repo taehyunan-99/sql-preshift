@@ -48,7 +48,8 @@ export interface AnalyzeResponse {
   mode: 'nl' | 'sql';
   detectedConfidence: number;
   sql: string;
-  explanation: string;
+  explanation: string; // 영어 설명(기본)
+  explanationKo?: string; // 한국어 설명(UI 토글용)
   valid: boolean;
   violations: string[];
   schemaDiff: SchemaDiff;
