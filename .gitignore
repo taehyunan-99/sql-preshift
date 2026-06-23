@@ -39,3 +39,4 @@ models/
 .awa/
 .agent-harness/
 .claude/
+.agents/
