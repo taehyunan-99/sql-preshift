@@ -11,6 +11,7 @@ from app.llm.client import OllamaError
 from app.pipeline.executor import apply, consume_token, store_token
 from app.pipeline.explain import explain_sql
 from app.pipeline.input_router import classify_input
+from app.pipeline.diagnostics import annotate_diagnostics
 from app.pipeline.nl2sql import generate_sql
 from app.pipeline.rag import retrieve
 from app.pipeline.risk import deterministic_rules, llm_explain_risk
@@ -94,6 +95,8 @@ async def analyze(req: AnalyzeRequest, session: Session = Depends(get_meta_sessi
             # UI 노출 문자열은 영어(주석은 한국어) — 미연결 상태
             raise HTTPException(status_code=503, detail="Database not connected.")
         base: SchemaGraph = build_graph(engine)
+        # 무결성 진단(read-only, metadata-only)을 base에 박는다 → diff 흐름이 model_copy로 보존.
+        base = annotate_diagnostics(base, engine, schema="public")
         # 누적 dry-run: priorSqls가 있으면 before=원본 실DB, after=(prior+현재) 전부 적용
         # → 스택에 쌓인 모든 변경이 한 화면에 누적 표시된다. down_script는 직전 baseline 기준.
         if req.priorSqls:

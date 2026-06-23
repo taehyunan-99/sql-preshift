@@ -16,6 +16,13 @@ import { useEdgeConfig, useErdLabStore } from '../../store/erdLab';
 const DIM_EDGE = 0.4;
 const DIM_PILL = 0.45; // 텍스트라 라인보다 약간 높게(가독 유지)
 
+// 추정 FK 엣지 톤 — confidence별 dash·opacity 단일 출처(removed/flow의 '6 4'와 구별).
+// medium(복수형으로만 매칭된 모호 추정)은 더 성기고 옅게 → 신뢰도 차등.
+const ESTIMATE_TONE = {
+  high: { dash: '2 3', opacity: 0.65 },
+  medium: { dash: '1 4', opacity: 0.45 },
+} as const;
+
 // 엣지 diff 의미색 — 글로벌 룰. modified(amber) 추가, removed는 점선.
 // raw hex로 고정 — stroke transition이 var(토큰)↔hex 간 보간을 못 해 색 변화가 통째로
 // 무시되던 버그(특히 Safari) 때문. 토큰 hex 값과 동일(불변): success/error/warning/border-strong.
@@ -42,6 +49,8 @@ interface RelationEdgeData {
   diff?: string;
   sourceCard?: string; // 예: 'N' (FK 쪽)
   targetCard?: string; // 예: '1' (PK 쪽)
+  isEstimated?: boolean; // 암묵 FK 추정 엣지(naming 휴리스틱) — fine dotted로 구분
+  estimatedConfidence?: 'high' | 'medium'; // medium(모호)은 더 옅고 성기게
   [key: string]: unknown;
 }
 
@@ -122,6 +131,9 @@ export default function ErdRelationEdge({
   const color = DIFF_EDGE_COLOR[diff] ?? DIFF_EDGE_COLOR.unchanged;
   const litColor = DIFF_EDGE_COLOR_LIT[diff] ?? color; // hover 시 밝아질 색
   const isRemoved = diff === 'removed';
+  const isEstimated = !!meta.isEstimated; // 암묵 FK 추정 — fine dotted + 옅게(removed dash와 구별)
+  // medium confidence(복수형으로만 매칭된 모호 추정)는 더 옅고 성기게 — 신뢰도 시각 차등.
+  const isMediumEstimate = isEstimated && meta.estimatedConfidence === 'medium';
 
   // 곡선 분기: bezier(부드러운 S자) ↔ smoothstep(직각). 핸들 위치(Right→Left) 정합.
   // path만 사용(라벨은 양 끝 cardinality라 center labelX/Y 불필요).
@@ -149,17 +161,21 @@ export default function ErdRelationEdge({
   const dimmed = edgeHover && hoveredNode != null && !connected;
   const emphasized = edgeHover && connected;
 
-  // removed=점선(흐르지 않음, 삭제 의미 보존). flow on이면 비-removed·비dim 엣지만 흐른다.
-  const flowing = edgeFlow && !isRemoved && !dimmed;
+  // removed=점선(흐르지 않음, 삭제 의미 보존). flow on이면 비-removed·비추정·비dim 엣지만 흐른다.
+  // 추정 엣지는 흐름 강조 부적절(확정 아님) → flow 제외.
+  const flowing = edgeFlow && !isRemoved && !isEstimated && !dimmed;
   const dashed = isRemoved || flowing; // 흐르는 엣지만 점선, flow 멈춘 실선은 그대로
+  // 추정 엣지 톤은 confidence별 단일 출처(ESTIMATE_TONE). 색은 점유 안 하고 dash·opacity로만.
+  const estTone = isEstimated ? ESTIMATE_TONE[isMediumEstimate ? 'medium' : 'high'] : null;
+  const dashArray = estTone ? estTone.dash : dashed ? '6 4' : undefined;
 
   const style: React.CSSProperties = {
     // hover 강조 = 연결선 색 자체가 밝아짐(같은 hue의 lit 틴트로 크로스페이드). halo/glow 없음.
     stroke: emphasized ? litColor : color,
-    // 강조는 2.5(3은 과함) — dim 의존을 줄이고 대비로 강조해 깜빡임 체감↓.
-    strokeWidth: emphasized ? 2.5 : 1.5,
-    strokeDasharray: dashed ? '6 4' : undefined,
-    opacity: dimmed ? DIM_EDGE : 1,
+    // 강조는 2.5(3은 과함) — dim 의존을 줄이고 대비로 강조해 깜빡임 체감↓. 추정은 가늘게(1.2).
+    strokeWidth: emphasized ? 2.5 : isEstimated ? 1.2 : 1.5,
+    strokeDasharray: dashArray,
+    opacity: dimmed ? DIM_EDGE : estTone ? estTone.opacity : 1,
     // transition 없음 — hover 강조를 즉시 적용. CSS transition(stroke 색 보간)이 Safari/WebKit에서
     // 엣지 path를 보간 중 합성 레이어로 승격시켜 "흐림→선명" 깜빡임을 만들었다(실측·실기기 확정).
     // 보간을 없애면 양쪽 브라우저에서 흐림/끊김 없이 즉시 또렷하게 전환된다.

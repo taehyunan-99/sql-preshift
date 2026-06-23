@@ -9,6 +9,11 @@ export interface ColumnDef {
   nullable: boolean;
   diff: DiffStatus;
   change?: { from: string; to: string }; // modified일 때만
+  // 무결성 진단(backend가 채움, 전부 optional). estimated 라벨로 표기.
+  implicitFkHint?: string; // 추정 참조 테이블 id (naming+type 휴리스틱)
+  highNullRatio?: number; // pg_stats null_frac (0~1), near-saturation일 때만
+  brokenReferential?: boolean; // FK 값이 부모 PK에 없는 고아 값 존재(row-scan)
+  softDeletedParentRef?: boolean; // 부모 soft-delete — 논리적 broken, 물리 행 존재(informational)
 }
 
 export interface NodeDef {
@@ -16,6 +21,7 @@ export interface NodeDef {
   table: string;
   diff: DiffStatus;
   columns: ColumnDef[];
+  isOrphan?: boolean; // FK in/out 둘 다 없는 고립 테이블
 }
 
 export interface EdgeDef {
@@ -25,6 +31,8 @@ export interface EdgeDef {
   sourceColumn: string;
   targetColumn: string;
   diff: DiffStatus;
+  isEstimated?: boolean; // 암묵 FK 추정 엣지(dotted 렌더)
+  estimatedConfidence?: 'high' | 'medium'; // 추정 신뢰도(엣지 톤 차등)
 }
 
 export interface SchemaGraph {

@@ -159,6 +159,10 @@ def diff_graphs(before: SchemaGraph, after: SchemaGraph) -> SchemaGraph:
                     table=a_node.table,
                     diff=table_diff,
                     columns=merged_cols,
+                    # 무결성 진단은 구조 변경과 무관한 실DB 속성 → before(base) 노드에서 보존.
+                    # after(시뮬레이션 결과)엔 진단이 없으므로 b_node 기준으로 들고 온다.
+                    # added/removed 테이블은 진단 비대상(신규/삭제)이라 기본값 False로 둔다.
+                    isOrphan=b_node.isOrphan,
                 )
             )
 

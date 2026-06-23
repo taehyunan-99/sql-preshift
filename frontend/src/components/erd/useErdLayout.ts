@@ -35,7 +35,13 @@ export function useErdLayout(
       sourceHandle: e.sourceColumn,
       targetHandle: e.targetColumn,
       type: 'relationEdge',
-      data: { diff: e.diff, sourceCard: 'N', targetCard: '1' },
+      data: {
+        diff: e.diff,
+        sourceCard: 'N',
+        targetCard: '1',
+        isEstimated: e.isEstimated ?? false,
+        estimatedConfidence: e.estimatedConfidence,
+      },
     }));
 
     // 공유 좌표가 있으면 dagre 생략하고 그대로 사용(엣지는 변경 없음).

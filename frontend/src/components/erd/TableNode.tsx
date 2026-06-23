@@ -91,9 +91,13 @@ function TableNode({ data }: NodeProps) {
   // 같은 빨강 halo+빗금이 DROP에서 중복되던 문제 해소 + DROP의 제거 표시가 묻히지 않게.
   const showRiskHalo = !!riskLevel && !isChanged;
 
-  // removed는 "사라짐" 암시로 살짝 dim(subtle은 한 단계 더). 그 외는 풀 opacity.
+  // 무결성 진단: FK in/out 둘 다 없는 고립 테이블(추정 아님, 메타데이터 확정). diff 안 난 경우만 표시.
+  const isOrphan = !!node.isOrphan && node.diff === 'unchanged';
+
+  // removed는 "사라짐" 암시로 살짝 dim(subtle은 한 단계 더). orphan도 후퇴 의미로 dim(removed보다 약하게).
+  // diff/risk 시각이 있는 노드는 그쪽이 우선이라 dim 안 함(중복 신호 방지).
   // (이제 removed에 halo를 안 씌우므로 항상 dim — 제거 신호 유지.)
-  const opacity = isRemoved ? (emphasis === 'subtle' ? 0.6 : 0.55) : 1;
+  const opacity = isRemoved ? (emphasis === 'subtle' ? 0.6 : 0.55) : isOrphan ? 0.6 : 1;
 
   // 접근성: OS "동작 줄이기" 시 hover lift·발광 애니 비활성.
   const reduceMotion = useReducedMotion();
@@ -226,6 +230,25 @@ function TableNode({ data }: NodeProps) {
         >
           {node.table}
         </span>
+        {/* 무결성 진단: 고립 테이블 — 중립 gray 배지(경고 아님, diff색과 무관). risk/diff보다 약한 신호라 앞에. */}
+        {isOrphan && (
+          <span
+            style={{
+              fontSize: 9,
+              fontWeight: 700,
+              lineHeight: 1,
+              letterSpacing: '0.06em',
+              color: 'var(--text-tertiary)',
+              border: '1px solid var(--border-strong)',
+              borderRadius: 3,
+              padding: '2px 5px',
+              flexShrink: 0,
+            }}
+            title="No foreign-key relationships in or out"
+          >
+            ISOLATED
+          </span>
+        )}
         {/* 위험 배지 — diff 배지 좌측. 위험이 먼저 읽히도록(우선순위 시각화). 이모지 없이 텍스트만. */}
         {risk && (
           <span
@@ -264,15 +287,15 @@ function TableNode({ data }: NodeProps) {
       {/* 컬럼 행 */}
       {node.columns.map((col) => (
         <div key={col.name} style={{ position: 'relative' }}>
-          {/* FK 소스 핸들 (우측) */}
-          {col.fk && (
+          {/* FK 소스 핸들 (우측) — 실제 FK 또는 추정 FK(암묵). 추정이면 핸들 색을 옅게(estimated). */}
+          {(col.fk || col.implicitFkHint) && (
             <Handle
               type="source"
               position={Position.Right}
               id={col.name}
               style={{
                 top: 15,
-                background: 'var(--color-warning)',
+                background: col.fk ? 'var(--color-warning)' : 'var(--text-tertiary)',
                 width: 8,
                 height: 8,
               }}

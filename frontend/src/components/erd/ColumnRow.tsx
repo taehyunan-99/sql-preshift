@@ -62,6 +62,28 @@ function FkIcon() {
   );
 }
 
+// Broken RI 경고 — 작은 경고 삼각(느낌표). removed의 텍스트 strikethrough와 형태로 구별돼
+// diff-red(삭제)와 의미 충돌 없음. 데이터 레이어 신호라 schema-diff와 별도 채널.
+function BrokenIcon() {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-label="Broken referential integrity"
+    >
+      <path d="M8 2 L14.5 13.5 H1.5 Z" />
+      <path d="M8 6.5 V9.5" />
+      <circle cx="8" cy="11.6" r="0.5" fill="currentColor" />
+    </svg>
+  );
+}
+
 interface Props {
   column: ColumnDef;
 }
@@ -82,11 +104,22 @@ function ColumnRow({ column }: Props) {
       : (DIFF_BAR_COLOR[column.diff] ?? 'transparent');
   const barWidth = emphasis === 'subtle' ? 3 : 4; // gridTemplateColumns 첫 트랙
 
+  // 무결성 진단: 추정 FK(naming 휴리스틱) — 실제 FK 아님. 옅은 회색 FkIcon으로 estimated 표시.
+  // 백엔드는 실제 fk가 있는 컬럼엔 implicitFkHint를 안 채워 상호배타(실 FK 우선).
+  const isImplicitFk = !column.fk && !!column.implicitFkHint;
+
+  // 무결성 진단: broken RI(진짜 깨진 데이터, warning 아이콘) vs soft-delete 부모 참조(informational gray).
+  // removed는 컬럼명 strikethrough(텍스트)라, broken은 아이콘 형태로 구별 → diff-red와 비충돌.
+  const isBroken = !!column.brokenReferential && !isRemoved;
+  const isSoftRef = !!column.softDeletedParentRef && !isRemoved && !isBroken;
+
   const keyColor = column.pk
     ? 'var(--color-accent)' // PK=teal (식별자=브랜드)
     : column.fk
       ? 'var(--color-warning)' // FK=amber (핸들/엣지색 통일)
-      : 'transparent';
+      : isImplicitFk
+        ? 'var(--text-tertiary)' // 추정 FK=중립 회색 (확정 amber와 구분)
+        : 'transparent';
 
   return (
     <div
@@ -115,7 +148,15 @@ function ColumnRow({ column }: Props) {
 
       {/* zone2: 불투명 키 레일 + SVG 아이콘 (아이콘이 glass 위에 직접 안 놓이게) */}
       <span
-        title={column.pk ? 'Primary Key' : column.fk ? `FK → ${column.fk}` : undefined}
+        title={
+          column.pk
+            ? 'Primary Key'
+            : column.fk
+              ? `FK → ${column.fk}`
+              : isImplicitFk
+                ? `Estimated FK → ${column.implicitFkHint} (inferred from naming)`
+                : undefined
+        }
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -124,27 +165,53 @@ function ColumnRow({ column }: Props) {
           background: 'var(--bg-tertiary)',
           borderRight: '1px solid var(--border)',
           color: keyColor,
+          // 추정 FK는 옅게 — 확정 아이콘과 시각적으로 구분(estimated).
+          opacity: isImplicitFk ? 0.6 : 1,
         }}
       >
-        {column.pk ? <PkIcon /> : column.fk ? <FkIcon /> : null}
+        {column.pk ? <PkIcon /> : column.fk || isImplicitFk ? <FkIcon /> : null}
       </span>
 
-      {/* zone3: 컬럼명 — removed면 취소선 + error 색 */}
-      <span
-        style={{
-          color: isRemoved
-            ? 'var(--color-error)'
-            : column.pk
-              ? 'var(--text-primary)'
-              : 'var(--text-secondary)',
-          fontWeight: column.pk ? 700 : 400,
-          textDecoration: isRemoved ? 'line-through' : 'none',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-        }}
-      >
-        {column.name}
+      {/* zone3: 컬럼명 — removed면 취소선 + error 색. 무결성 broken/soft 마커를 이름 뒤에. */}
+      <span style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0 }}>
+        <span
+          style={{
+            color: isRemoved
+              ? 'var(--color-error)'
+              : column.pk
+                ? 'var(--text-primary)'
+                : 'var(--text-secondary)',
+            fontWeight: column.pk ? 700 : 400,
+            textDecoration: isRemoved ? 'line-through' : 'none',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {column.name}
+        </span>
+        {/* broken RI — error 색 경고 삼각(아이콘 형태라 diff-red 텍스트와 충돌 없음) */}
+        {isBroken && (
+          <span
+            style={{ color: 'var(--color-error)', display: 'flex', flexShrink: 0 }}
+            title="Some values reference a missing parent row (broken referential integrity)"
+          >
+            <BrokenIcon />
+          </span>
+        )}
+        {/* soft-delete 부모 참조 — informational gray 점(경고색 금지, 논리적 broken/물리 행 존재) */}
+        {isSoftRef && (
+          <span
+            style={{
+              width: 5,
+              height: 5,
+              borderRadius: '50%',
+              background: 'var(--text-tertiary)',
+              flexShrink: 0,
+            }}
+            title="References a soft-deleted parent row (logically broken, physically intact)"
+          />
+        )}
       </span>
 
       {/* zone4: 타입 칩 — modified면 from→to */}
@@ -178,19 +245,35 @@ function ColumnRow({ column }: Props) {
           </span>
         </span>
       ) : (
-        <span
-          style={{
-            justifySelf: 'end',
-            background: 'var(--bg-tertiary)',
-            color: isRemoved ? 'var(--color-error)' : 'var(--text-secondary)',
-            borderRadius: 3,
-            padding: '1px 5px',
-            fontSize: 10,
-            fontFamily: 'var(--font-mono)',
-            textDecoration: isRemoved ? 'line-through' : 'none',
-          }}
-        >
-          {column.type}
+        <span style={{ display: 'flex', alignItems: 'center', gap: 4, justifySelf: 'end' }}>
+          {/* 무결성 진단: near-saturation NULL FK — 중립 힌트(경고 아님). 거의 안 쓰이는 vestigial
+              FK 가능성. amber(=modified 의미)가 아닌 중립색 — 정상 optional FK를 병리화하지 않는다.
+              pg_stats.null_frac 기반 estimated → title로 ANALYZE 캐비엇. */}
+          {column.highNullRatio != null && !isRemoved && (
+            <span
+              style={{
+                color: 'var(--text-tertiary)',
+                fontSize: 9,
+                whiteSpace: 'nowrap',
+              }}
+              title="Rarely populated FK, estimated from last ANALYZE (may be stale)"
+            >
+              Rarely populated
+            </span>
+          )}
+          <span
+            style={{
+              background: 'var(--bg-tertiary)',
+              color: isRemoved ? 'var(--color-error)' : 'var(--text-secondary)',
+              borderRadius: 3,
+              padding: '1px 5px',
+              fontSize: 10,
+              fontFamily: 'var(--font-mono)',
+              textDecoration: isRemoved ? 'line-through' : 'none',
+            }}
+          >
+            {column.type}
+          </span>
         </span>
       )}
     </div>
