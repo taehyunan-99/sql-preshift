@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { motion, useReducedMotion } from 'motion/react';
 import ColumnRow from './ColumnRow';
@@ -65,7 +66,10 @@ const DIFF_GLOW_STRONG: Record<string, string> = {
   unchanged: 'transparent',
 };
 
-export default function TableNode({ data }: NodeProps) {
+// React.memo — xyflow가 nodes 배열을 갱신할 때마다 모든 노드를 리렌더하는 비용을 차단한다.
+// 대형 그래프(전체보기) 드래그 시 프레임 드롭 방지(설계 메모: 100노드 10→60 FPS).
+// node.data(NodeDef)는 useErdLayout이 useMemo로 안정 참조를 주므로 기본 shallow 비교로 충분.
+function TableNode({ data }: NodeProps) {
   const node = data as unknown as NodeDef;
   const badge = DIFF_BADGE[node.diff] ?? DIFF_BADGE.unchanged;
   const isChanged = node.diff !== 'unchanged';
@@ -294,3 +298,5 @@ export default function TableNode({ data }: NodeProps) {
     </div>
   );
 }
+
+export default memo(TableNode);

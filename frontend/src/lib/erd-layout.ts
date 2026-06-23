@@ -1,5 +1,6 @@
 import dagre from 'dagre';
 import type { Node, Edge } from '@xyflow/react';
+import type { SchemaGraph } from './api';
 
 const NODE_WIDTH = 240;
 const HEADER_HEIGHT = 40;
@@ -90,4 +91,64 @@ export function applyDagreLayout(
   });
 
   return { nodes: layoutedNodes, edges };
+}
+
+// ── n홉 부분집합(BFS) ──
+// 입력(NL/SQL)이 닿는 테이블을 seed로, FK 그래프에서 n홉 안에 닿는 table id 집합을 반환한다.
+// 큰 DB(1,000+ 테이블) 전체를 dagre로 그리면 O(N³)로 수 분 걸리므로, 영향권 부분집합만 그린다.
+
+// 양방향 인접리스트 — edges는 source→target 단방향이라 양쪽 모두 등록한다.
+// (users ALTER 시 users를 FK 참조하는 orders가 핵심 영향 대상인데, 단방향이면 놓친다.)
+function buildAdjacency(edges: { source: string; target: string }[]): Map<string, Set<string>> {
+  const adj = new Map<string, Set<string>>();
+  const link = (a: string, b: string) => {
+    let set = adj.get(a);
+    if (!set) {
+      set = new Set<string>();
+      adj.set(a, set);
+    }
+    set.add(b);
+  };
+  for (const e of edges) {
+    link(e.source, e.target);
+    link(e.target, e.source);
+  }
+  return adj;
+}
+
+// seed에서 hops 단계 안에 닿는 모든 id를 BFS로 수집(seed 포함). hops<=0이면 seed만.
+export function collectNHop(
+  edges: { source: string; target: string }[],
+  seedIds: string[],
+  hops: number,
+): Set<string> {
+  const result = new Set<string>(seedIds);
+  if (hops <= 0) return result;
+  const adj = buildAdjacency(edges);
+  let frontier = seedIds;
+  for (let depth = 0; depth < hops; depth++) {
+    const next: string[] = [];
+    for (const id of frontier) {
+      const neighbors = adj.get(id);
+      if (!neighbors) continue;
+      for (const nb of neighbors) {
+        if (!result.has(nb)) {
+          result.add(nb);
+          next.push(nb);
+        }
+      }
+    }
+    if (next.length === 0) break; // 더 확장할 이웃 없음
+    frontier = next;
+  }
+  return result;
+}
+
+// 주어진 id 집합으로 그래프를 필터 — 노드는 id가 집합에 있는 것만,
+// 엣지는 source·target이 둘 다 집합에 있는 것만(끊긴 엣지 제거).
+export function filterGraphByIds(graph: SchemaGraph, ids: Set<string>): SchemaGraph {
+  return {
+    nodes: graph.nodes.filter((n) => ids.has(n.id)),
+    edges: graph.edges.filter((e) => ids.has(e.source) && ids.has(e.target)),
+  };
 }

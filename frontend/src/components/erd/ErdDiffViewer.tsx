@@ -13,7 +13,12 @@ import '@xyflow/react/dist/style.css';
 import TableNode from './TableNode';
 import ErdRelationEdge from './ErdRelationEdge';
 import { useErdLayout } from './useErdLayout';
-import { computeUnionPositions, type PositionMap } from '../../lib/erd-layout';
+import {
+  computeUnionPositions,
+  collectNHop,
+  filterGraphByIds,
+  type PositionMap,
+} from '../../lib/erd-layout';
 import { useErdLabStore } from '../../store/erdLab';
 import type { SchemaGraph, SchemaDiff, NodeDef } from '../../lib/api';
 import type { RiskMap } from '../../lib/riskMap';
@@ -26,6 +31,34 @@ export const useRiskMap = () => useContext(RiskMapContext);
 
 // 연결됐으나 그래프 로드 전/빈 DB일 때 표시할 빈 그래프 — MOCK 은폐 대신 실제 빈 상태.
 const EMPTY_GRAPH: SchemaGraph = { nodes: [], edges: [] };
+
+// n홉 기본값 — 입력이 닿는 테이블 기준 양방향 FK 2단계. 토글로 3까지.
+export const DEFAULT_HOPS = 2;
+
+// 변경된(diff!=='unchanged') 노드 id 목록 — n홉 seed.
+function changedNodeIds(graph: SchemaGraph): string[] {
+  return graph.nodes.filter((n) => n.diff !== 'unchanged').map((n) => n.id);
+}
+
+// 부분집합 계산 결과 — 필터된 id 집합과 카운터용 노드 수.
+export interface SubsetInfo {
+  ids: Set<string>;
+  shownCount: number;
+  totalCount: number;
+}
+
+// 합친 seed(여러 그래프의 변경 노드 합집합)로 n홉 부분집합 id를 구한다.
+// FK 인접은 가장 풍부한 그래프(보통 cumulativeAfter/after)의 edges로 잡는다.
+function computeSubset(
+  graphs: SchemaGraph[],
+  edgeGraph: SchemaGraph,
+  hops: number,
+): SubsetInfo {
+  const seed = Array.from(new Set(graphs.flatMap(changedNodeIds)));
+  const ids = collectNHop(edgeGraph.edges, seed, hops);
+  const totalIds = new Set(graphs.flatMap((g) => g.nodes.map((n) => n.id)));
+  return { ids, shownCount: ids.size, totalCount: totalIds.size };
+}
 
 const NODE_TYPES = { tableNode: TableNode };
 const EDGE_TYPES = { relationEdge: ErdRelationEdge };
@@ -192,23 +225,47 @@ function SideBySideView({
   diff,
   highlightTable,
   riskMap,
+  hops,
+  showAll,
+  onSubset,
 }: {
   diff: SchemaDiff;
   highlightTable?: string | null;
   riskMap?: RiskMap;
+  hops: number;
+  showAll: boolean;
+  onSubset?: (info: SubsetInfo) => void;
 }) {
   // undefined = 초기(각 패널 fitView 자동정렬). 첫 이동 후 controlled로 전환돼 동기화.
   const [viewport, setViewport] = useState<Viewport | undefined>(undefined);
+  // n홉 부분집합 — before/after/cumulativeAfter의 변경 노드를 "합친 seed"로 동일 부분집합을
+  // 양 패널에 적용한다. 좌표 괴리를 막으려면 양쪽이 반드시 같은 id 집합이어야 한다.
+  const { beforeGraph, afterGraph } = useMemo(() => {
+    const seedGraphs = [diff.before, diff.after, ...(diff.cumulativeAfter ? [diff.cumulativeAfter] : [])];
+    const info = computeSubset(seedGraphs, diff.after, hops);
+    const seedEmpty = seedGraphs.flatMap(changedNodeIds).length === 0;
+    if (showAll || seedEmpty) {
+      onSubset?.({ ids: new Set(), shownCount: info.totalCount, totalCount: info.totalCount });
+      return { beforeGraph: diff.before, afterGraph: diff.after };
+    }
+    onSubset?.(info);
+    return {
+      beforeGraph: filterGraphByIds(diff.before, info.ids),
+      afterGraph: filterGraphByIds(diff.after, info.ids),
+    };
+    // onSubset은 부모가 안정 참조(useCallback)로 넘기므로 deps에 넣어도 안전.
+  }, [diff.before, diff.after, diff.cumulativeAfter, hops, showAll, onSubset]);
   // before/after 합집합으로 좌표를 한 번 계산해 두 패널이 공유 → 같은 테이블 동일 위치.
+  // 필터된 부분집합으로 재계산해야 한쪽에만 있는 좌표 참조 괴리가 안 생긴다.
   const positions = useMemo(
-    () => computeUnionPositions([diff.before, diff.after]),
-    [diff.before, diff.after],
+    () => computeUnionPositions([beforeGraph, afterGraph]),
+    [beforeGraph, afterGraph],
   );
   return (
     <div style={{ display: 'flex', flex: 1, gap: 4, minHeight: 0 }}>
       {/* before(현재 baseline)엔 위험 강조 안 함 — 위험은 적용 결과(after)에만 */}
       <ErdPanel
-        graph={diff.before}
+        graph={beforeGraph}
         label="Before"
         highlightTable={highlightTable}
         riskMap={{}}
@@ -218,7 +275,7 @@ function SideBySideView({
       />
       <div style={{ width: 1, background: 'var(--border)', flexShrink: 0 }} />
       <ErdPanel
-        graph={diff.after}
+        graph={afterGraph}
         label="After"
         highlightTable={highlightTable}
         riskMap={riskMap}
@@ -238,14 +295,35 @@ function OverlayView({
   riskSheetOpen,
   highlightTable,
   riskMap = {},
+  hops,
+  showAll,
+  onSubset,
 }: {
   diff: SchemaDiff;
   sqlSheetOpen: boolean;
   riskSheetOpen: boolean;
   highlightTable?: string | null;
   riskMap?: RiskMap;
+  hops: number;
+  showAll: boolean;
+  onSubset?: (info: SubsetInfo) => void;
 }) {
-  const overlayGraph = diff.cumulativeAfter ?? diff.after;
+  const fullGraph = diff.cumulativeAfter ?? diff.after;
+  // n홉 부분집합 — seed(변경 노드)가 없거나 showAll이면 전체 그래프.
+  const { overlayGraph, subset } = useMemo(() => {
+    const info = computeSubset([fullGraph], fullGraph, hops);
+    const seedEmpty = changedNodeIds(fullGraph).length === 0;
+    const graph = showAll || seedEmpty ? fullGraph : filterGraphByIds(fullGraph, info.ids);
+    return { overlayGraph: graph, subset: info };
+  }, [fullGraph, hops, showAll]);
+  // 카운터 lift-up — showAll/seedEmpty면 전체를 보여주므로 shownCount=totalCount.
+  useEffect(() => {
+    onSubset?.(
+      showAll || changedNodeIds(fullGraph).length === 0
+        ? { ids: new Set(), shownCount: subset.totalCount, totalCount: subset.totalCount }
+        : subset,
+    );
+  }, [subset, showAll, fullGraph, onSubset]);
   const { nodes: rawNodes, edges } = useErdLayout(overlayGraph);
   const { onNodeMouseEnter, onNodeMouseLeave } = useHoverHandlers();
   const nodes = useMemo(
@@ -325,6 +403,11 @@ export interface ErdDiffViewerProps {
   highlightTable?: string | null;
   // 위험 테이블 노드 강조용(table → 'critical'|'warning'). 기본 {}
   riskMap?: RiskMap;
+  // n홉 부분집합 제어 — 입력이 닿는 테이블 기준 양방향 FK n홉만 그린다(큰 DB 성능).
+  hops?: number;
+  showAll?: boolean;
+  // 부분집합 카운터 lift-up(DiffControls의 "Showing X of Y" 표시용).
+  onSubset?: (info: SubsetInfo) => void;
 }
 
 function ErdDiffViewerInner({
@@ -335,6 +418,9 @@ function ErdDiffViewerInner({
   riskSheetOpen = false,
   highlightTable = null,
   riskMap = {},
+  hops = DEFAULT_HOPS,
+  showAll = false,
+  onSubset,
 }: ErdDiffViewerProps) {
   // 단일 그래프 모드 (diff 없음) — idle/applied.
   // SingleGraphView가 flex:1로 높이를 받으려면 부모가 flex 컨테이너여야 함(react-flow는
@@ -355,7 +441,14 @@ function ErdDiffViewerInner({
   return (
     <div style={{ display: 'flex', height: '100%', minHeight: 0 }}>
       {mode === 'side-by-side' ? (
-        <SideBySideView diff={activeDiff} highlightTable={highlightTable} riskMap={riskMap} />
+        <SideBySideView
+          diff={activeDiff}
+          highlightTable={highlightTable}
+          riskMap={riskMap}
+          hops={hops}
+          showAll={showAll}
+          onSubset={onSubset}
+        />
       ) : (
         <OverlayView
           diff={activeDiff}
@@ -363,6 +456,9 @@ function ErdDiffViewerInner({
           riskSheetOpen={riskSheetOpen}
           highlightTable={highlightTable}
           riskMap={riskMap}
+          hops={hops}
+          showAll={showAll}
+          onSubset={onSubset}
         />
       )}
     </div>

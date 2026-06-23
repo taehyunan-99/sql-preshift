@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import { useDiffEmphasis } from '../../store/erdLab';
 import type { ColumnDef } from '../../lib/api';
 
@@ -65,7 +66,9 @@ interface Props {
   column: ColumnDef;
 }
 
-export default function ColumnRow({ column }: Props) {
+// React.memo — 부모 TableNode 리렌더 시 컬럼 row 재계산을 막는다. column(ColumnDef)은
+// useErdLayout의 안정 참조(node.data) 하위라 기본 shallow 비교로 충분.
+function ColumnRow({ column }: Props) {
   const isModified = column.diff === 'modified' && column.change;
   const isRemoved = column.diff === 'removed';
 
@@ -193,3 +196,5 @@ export default function ColumnRow({ column }: Props) {
     </div>
   );
 }
+
+export default memo(ColumnRow);
