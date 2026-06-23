@@ -24,79 +24,8 @@ import type { RiskMap } from '../../lib/riskMap';
 const RiskMapContext = createContext<RiskMap>({});
 export const useRiskMap = () => useContext(RiskMapContext);
 
-// ── mock 데이터: ADD COLUMN(age), DROP TABLE(products), ALTER TYPE(email) ──
-const MOCK_BEFORE: SchemaGraph = {
-  nodes: [
-    {
-      id: 'public.users',
-      table: 'users',
-      diff: 'modified',
-      columns: [
-        { name: 'id', type: 'integer', pk: true, fk: null, nullable: false, diff: 'unchanged' },
-        { name: 'name', type: 'varchar(100)', pk: false, fk: null, nullable: false, diff: 'unchanged' },
-        { name: 'email', type: 'varchar(255)', pk: false, fk: null, nullable: false, diff: 'modified', change: { from: 'varchar(255)', to: 'text' } },
-        { name: 'created_at', type: 'timestamp', pk: false, fk: null, nullable: true, diff: 'unchanged' },
-      ],
-    },
-    {
-      id: 'public.orders',
-      table: 'orders',
-      diff: 'unchanged',
-      columns: [
-        { name: 'id', type: 'integer', pk: true, fk: null, nullable: false, diff: 'unchanged' },
-        { name: 'user_id', type: 'integer', pk: false, fk: 'users', nullable: false, diff: 'unchanged' },
-        { name: 'amount', type: 'numeric(10,2)', pk: false, fk: null, nullable: false, diff: 'unchanged' },
-        { name: 'status', type: 'varchar(20)', pk: false, fk: null, nullable: false, diff: 'unchanged' },
-      ],
-    },
-    {
-      id: 'public.products',
-      table: 'products',
-      diff: 'removed',
-      columns: [
-        { name: 'id', type: 'integer', pk: true, fk: null, nullable: false, diff: 'removed' },
-        { name: 'name', type: 'varchar(200)', pk: false, fk: null, nullable: false, diff: 'removed' },
-        { name: 'price', type: 'numeric(10,2)', pk: false, fk: null, nullable: false, diff: 'removed' },
-      ],
-    },
-  ],
-  edges: [
-    { id: 'fk_orders_user_id', source: 'public.orders', target: 'public.users', sourceColumn: 'user_id', targetColumn: 'id', diff: 'unchanged' },
-  ],
-};
-
-const MOCK_AFTER: SchemaGraph = {
-  nodes: [
-    {
-      id: 'public.users',
-      table: 'users',
-      diff: 'modified',
-      columns: [
-        { name: 'id', type: 'integer', pk: true, fk: null, nullable: false, diff: 'unchanged' },
-        { name: 'name', type: 'varchar(100)', pk: false, fk: null, nullable: false, diff: 'unchanged' },
-        { name: 'email', type: 'text', pk: false, fk: null, nullable: false, diff: 'modified', change: { from: 'varchar(255)', to: 'text' } },
-        { name: 'created_at', type: 'timestamp', pk: false, fk: null, nullable: true, diff: 'unchanged' },
-        { name: 'age', type: 'integer', pk: false, fk: null, nullable: true, diff: 'added' },
-      ],
-    },
-    {
-      id: 'public.orders',
-      table: 'orders',
-      diff: 'unchanged',
-      columns: [
-        { name: 'id', type: 'integer', pk: true, fk: null, nullable: false, diff: 'unchanged' },
-        { name: 'user_id', type: 'integer', pk: false, fk: 'users', nullable: false, diff: 'unchanged' },
-        { name: 'amount', type: 'numeric(10,2)', pk: false, fk: null, nullable: false, diff: 'unchanged' },
-        { name: 'status', type: 'varchar(20)', pk: false, fk: null, nullable: false, diff: 'unchanged' },
-      ],
-    },
-  ],
-  edges: [
-    { id: 'fk_orders_user_id', source: 'public.orders', target: 'public.users', sourceColumn: 'user_id', targetColumn: 'id', diff: 'unchanged' },
-  ],
-};
-
-const MOCK_DIFF: SchemaDiff = { before: MOCK_BEFORE, after: MOCK_AFTER };
+// 연결됐으나 그래프 로드 전/빈 DB일 때 표시할 빈 그래프 — MOCK 은폐 대신 실제 빈 상태.
+const EMPTY_GRAPH: SchemaGraph = { nodes: [], edges: [] };
 
 const NODE_TYPES = { tableNode: TableNode };
 const EDGE_TYPES = { relationEdge: ErdRelationEdge };
@@ -410,15 +339,17 @@ function ErdDiffViewerInner({
   // 단일 그래프 모드 (diff 없음) — idle/applied.
   // SingleGraphView가 flex:1로 높이를 받으려면 부모가 flex 컨테이너여야 함(react-flow는
   // 부모 height가 0이면 "parent container needs width/height" 에러로 렌더 안 됨).
-  if (!diff && graph) {
+  // diff 없으면(idle/applied) 단일 그래프 — 연결됐으나 그래프가 아직/비었으면 빈 그래프.
+  // MOCK 폴백 제거: 게이트 통과 후엔 항상 실제 DB 기준이므로 가짜 ERD로 은폐하지 않는다.
+  if (!diff) {
     return (
       <div style={{ display: 'flex', height: '100%', minHeight: 0 }}>
-        <SingleGraphView graph={graph} highlightTable={highlightTable} riskMap={riskMap} />
+        <SingleGraphView graph={graph ?? EMPTY_GRAPH} highlightTable={highlightTable} riskMap={riskMap} />
       </div>
     );
   }
 
-  const activeDiff = diff ?? MOCK_DIFF;
+  const activeDiff = diff;
 
   // DiffLegend·모드토글 UI는 DiffControls로 이동 — 여기서는 뷰만 렌더
   return (

@@ -2,7 +2,12 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { usePipelineStore } from '../store/pipeline';
-import { fetchSchemaGraph, type SchemaGraph } from '../lib/api';
+import {
+  fetchSchemaGraph,
+  getConnectionStatus,
+  type ConnectionStatus,
+  type SchemaGraph,
+} from '../lib/api';
 import { buildRiskMap, type RiskMap } from '../lib/riskMap';
 import InputPanel from '../components/InputPanel';
 import SqlDraftPanel from '../components/SqlDraftPanel';
@@ -11,6 +16,7 @@ import CompletedBar from '../components/CompletedBar';
 import AuditDrawer from '../components/AuditDrawer';
 import StageBadge from '../components/StageBadge';
 import DiffControls, { type DiffMode } from '../components/DiffControls';
+import DatabaseConnect from '../components/DatabaseConnect';
 
 // 모든 floating 레이어는 항상 마운트하고 stage에 따라 CSS reveal(opacity/transform/
 // visibility/pointer-events)로 등장·퇴장. 언마운트 금지(Monaco/react-flow 재초기화 회피).
@@ -28,7 +34,8 @@ function reveal(visible: boolean): React.CSSProperties {
 }
 
 export default function Home() {
-  const { stage, analyzeResult } = usePipelineStore();
+  const { stage, analyzeResult, connected, connectionEpoch, connectedDbname, setConnection } =
+    usePipelineStore();
 
   // ERD mode 상태 lift-up — DiffControls·ErdDiffViewer가 공유.
   const [mode, setMode] = useState<DiffMode>('side-by-side');
@@ -36,10 +43,40 @@ export default function Home() {
   const [sqlSheetOpen, setSqlSheetOpen] = useState(false);
   // idle/applied SingleGraphView용 현재 스키마 그래프.
   const [graph, setGraph] = useState<SchemaGraph | undefined>(undefined);
+  // 최초 연결 상태 조회 완료 여부 — 조회 전엔 게이트/메인 둘 다 안 띄움(깜빡임 방지).
+  const [statusChecked, setStatusChecked] = useState(false);
+  // 메인에서 DB 교체 모달 열림 여부.
+  const [reconnectOpen, setReconnectOpen] = useState(false);
+
+  // 최초 로드 시 백엔드에 현재 연결 상태를 조회한다.
+  useEffect(() => {
+    let alive = true;
+    getConnectionStatus()
+      .then((s) => {
+        if (!alive) return;
+        setConnection({ connected: s.connected, host: s.host, dbname: s.dbname, epoch: s.epoch });
+      })
+      .catch(() => {
+        // 백엔드 미기동 — 미연결로 간주(게이트 노출).
+      })
+      .finally(() => {
+        if (alive) setStatusChecked(true);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [setConnection]);
+
+  const onConnected = (s: ConnectionStatus) => {
+    setConnection({ connected: s.connected, host: s.host, dbname: s.dbname, epoch: s.epoch });
+    setReconnectOpen(false);
+  };
 
   // 현재 스키마 그래프 로드(idle/applied single 뷰 데이터 출처).
   // applied 진입 시 재로드 — Apply All로 누적 변경이 실DB에 반영됐으므로 ERD를 갱신한다.
+  // connectionEpoch 의존 — DB 교체 시 새 DB 스키마로 갱신.
   useEffect(() => {
+    if (!connected) return;
     if (stage !== 'idle' && stage !== 'applied') return;
     let alive = true;
     fetchSchemaGraph()
@@ -47,12 +84,12 @@ export default function Home() {
         if (alive) setGraph(g);
       })
       .catch(() => {
-        // 백엔드 미연동 시 ErdDiffViewer 내부 MOCK 폴백에 위임.
+        // 연결됐는데 그래프 로드 실패 — 빈 그래프 유지(MOCK 은폐 안 함).
       });
     return () => {
       alive = false;
     };
-  }, [stage]);
+  }, [stage, connected, connectionEpoch]);
 
   const isDiffStage = stage === 'preview' || stage === 'applying';
   const isResultStage = isDiffStage || stage === 'applied';
@@ -70,6 +107,20 @@ export default function Home() {
   // analyzing/applying dim 오버레이.
   const showDim = stage === 'analyzing' || stage === 'applying';
   const dimLabel = stage === 'applying' ? 'Applying…' : 'Analyzing…';
+
+  // 연결 상태 조회 전엔 빈 화면(게이트/메인 깜빡임 방지).
+  if (!statusChecked) {
+    return <main style={{ height: '100vh', background: 'var(--bg-primary)' }} />;
+  }
+
+  // 미연결이면 전체화면 온보딩 게이트 — 연결 성공해야 메인 진입.
+  if (!connected) {
+    return (
+      <main style={{ position: 'relative', height: '100vh', background: 'var(--bg-primary)' }}>
+        <DatabaseConnect onConnected={onConnected} />
+      </main>
+    );
+  }
 
   return (
     <main
@@ -157,6 +208,33 @@ export default function Home() {
           Safe schema migration control
         </span>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+          {/* 연결된 DB 배지 — 클릭 시 교체 모달 */}
+          <button
+            onClick={() => setReconnectOpen(true)}
+            title="Change database"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '4px 10px',
+              background: 'var(--bg-tertiary)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-pill)',
+              color: 'var(--text-secondary)',
+              fontSize: 'var(--font-size-xs)',
+              cursor: 'pointer',
+            }}
+          >
+            <span
+              style={{
+                width: 7,
+                height: 7,
+                borderRadius: '50%',
+                background: 'var(--color-success)',
+              }}
+            />
+            {connectedDbname ?? 'Connected'}
+          </button>
           <StageBadge />
           <AuditButton />
         </div>
@@ -215,6 +293,12 @@ export default function Home() {
 
       {/* Layer7: AuditDrawer */}
       <AuditDrawer />
+
+      {/* DB 교체 모달 — 연결된 상태에서 다른 DB로 전환. 교체 시 store가 epoch 변화로
+          dryRunStack·분석 상태를 초기화한다(이전 DB 기준 무효). */}
+      {reconnectOpen && (
+        <DatabaseConnect onConnected={onConnected} onCancel={() => setReconnectOpen(false)} />
+      )}
 
       <style jsx global>{`
         @keyframes spin {

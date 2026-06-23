@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from app.db import get_meta_session, target_engine
+from app.db import get_meta_session, get_target_engine
 from app.llm.client import OllamaError
 from app.pipeline.executor import apply, consume_token, store_token
 from app.pipeline.explain import explain_sql
@@ -89,7 +89,11 @@ async def analyze(req: AnalyzeRequest, session: Session = Depends(get_meta_sessi
     down_script: str | None = None
 
     if valid and ast is not None:
-        base: SchemaGraph = build_graph(target_engine)
+        engine = get_target_engine()
+        if engine is None:
+            # UI 노출 문자열은 영어(주석은 한국어) — 미연결 상태
+            raise HTTPException(status_code=503, detail="Database not connected.")
+        base: SchemaGraph = build_graph(engine)
         # 누적 dry-run: priorSqls가 있으면 before=원본 실DB, after=(prior+현재) 전부 적용
         # → 스택에 쌓인 모든 변경이 한 화면에 누적 표시된다. down_script는 직전 baseline 기준.
         if req.priorSqls:
@@ -121,7 +125,7 @@ async def analyze(req: AnalyzeRequest, session: Session = Depends(get_meta_sessi
         # 누적 중에는 dataSim 생략 — simulate_data는 실DB 실행이라 가상 baseline과 불일치.
         if not req.priorSqls and first_token in _DML_SQL_TYPES:
             try:
-                data_sim = simulate_data(sql, target_engine)
+                data_sim = simulate_data(sql, engine)
             except Exception:
                 data_sim = None
 
@@ -203,28 +207,38 @@ async def api_apply(req: ApplyRequest, session: Session = Depends(get_meta_sessi
             status_code=422,
             detail={
                 "error": "CRITICAL_RISK_BLOCKED",
-                "message": "critical 위험이 포함된 SQL입니다. 확인 후 적용하려면 confirmCritical을 설정하세요.",
+                # UI 노출 문자열은 영어(주석은 한국어)
+                "message": "This SQL contains a critical risk. Set confirmCritical to apply after review.",
                 "risks": [r.model_dump(by_alias=True) for r in critical_risks],
             },
         )
 
     if not cached.valid:
-        raise HTTPException(status_code=422, detail="유효하지 않은 SQL입니다.")
+        raise HTTPException(status_code=422, detail="Invalid SQL.")
+
+    engine = get_target_engine()
+    if engine is None:
+        raise HTTPException(status_code=503, detail="Database not connected.")
 
     try:
-        result = apply(cached.sql, cached.downScript, session, confirm_critical=req.confirm_critical)
+        # target_engine 명시 전달 — 미전달 시 session.get_bind()가 meta_engine을
+        # 잡아 사용자 SQL이 메타 DB에 실행되는 버그 방지(실제 대상 DB 적용 보장).
+        result = apply(
+            cached.sql, cached.downScript, session, engine,
+            confirm_critical=req.confirm_critical,
+        )
         session.commit()
     except ValidationError as e:
         session.rollback()
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
         session.rollback()
-        raise HTTPException(status_code=500, detail=f"적용 중 오류: {e}")
+        raise HTTPException(status_code=500, detail=f"Error during apply: {e}")
 
     # 적용 성공 직후 증분 reindex (실패해도 apply 결과에 영향 없음)
     try:
         from app.pipeline.rag import reindex_schema
-        await reindex_schema(target_engine)
+        await reindex_schema(engine)
     except Exception:
         pass
 
@@ -236,20 +250,24 @@ async def api_apply_all(req: ApplyAllRequest, session: Session = Depends(get_met
     """누적 dry-run으로 쌓은 N개 SQL을 단일 TX로 일괄 적용한다(all-or-nothing)."""
     from app.pipeline.executor import apply_all
 
+    engine = get_target_engine()
+    if engine is None:
+        raise HTTPException(status_code=503, detail="Database not connected.")
+
     try:
-        result = apply_all(req.sqls, session, target_engine, confirm_critical=req.confirm_critical)
+        result = apply_all(req.sqls, session, engine, confirm_critical=req.confirm_critical)
         session.commit()
     except ValidationError as e:
         session.rollback()
         raise HTTPException(status_code=422, detail=str(e))  # 금지 패턴/미확인 critical 시 422
     except Exception as e:
         session.rollback()
-        raise HTTPException(status_code=500, detail=f"일괄 적용 중 오류: {e}")
+        raise HTTPException(status_code=500, detail=f"Error during batch apply: {e}")
 
     # 적용 성공 직후 증분 reindex (실패해도 결과에 영향 없음)
     try:
         from app.pipeline.rag import reindex_schema
-        await reindex_schema(target_engine)
+        await reindex_schema(engine)
     except Exception:
         pass
 

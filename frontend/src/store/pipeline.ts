@@ -42,6 +42,12 @@ interface PipelineState {
   /* 누적 dry-run 스택 — append-only, Undo는 끝에서만 pop. 매 analyze에 priorSqls로 동봉. */
   dryRunStack: string[];
 
+  /* 런타임 DB 연결 상태 — 온보딩 게이트가 사용. epoch는 DB 교체 순번. */
+  connected: boolean;
+  connectedHost: string | null;
+  connectedDbname: string | null;
+  connectionEpoch: number;
+
   /* 액션 */
   setStage: (stage: PipelineStage) => void;
   setAnalyzeResult: (result: AnalyzeResult) => void;
@@ -56,6 +62,13 @@ interface PipelineState {
   pushDryRun: (sql: string) => void;
   popDryRun: () => void;
   clearDryRun: () => void;
+
+  setConnection: (status: {
+    connected: boolean;
+    host: string | null;
+    dbname: string | null;
+    epoch: number;
+  }) => void;
 }
 
 export const usePipelineStore = create<PipelineState>((set) => ({
@@ -67,6 +80,11 @@ export const usePipelineStore = create<PipelineState>((set) => ({
   isAnalyzing: false,
   analyzeError: null,
   dryRunStack: [],
+
+  connected: false,
+  connectedHost: null,
+  connectedDbname: null,
+  connectionEpoch: 0,
 
   setStage: (stage) => set({ stage }),
   setAnalyzeResult: (result) =>
@@ -94,4 +112,24 @@ export const usePipelineStore = create<PipelineState>((set) => ({
   pushDryRun: (sql) => set((s) => ({ dryRunStack: [...s.dryRunStack, sql] })),
   popDryRun: () => set((s) => ({ dryRunStack: s.dryRunStack.slice(0, -1) })),
   clearDryRun: () => set({ dryRunStack: [] }),
+
+  setConnection: (status) =>
+    set((s) => {
+      // DB가 바뀌면(epoch 증가) 이전 DB 기준 누적 스택·분석은 모두 무효 — 초기화.
+      const dbChanged = status.epoch !== s.connectionEpoch;
+      return {
+        connected: status.connected,
+        connectedHost: status.host,
+        connectedDbname: status.dbname,
+        connectionEpoch: status.epoch,
+        ...(dbChanged
+          ? {
+              dryRunStack: [],
+              analyzeResult: null,
+              analyzeError: null,
+              stage: 'idle' as PipelineStage,
+            }
+          : {}),
+      };
+    }),
 }));

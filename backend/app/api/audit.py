@@ -5,7 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.db import get_meta_session
+from app.db import get_meta_session, get_target_engine
 from app.pipeline.executor import rollback
 from app.pipeline.validation import ValidationError
 from app.schemas.analysis import AuditEntry, RollbackResult
@@ -51,7 +51,9 @@ async def api_rollback(
 ):
     """저장된 down 스크립트로 롤백한다."""
     try:
-        result = rollback(audit_id, session)
+        # target_engine 명시 전달 — 미전달 시 session.get_bind()가 meta_engine을
+        # 잡아 롤백 SQL이 메타 DB에서 실행되는 버그 방지(실제 대상 DB 원복 보장).
+        result = rollback(audit_id, session, target_engine=get_target_engine())
         session.commit()
         return result
     except ValidationError as e:

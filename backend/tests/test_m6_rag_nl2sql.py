@@ -11,7 +11,8 @@ import pytest
 # ─── app.db 를 import 시점에 mock (psycopg 없는 환경) ───────────────────
 _mock_db = ModuleType("app.db")
 _mock_db.meta_engine = MagicMock()
-_mock_db.target_engine = MagicMock()
+# target_engine은 holder + accessor로 전환됨 — get_target_engine으로 모킹
+_mock_db.get_target_engine = MagicMock(return_value=MagicMock())
 _mock_db.get_meta_session = MagicMock()
 _mock_db.ensure_vector_extension = MagicMock()
 sys.modules.setdefault("app.db", _mock_db)

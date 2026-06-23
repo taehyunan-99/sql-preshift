@@ -14,13 +14,6 @@ import os
 
 from sqlalchemy import create_engine, text
 
-DATABASE_URL = os.environ.get(
-    "TARGET_DATABASE_URL",
-    "postgresql+psycopg://sqlpreshift:sqlpreshift@localhost:5432/sqlpreshift",
-)
-
-engine = create_engine(DATABASE_URL)
-
 # 기존 단순 시드(users/orders/products)를 의존 역순으로 정리 후 재구성.
 DROP = """
 DROP TABLE IF EXISTS payments      CASCADE;
@@ -105,8 +98,23 @@ CREATE TABLE reviews (
 );
 """
 
-with engine.begin() as conn:
-    conn.execute(text(DROP))
-    conn.execute(text(DDL))
+def seed(target_engine) -> None:
+    """e커머스 샘플 스키마를 대상 엔진에 시드한다(드롭 후 재생성).
 
-print("e커머스 시드 완료: users, categories, products, inventory, addresses, orders, order_items, payments, reviews (9 tables).")
+    'Try Sample Database' 온보딩이 이 함수를 재사용한다(import 부작용 없이).
+    """
+    with target_engine.begin() as conn:
+        conn.execute(text(DROP))
+        conn.execute(text(DDL))
+
+
+if __name__ == "__main__":
+    database_url = os.environ.get(
+        "TARGET_DATABASE_URL",
+        "postgresql+psycopg://sqlpreshift:sqlpreshift@localhost:5432/sqlpreshift",
+    )
+    seed(create_engine(database_url))
+    print(
+        "e커머스 시드 완료: users, categories, products, inventory, "
+        "addresses, orders, order_items, payments, reviews (9 tables)."
+    )

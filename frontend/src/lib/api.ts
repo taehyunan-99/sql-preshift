@@ -149,3 +149,65 @@ export async function rollbackAudit(id: string): Promise<RollbackResponse> {
   if (!res.ok) throw new Error(`rollback failed: ${res.status}`);
   return res.json();
 }
+
+/* ─── 런타임 DB 연결 ──────────────────────────────────────────────── */
+
+export interface ConnectionRequest {
+  host: string;
+  port: number;
+  user: string;
+  password: string;
+  dbname: string;
+}
+
+export interface ConnectionStatus {
+  connected: boolean;
+  host: string | null;
+  port: number | null;
+  dbname: string | null;
+  epoch: number;
+}
+
+export interface ConnectionTestResult {
+  success: boolean;
+  message: string;
+  warnings: string[];
+}
+
+export async function getConnectionStatus(): Promise<ConnectionStatus> {
+  const res = await fetch(`${API_BASE}/api/connection/status`);
+  if (!res.ok) throw new Error(`connection status failed: ${res.status}`);
+  return res.json();
+}
+
+export async function testConnection(req: ConnectionRequest): Promise<ConnectionTestResult> {
+  const res = await fetch(`${API_BASE}/api/connection/test`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(req),
+  });
+  if (!res.ok) throw new Error(`connection test failed: ${res.status}`);
+  return res.json();
+}
+
+export async function connectDatabase(req: ConnectionRequest): Promise<ConnectionStatus> {
+  const res = await fetch(`${API_BASE}/api/connection`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(req),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body?.detail ?? `connect failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function connectSampleDatabase(): Promise<ConnectionStatus> {
+  const res = await fetch(`${API_BASE}/api/connection/sample`, { method: 'POST' });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body?.detail ?? `sample connect failed: ${res.status}`);
+  }
+  return res.json();
+}

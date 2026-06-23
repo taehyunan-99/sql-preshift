@@ -61,8 +61,11 @@ def _reflect_chunks(engine: Engine) -> list[SchemaChunk]:
 
 async def reindex_schema(engine: Engine | None = None) -> int:
     """대상 스키마 reflection → 청크화 → 임베딩 → pgvector upsert. 처리된 청크 수 반환."""
-    from app.db import target_engine as _target_engine
-    eng = engine or _target_engine
+    from app.db import get_target_engine
+    eng = engine or get_target_engine()
+    if eng is None:
+        # target 미연결 — 색인할 대상 없음
+        return 0
 
     chunks = _reflect_chunks(eng)
     if not chunks:
