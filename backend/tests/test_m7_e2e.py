@@ -221,7 +221,7 @@ def test_edge5_delete_without_where_critical_risk():
 
 def test_edge5_delete_without_where_apply_blocked(session, target_engine):
     """WHERE 없는 DELETE 는 apply() 에서 ValidationError 로 차단된다."""
-    with pytest.raises(ValidationError, match="critical"):
+    with pytest.raises(ValidationError, match="[Cc]ritical"):
         apply("DELETE FROM users", None, session, target_engine)
 
 
@@ -262,7 +262,7 @@ def test_edge6_drop_table_red_diff(target_engine):
 
 def test_edge6_drop_table_apply_blocked(session, target_engine):
     """DROP TABLE 은 apply() 에서 ValidationError 로 차단된다."""
-    with pytest.raises(ValidationError, match="critical"):
+    with pytest.raises(ValidationError, match="[Cc]ritical"):
         apply("DROP TABLE users", None, session, target_engine)
 
 

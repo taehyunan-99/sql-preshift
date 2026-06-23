@@ -27,9 +27,10 @@ def parse(sql: str) -> sqlglot.Expression:
 
     stmts = [s for s in result if s is not None]
     if not stmts:
-        raise ValidationError("빈 SQL 또는 파싱 결과 없음")
+        # UI 노출 문자열은 영어(주석은 한국어) — 빈 입력/파싱 결과 없음
+        raise ValidationError("Empty SQL or nothing to parse.")
     if len(stmts) > 1:
-        raise ValidationError("멀티 스테이트먼트는 허용되지 않습니다.")
+        raise ValidationError("Multiple statements are not allowed.")
 
     return stmts[0]
 
@@ -47,7 +48,8 @@ def check_forbidden(ast: sqlglot.Expression) -> list[Violation]:
             violations.append(
                 Violation(
                     rule="SYSTEM_SCHEMA",
-                    message=f"시스템 스키마 '{schema_name}' 접근은 허용되지 않습니다.",
+                    # UI 노출 문자열은 영어(주석은 한국어)
+                    message=f"Access to system schema '{schema_name}' is not allowed.",
                 )
             )
             break

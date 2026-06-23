@@ -15,11 +15,18 @@ from app.pipeline.nl2sql import generate_sql
 from app.pipeline.rag import retrieve
 from app.pipeline.risk import deterministic_rules, llm_explain_risk
 from app.pipeline.schema_graph import build_graph
-from app.pipeline.simulation import simulate_data, simulate_schema
+from app.pipeline.simulation import (
+    fold_baseline,
+    simulate_cumulative,
+    simulate_data,
+    simulate_schema,
+)
 from app.pipeline.validation import ValidationError, check_forbidden, parse
 from app.schemas.analysis import (
     AnalyzeRequest,
     AnalyzeResponse,
+    ApplyAllRequest,
+    ApplyAllResult,
     ApplyRequest,
     ApplyResult,
     DataSimResult,
@@ -82,17 +89,37 @@ async def analyze(req: AnalyzeRequest, session: Session = Depends(get_meta_sessi
     down_script: str | None = None
 
     if valid and ast is not None:
-        before: SchemaGraph = build_graph(target_engine)
-        before_tables = {n.id: n for n in before.nodes}
-
-        try:
-            sim_result = simulate_schema(ast, before)
-            schema_diff = sim_result
-        except Exception:
-            schema_diff = None
+        base: SchemaGraph = build_graph(target_engine)
+        # 누적 dry-run: priorSqls가 있으면 before=원본 실DB, after=(prior+현재) 전부 적용
+        # → 스택에 쌓인 모든 변경이 한 화면에 누적 표시된다. down_script는 직전 baseline 기준.
+        if req.priorSqls:
+            # 두 diff 동시 생성: Split뷰=직전 1개(baseline 대비 현재 SQL만 — 선명한 비교),
+            # Unified뷰=스택 전체(원본 실DB 대비 prior+현재 누적). cumulative_after에 후자를 실어 보냄.
+            try:
+                baseline = fold_baseline(req.priorSqls, base)  # 직전 누적 기준(Split before·down_script)
+            except ValidationError as e:
+                raise HTTPException(status_code=422, detail=f"누적 baseline 오류: {e}")
+            before_tables = {n.id: n for n in baseline.nodes}
+            try:
+                schema_diff = simulate_schema(ast, baseline)  # 직전 1개 diff
+                cumulative = simulate_cumulative(req.priorSqls, ast, base)  # 전체 누적
+                schema_diff = schema_diff.model_copy(
+                    update={"cumulative_after": cumulative.after}
+                )
+            except ValidationError as e:
+                raise HTTPException(status_code=422, detail=f"누적 시뮬레이션 오류: {e}")
+            except Exception:
+                schema_diff = None
+        else:
+            before_tables = {n.id: n for n in base.nodes}
+            try:
+                schema_diff = simulate_schema(ast, base)
+            except Exception:
+                schema_diff = None
 
         first_token = sql.split()[0].lower().rstrip(";") if sql.split() else ""
-        if first_token in _DML_SQL_TYPES:
+        # 누적 중에는 dataSim 생략 — simulate_data는 실DB 실행이라 가상 baseline과 불일치.
+        if not req.priorSqls and first_token in _DML_SQL_TYPES:
             try:
                 data_sim = simulate_data(sql, target_engine)
             except Exception:
@@ -104,10 +131,13 @@ async def analyze(req: AnalyzeRequest, session: Session = Depends(get_meta_sessi
         except Exception:
             down_script = None
 
-    # 6. LLM 위험 해설 (2차 — 결정적 판단 불변, 해설만 추가)
+    # 6. LLM 위험 해설 (2차 — 결정적 판단 불변, 해설만 추가). 영/한 동시 생성.
     if risks:
-        risk_note = await llm_explain_risk(sql, risks, schema_diff)
-        risks = [r.model_copy(update={"llm_note": risk_note}) if i == 0 else r for i, r in enumerate(risks)]
+        risk_note_en, risk_note_ko = await llm_explain_risk(sql, risks, schema_diff)
+        risks = [
+            r.model_copy(update={"llm_note": risk_note_en, "llm_note_ko": risk_note_ko}) if i == 0 else r
+            for i, r in enumerate(risks)
+        ]
 
     # 7. LLM 자연어 설명 (explain_sql — 영/한 동시 생성, Ollama 미기동 시 폴백)
     explanation, explanation_ko = await explain_sql(sql)
@@ -164,14 +194,16 @@ async def api_apply(req: ApplyRequest, session: Session = Depends(get_meta_sessi
     except ValidationError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    # #1 hasCritical 또는 risks 배열 직접 확인 — 둘 다 critical 차단
+    # #1 critical 위험 — 명시 확인(confirmCritical) 없으면 차단(실수 방지), 확인 시 통과.
     critical_risks = [r for r in cached.risks if r.level == "critical"]
-    if critical_risks or cached.hasCritical:
+    if (critical_risks or cached.hasCritical) and not req.confirm_critical:
+        # 토큰을 복원 — 차단은 최종 거부가 아니라 "확인 요청"이므로 confirm 재시도를 허용해야 함.
+        _token_cache_update(req.token, cached)
         raise HTTPException(
             status_code=422,
             detail={
                 "error": "CRITICAL_RISK_BLOCKED",
-                "message": "critical 위험이 포함된 SQL은 적용할 수 없습니다.",
+                "message": "critical 위험이 포함된 SQL입니다. 확인 후 적용하려면 confirmCritical을 설정하세요.",
                 "risks": [r.model_dump(by_alias=True) for r in critical_risks],
             },
         )
@@ -180,7 +212,7 @@ async def api_apply(req: ApplyRequest, session: Session = Depends(get_meta_sessi
         raise HTTPException(status_code=422, detail="유효하지 않은 SQL입니다.")
 
     try:
-        result = apply(cached.sql, cached.downScript, session)
+        result = apply(cached.sql, cached.downScript, session, confirm_critical=req.confirm_critical)
         session.commit()
     except ValidationError as e:
         session.rollback()
@@ -190,6 +222,31 @@ async def api_apply(req: ApplyRequest, session: Session = Depends(get_meta_sessi
         raise HTTPException(status_code=500, detail=f"적용 중 오류: {e}")
 
     # 적용 성공 직후 증분 reindex (실패해도 apply 결과에 영향 없음)
+    try:
+        from app.pipeline.rag import reindex_schema
+        await reindex_schema(target_engine)
+    except Exception:
+        pass
+
+    return result
+
+
+@router.post("/apply-all", response_model=ApplyAllResult)
+async def api_apply_all(req: ApplyAllRequest, session: Session = Depends(get_meta_session)):
+    """누적 dry-run으로 쌓은 N개 SQL을 단일 TX로 일괄 적용한다(all-or-nothing)."""
+    from app.pipeline.executor import apply_all
+
+    try:
+        result = apply_all(req.sqls, session, target_engine, confirm_critical=req.confirm_critical)
+        session.commit()
+    except ValidationError as e:
+        session.rollback()
+        raise HTTPException(status_code=422, detail=str(e))  # 금지 패턴/미확인 critical 시 422
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=500, detail=f"일괄 적용 중 오류: {e}")
+
+    # 적용 성공 직후 증분 reindex (실패해도 결과에 영향 없음)
     try:
         from app.pipeline.rag import reindex_schema
         await reindex_schema(target_engine)

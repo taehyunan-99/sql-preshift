@@ -223,14 +223,31 @@ def test_critical_risk_drop_table(target_engine):
 
 def test_apply_blocks_critical_delete(session, target_engine):
     """apply() 함수 직접호출 시에도 critical DELETE는 ValidationError."""
-    with pytest.raises(ValidationError, match="critical"):
+    with pytest.raises(ValidationError, match="[Cc]ritical"):
         apply("DELETE FROM users", None, session, target_engine)
 
 
 def test_apply_blocks_critical_drop_table(session, target_engine):
     """apply() 함수 직접호출 시에도 critical DROP TABLE은 ValidationError."""
-    with pytest.raises(ValidationError, match="critical"):
+    with pytest.raises(ValidationError, match="[Cc]ritical"):
         apply("DROP TABLE users", None, session, target_engine)
+
+
+def test_apply_confirm_critical_allows_drop_table(session, target_engine):
+    """confirm_critical=True면 critical DROP TABLE도 적용된다(사용자 판단 강행)."""
+    # 임시 테이블 생성 후 confirm으로 drop
+    with target_engine.begin() as conn:
+        conn.execute(text("CREATE TABLE IF NOT EXISTS tmp_confirm (id INTEGER PRIMARY KEY)"))
+    result = apply("DROP TABLE tmp_confirm", None, session, target_engine, confirm_critical=True)
+    assert result.auditId
+    insp = inspect(target_engine)
+    assert "tmp_confirm" not in insp.get_table_names()
+
+
+def test_apply_confirm_critical_still_blocks_forbidden(session, target_engine):
+    """confirm_critical=True여도 금지 패턴(시스템 스키마)은 항상 차단 — 보안은 우회 불가."""
+    with pytest.raises(ValidationError, match="[Ff]orbidden"):
+        apply("SELECT * FROM pg_catalog.pg_tables", None, session, target_engine, confirm_critical=True)
 
 
 def test_rollback_validates_each_stmt(session, target_engine):

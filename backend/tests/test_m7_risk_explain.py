@@ -29,21 +29,22 @@ def mixed_risks():
 
 @pytest.mark.asyncio
 async def test_llm_explain_risk_calls_complete(drop_table_risks):
-    """Ollama 응답이 있을 때 LLM 해설 문자열 반환."""
-    expected = "DROP TABLE은 테이블과 모든 데이터를 영구 삭제합니다."
+    """Ollama 응답(EN:/KO: 형식)을 (en, ko) 튜플로 파싱해 반환."""
+    raw = "EN: DROP TABLE permanently deletes the table and all data.\nKO: DROP TABLE은 테이블과 모든 데이터를 영구 삭제합니다."
     with patch("app.pipeline.risk.complete", new_callable=AsyncMock) as mock_complete:
-        mock_complete.return_value = expected
-        result = await llm_explain_risk("DROP TABLE users", drop_table_risks)
-    assert result == expected
+        mock_complete.return_value = raw
+        en, ko = await llm_explain_risk("DROP TABLE users", drop_table_risks)
+    assert "permanently deletes" in en
+    assert "영구 삭제" in ko
     mock_complete.assert_called_once()
 
 
 @pytest.mark.asyncio
 async def test_llm_explain_risk_empty_risks():
-    """위험 목록이 비어 있으면 빈 문자열 반환 (LLM 호출 없음)."""
+    """위험 목록이 비어 있으면 ('', '') 반환 (LLM 호출 없음)."""
     with patch("app.pipeline.risk.complete", new_callable=AsyncMock) as mock_complete:
         result = await llm_explain_risk("SELECT 1", [])
-    assert result == ""
+    assert result == ("", "")
     mock_complete.assert_not_called()
 
 
@@ -52,13 +53,13 @@ async def test_llm_explain_risk_empty_risks():
 
 @pytest.mark.asyncio
 async def test_llm_explain_risk_fallback_on_ollama_error(drop_table_risks):
-    """OllamaError 발생 시 폴백 해설 반환 (예외 전파 없음)."""
+    """OllamaError 발생 시 폴백 해설(en, ko) 반환 (예외 전파 없음)."""
     with patch("app.pipeline.risk.complete", new_callable=AsyncMock) as mock_complete:
         mock_complete.side_effect = OllamaError("연결 실패")
-        result = await llm_explain_risk("DROP TABLE users", drop_table_risks)
-    assert isinstance(result, str)
-    assert len(result) > 0
-    assert "DROP_TABLE" in result
+        en, ko = await llm_explain_risk("DROP TABLE users", drop_table_risks)
+    assert len(en) > 0 and len(ko) > 0
+    assert "critical" in en.lower()
+    assert "치명적" in ko
 
 
 @pytest.mark.asyncio
@@ -66,9 +67,9 @@ async def test_llm_explain_risk_fallback_mixed(mixed_risks):
     """폴백에 critical·warning 개수 모두 포함."""
     with patch("app.pipeline.risk.complete", new_callable=AsyncMock) as mock_complete:
         mock_complete.side_effect = OllamaError("미기동")
-        result = await llm_explain_risk("DROP TABLE users CASCADE", mixed_risks)
-    assert "1건" in result or "DROP_TABLE" in result
-    assert "CASCADE" in result
+        en, ko = await llm_explain_risk("DROP TABLE users CASCADE", mixed_risks)
+    assert "1" in ko  # critical 1건, warning 1건
+    assert "경고" in ko
 
 
 # ──── _fallback_risk_note 단위 테스트 ───────────────────────────────────
@@ -76,21 +77,21 @@ async def test_llm_explain_risk_fallback_mixed(mixed_risks):
 
 def test_fallback_note_critical_only():
     risks = [Risk(level="critical", rule="TRUNCATE", message="전체 삭제")]
-    note = _fallback_risk_note(risks)
-    assert "TRUNCATE" in note
-    assert "치명적 위험" in note
+    en, ko = _fallback_risk_note(risks)
+    assert "치명적" in ko
+    assert "critical" in en.lower()
 
 
 def test_fallback_note_warning_only():
     risks = [Risk(level="warning", rule="ADD_NOT_NULL_NO_DEFAULT", message="NOT NULL 경고")]
-    note = _fallback_risk_note(risks)
-    assert "경고" in note
-    assert "ADD_NOT_NULL_NO_DEFAULT" in note
+    en, ko = _fallback_risk_note(risks)
+    assert "경고" in ko
+    assert "warning" in en.lower()
 
 
 def test_fallback_note_empty():
-    note = _fallback_risk_note([])
-    assert "Ollama" in note
+    en, ko = _fallback_risk_note([])
+    assert "Ollama" in en or "Ollama" in ko
 
 
 # ──── 결정적 판단 불변 검증 ─────────────────────────────────────────────

@@ -35,13 +35,18 @@ export interface SchemaGraph {
 export interface SchemaDiff {
   before: SchemaGraph;
   after: SchemaGraph;
+  // 누적 dry-run: 원본 실DB 대비 "스택 전체" 적용 결과. Unified뷰가 이걸 쓴다(없으면 after).
+  cumulativeAfter?: SchemaGraph;
 }
 
 export interface RiskItem {
   level: 'critical' | 'warning' | 'info';
   rule: string;
-  message: string;
+  message: string; // 영어 (기본)
+  messageKo?: string; // 한국어 (토글용)
+  tables: string[]; // 이 위험이 영향을 주는 테이블명 — ERD 노드 강조용
   llmNote?: string;
+  llmNoteKo?: string;
 }
 
 export interface AnalyzeResponse {
@@ -80,6 +85,13 @@ export interface RollbackResponse {
 export interface AnalyzeRequest {
   input: string;
   mode?: 'auto' | 'nl' | 'sql';
+  priorSqls?: string[]; // 누적 dry-run baseline (직전까지 쌓은 SQL, 순서대로)
+}
+
+export interface ApplyAllResponse {
+  auditIds: string[];
+  appliedAt: string;
+  count: number;
 }
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
@@ -110,6 +122,19 @@ export async function applySQL(token: string): Promise<ApplyResponse> {
     body: JSON.stringify({ token }),
   });
   if (!res.ok) throw new Error(`apply failed: ${res.status}`);
+  return res.json();
+}
+
+export async function applyAll(sqls: string[], confirmCritical = false): Promise<ApplyAllResponse> {
+  const res = await fetch(`${API_BASE}/api/apply-all`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sqls, confirmCritical }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body?.detail ?? `apply-all failed: ${res.status}`);
+  }
   return res.json();
 }
 

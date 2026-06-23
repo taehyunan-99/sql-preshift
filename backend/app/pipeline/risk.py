@@ -7,25 +7,40 @@ from typing import Optional
 import sqlglot.expressions as exp
 
 from app.llm.client import OllamaError, complete
+from app.pipeline.explain import _parse_bilingual
 from app.schemas.analysis import Risk
 
+# 영/한 해설을 한 번의 호출로 동시 생성(EN:/KO:). explain.py와 동일한 파서·마크다운 제거 사용.
 _RISK_EXPLAIN_SYSTEM = """\
-너는 데이터베이스 보안 전문가다. 주어진 SQL과 위험 목록을 보고, 각 위험이 왜 문제인지·어떤 영향이 있는지·어떤 대안이 있는지를 한국어로 간결하게 설명한다.
-규칙:
-- 결정적 위험 판단(critical/warning)은 바꾸지 않는다. 해설만 추가한다.
-- 전체 2~5문장 이내.
-- SQL 코드를 그대로 반복하지 않는다.
+You are a database security expert. Given a SQL statement and detected risks, explain why each risk matters and its impact, concisely.
+Rules:
+- Do NOT change the risk verdict (critical/warning). Only add explanation.
+- Keep it to 1-2 short sentences total. Be terse. No examples, no fix suggestions.
+- Do not repeat the SQL code.
+- Do NOT use markdown (no **bold**, no headings, no bullet lists). Plain text only.
+- Output exactly two lines in this format, nothing else:
+EN: <English explanation>
+KO: <Korean explanation>
 """
+
+
+def _table_names(node: exp.Expression) -> list[str]:
+    """AST 노드 하위의 테이블명을 중복 없이 추출한다(ERD 강조 매칭용)."""
+    seen: list[str] = []
+    for t in node.find_all(exp.Table):
+        if t.name and t.name not in seen:
+            seen.append(t.name)
+    return seen
 
 
 async def llm_explain_risk(
     sql: str,
     risks: list[Risk],
     schema_diff=None,
-) -> str:
-    """결정적 위험 목록 위에 LLM 자연어 해설을 생성한다. Ollama 미기동 시 폴백."""
+) -> tuple[str, str]:
+    """결정적 위험 위에 LLM 해설을 영어·한국어로 생성한다. (en, ko) 튜플. Ollama 미기동 시 폴백."""
     if not risks:
-        return ""
+        return "", ""
 
     risk_summary = "\n".join(
         f"- [{r.level.upper()}] {r.rule}: {r.message}" for r in risks
@@ -34,15 +49,12 @@ async def llm_explain_risk(
         {"role": "system", "content": _RISK_EXPLAIN_SYSTEM},
         {
             "role": "user",
-            "content": (
-                f"SQL:\n{sql}\n\n"
-                f"감지된 위험:\n{risk_summary}\n\n"
-                "위 위험들을 비개발자도 이해할 수 있게 해설해줘."
-            ),
+            "content": f"SQL:\n{sql}\n\nDetected risks:\n{risk_summary}",
         },
     ]
     try:
-        return await complete(messages, temperature=0.0)
+        raw = await complete(messages, temperature=0.0)
+        return _parse_bilingual(raw)
     except OllamaError:
         return _fallback_risk_note(risks)
 
@@ -70,7 +82,9 @@ def deterministic_rules(
                 Risk(
                     level="critical",
                     rule="DELETE_WITHOUT_WHERE",
-                    message="WHERE 없는 DELETE — 테이블 전체 행이 삭제됩니다.",
+                    message="DELETE without WHERE — all rows in the table will be deleted.",
+                    message_ko="WHERE 없는 DELETE — 테이블 전체 행이 삭제됩니다.",
+                    tables=_table_names(delete),
                 )
             )
 
@@ -81,7 +95,9 @@ def deterministic_rules(
                 Risk(
                     level="critical",
                     rule="UPDATE_WITHOUT_WHERE",
-                    message="WHERE 없는 UPDATE — 테이블 전체 행이 변경됩니다.",
+                    message="UPDATE without WHERE — all rows in the table will be changed.",
+                    message_ko="WHERE 없는 UPDATE — 테이블 전체 행이 변경됩니다.",
+                    tables=_table_names(update),
                 )
             )
 
@@ -93,17 +109,21 @@ def deterministic_rules(
                 Risk(
                     level="critical",
                     rule="DROP_TABLE",
-                    message="DROP TABLE — 테이블과 모든 데이터가 영구 삭제됩니다.",
+                    message="DROP TABLE — the table and all its data are permanently deleted.",
+                    message_ko="DROP TABLE — 테이블과 모든 데이터가 영구 삭제됩니다.",
+                    tables=_table_names(drop),
                 )
             )
 
     # TRUNCATE
-    for _ in ast.find_all(exp.TruncateTable):
+    for truncate in ast.find_all(exp.TruncateTable):
         risks.append(
             Risk(
                 level="critical",
                 rule="TRUNCATE",
-                message="TRUNCATE — 테이블의 모든 행을 빠르게 삭제합니다.",
+                message="TRUNCATE — quickly removes all rows from the table.",
+                message_ko="TRUNCATE — 테이블의 모든 행을 빠르게 삭제합니다.",
+                tables=_table_names(truncate),
             )
         )
 
@@ -111,6 +131,7 @@ def deterministic_rules(
     for alter in ast.find_all(exp.Alter):
         if str(alter.args.get("kind", "")).upper() != "TABLE":
             continue
+        alter_tables = _table_names(alter)
         for action in alter.args.get("actions", []):
             # DROP COLUMN
             if isinstance(action, exp.Drop):
@@ -120,7 +141,9 @@ def deterministic_rules(
                         Risk(
                             level="critical",
                             rule="DROP_COLUMN",
-                            message="DROP COLUMN — 컬럼과 해당 데이터가 영구 삭제됩니다.",
+                            message="DROP COLUMN — the column and its data are permanently deleted.",
+                            message_ko="DROP COLUMN — 컬럼과 해당 데이터가 영구 삭제됩니다.",
+                            tables=alter_tables,
                         )
                     )
 
@@ -142,35 +165,39 @@ def deterministic_rules(
                         Risk(
                             level="warning",
                             rule="ADD_NOT_NULL_NO_DEFAULT",
-                            message="DEFAULT 없는 NOT NULL 컬럼 추가 — 기존 행에서 오류가 발생할 수 있습니다.",
+                            message="Adding a NOT NULL column without DEFAULT — existing rows may error.",
+                            message_ko="DEFAULT 없는 NOT NULL 컬럼 추가 — 기존 행에서 오류가 발생할 수 있습니다.",
+                            tables=alter_tables,
                         )
                     )
 
     # CASCADE — Drop.args["cascade"] 또는 Alter.args["cascade"]
-    cascade_found = any(
-        node.args.get("cascade")
-        for node in ast.find_all((exp.Drop, exp.Alter))
-    )
-    if cascade_found:
+    cascade_nodes = [
+        node for node in ast.find_all((exp.Drop, exp.Alter)) if node.args.get("cascade")
+    ]
+    if cascade_nodes:
+        cascade_tables: list[str] = []
+        for n in cascade_nodes:
+            for t in _table_names(n):
+                if t not in cascade_tables:
+                    cascade_tables.append(t)
         risks.append(
             Risk(
                 level="warning",
                 rule="CASCADE",
-                message="CASCADE — 연쇄 삭제/변경이 발생할 수 있습니다.",
+                message="CASCADE — cascading deletes/changes may occur.",
+                message_ko="CASCADE — 연쇄 삭제/변경이 발생할 수 있습니다.",
+                tables=cascade_tables,
             )
         )
 
     return risks
 
 
-def _fallback_risk_note(risks: list[Risk]) -> str:
-    """Ollama 미기동 시 위험 목록 기반 간단 폴백 해설."""
-    critical = [r for r in risks if r.level == "critical"]
-    warnings = [r for r in risks if r.level == "warning"]
-    parts: list[str] = []
-    if critical:
-        parts.append(f"치명적 위험 {len(critical)}건이 감지되었습니다: " + ", ".join(r.rule for r in critical) + ".")
-    if warnings:
-        parts.append(f"경고 {len(warnings)}건이 감지되었습니다: " + ", ".join(r.rule for r in warnings) + ".")
-    parts.append("자세한 해설은 Ollama 서비스가 기동된 후 다시 시도하세요.")
-    return " ".join(parts)
+def _fallback_risk_note(risks: list[Risk]) -> tuple[str, str]:
+    """Ollama 미기동 시 위험 목록 기반 간단 폴백 해설. (en, ko) 튜플."""
+    n_crit = sum(1 for r in risks if r.level == "critical")
+    n_warn = sum(1 for r in risks if r.level == "warning")
+    en = f"{n_crit} critical, {n_warn} warning risk(s) detected. Start Ollama for a detailed explanation."
+    ko = f"치명적 {n_crit}건, 경고 {n_warn}건이 감지되었습니다. 자세한 해설은 Ollama 기동 후 다시 시도하세요."
+    return en, ko

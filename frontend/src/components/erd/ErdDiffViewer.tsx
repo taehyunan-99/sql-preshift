@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import {
   ReactFlow,
   Background,
@@ -11,7 +11,10 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import TableNode from './TableNode';
+import ErdRelationEdge from './ErdRelationEdge';
 import { useErdLayout } from './useErdLayout';
+import { computeUnionPositions, type PositionMap } from '../../lib/erd-layout';
+import { useErdLabStore } from '../../store/erdLab';
 import type { SchemaGraph, SchemaDiff, NodeDef } from '../../lib/api';
 import type { RiskMap } from '../../lib/riskMap';
 
@@ -96,6 +99,26 @@ const MOCK_AFTER: SchemaGraph = {
 const MOCK_DIFF: SchemaDiff = { before: MOCK_BEFORE, after: MOCK_AFTER };
 
 const NODE_TYPES = { tableNode: TableNode };
+const EDGE_TYPES = { relationEdge: ErdRelationEdge };
+
+// maxZoom — 확대 상한. WebKit은 scale>1 viewport 레이어를 흐리게 래스터할 수 있어(#27684)
+// 1.0이 가장 안전하지만 그러면 작은 그래프가 너무 작다. 노드 root의 motion.div를 제거해 노드가
+// viewport 단일 레이어를 타게 됐으므로(자체 합성 레이어 아님) 1.4 정도는 흐림 위험이 낮다.
+// (흐림 재발 시 1.2 → 1.0으로 낮추면 됨.)
+const MAX_ZOOM = 1.4;
+const FIT_VIEW_OPTIONS = { padding: 0.2, maxZoom: MAX_ZOOM };
+
+// 노드 hover 핸들러를 안정 참조로 — 매 렌더 새 함수면 ReactFlow가 props 변경으로 인식.
+// onNodeMouseEnter/Leave가 store.hoveredNode만 갱신(엣지 강조용)하고 viewport는 안 건드린다.
+function useHoverHandlers() {
+  const setHoveredNode = useErdLabStore((s) => s.setHoveredNode);
+  const onNodeMouseEnter = useCallback(
+    (_: unknown, n: Node) => setHoveredNode(n.id),
+    [setHoveredNode],
+  );
+  const onNodeMouseLeave = useCallback(() => setHoveredNode(null), [setHoveredNode]);
+  return { onNodeMouseEnter, onNodeMouseLeave };
+}
 
 // 열린 사이드시트 폭 보정 고정상수 (좌 SqlSheet / 우 RiskSheet, px)
 const SHEET_WIDTH = 360;
@@ -119,6 +142,8 @@ function useChangedNodesFitView(
       nodes: changedIds.length > 0 ? changedIds : undefined,
       duration: 400,
       minZoom: 0.4,
+      maxZoom: MAX_ZOOM, // 확대 상한 — WebKit scale 흐림(#27684) 억제
+
       // 시트가 가리는 폭만큼 해당 변을 더 띄움(기본 64px + 시트 360px)
       padding: {
         top: 64,
@@ -131,28 +156,8 @@ function useChangedNodesFitView(
   }, [graph, sqlSheetOpen, riskSheetOpen, fitView]);
 }
 
-// 위험 테이블 노드에 위험색 ring 주입(critical=error, warning=warning). dagre·data 불변 — node.style만 덧입힘.
-// node.style은 xyflow 래퍼(.react-flow__node)에 적용돼 TableNode 인라인 diff 보더를 덮음 → 위험 > diff 우선순위 구현.
-function applyRisk(nodes: Node[], riskMap: RiskMap): Node[] {
-  if (!riskMap || Object.keys(riskMap).length === 0) return nodes;
-  return nodes.map((node) => {
-    const table = (node.data as unknown as NodeDef | undefined)?.table;
-    const level = table ? riskMap[table] : undefined;
-    if (!level) return node;
-    const color = level === 'critical' ? 'var(--color-error)' : 'var(--color-warning)';
-    const glow = level === 'critical' ? 'var(--color-error-glow)' : 'var(--color-warning-glow)';
-    return {
-      ...node,
-      style: {
-        ...node.style,
-        border: `2px solid ${color}`,
-        boxShadow: `0 0 0 1px ${color}, 0 0 16px 2px ${glow}, var(--shadow-card)`,
-        borderRadius: 'var(--radius-md)',
-        opacity: 1, // 위험 노드는 dim 금지
-      },
-    };
-  });
-}
+// 위험 강조는 TableNode가 Context(useRiskMap)로 기존 diff 시각언어(ringByVariant)를 써서 그린다.
+// node.style 직접 주입(사각 border)은 카드 디자인과 따로 놀아 제거했다.
 
 // 위험카드 hover 시 대응 노드에 강조 ring 주입. dagre 좌표·data 불변 — node.style만 덧입힘.
 // node.data.table(NodeDef)이 highlightTable과 일치하면 accent ring + 살짝 띄움.
@@ -182,6 +187,8 @@ interface PanelProps {
   // Split뷰 pan/zoom 동기화: 공유 viewport(있으면 controlled) + 변경 콜백.
   viewport?: Viewport;
   onViewportChange?: (vp: Viewport) => void;
+  // Split뷰 공유 좌표(union 레이아웃) — before/after가 같은 테이블을 동일 위치에 그린다.
+  positions?: PositionMap;
 }
 
 function ErdPanel({
@@ -191,11 +198,20 @@ function ErdPanel({
   riskMap = {},
   viewport,
   onViewportChange,
+  positions,
 }: PanelProps) {
-  const { nodes: rawNodes, edges } = useErdLayout(graph);
-  // 합성 순서 고정: 위험 ring → hover focus-ring 덮어쓰기. (위험 > diff, hover > 위험)
-  const nodes = applyHighlight(applyRisk(rawNodes, riskMap), highlightTable);
+  const { nodes: rawNodes, edges } = useErdLayout(graph, positions);
+  // 노드 hover → 연결 엣지 강조(ErdRelationEdge가 store.hoveredNode 구독). 핸들러는 안정 참조.
+  const { onNodeMouseEnter, onNodeMouseLeave } = useHoverHandlers();
+  // 위험 강조는 TableNode가 Context(riskMap)로 기존 diff 시각언어(ringByVariant)를 써서 그린다.
+  // 여기선 hover focus-ring만 node.style로 덧입힘(useMemo — hover는 store 구독이라 입력 아님).
+  const nodes = useMemo(
+    () => applyHighlight(rawNodes, highlightTable),
+    [rawNodes, highlightTable],
+  );
   return (
+    // 패널별 riskMap을 자체 Provider로 — before 패널은 {} 받아 강조 없음, after만 강조.
+    <RiskMapContext.Provider value={riskMap}>
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
       <div
         style={{
@@ -219,9 +235,13 @@ function ErdPanel({
             nodes={nodes}
             edges={edges}
             nodeTypes={NODE_TYPES}
+            edgeTypes={EDGE_TYPES}
+            onNodeMouseEnter={onNodeMouseEnter}
+            onNodeMouseLeave={onNodeMouseLeave}
             // viewport 미설정(초기)일 땐 fitView로 자동 정렬, 첫 이동 후부터 controlled 동기화.
             fitView={!viewport}
-            fitViewOptions={{ padding: 0.2 }}
+            fitViewOptions={FIT_VIEW_OPTIONS}
+            maxZoom={MAX_ZOOM}
             viewport={viewport}
             onViewportChange={onViewportChange}
             proOptions={{ hideAttribution: true }}
@@ -232,6 +252,7 @@ function ErdPanel({
         </ReactFlowProvider>
       </div>
     </div>
+    </RiskMapContext.Provider>
   );
 }
 
@@ -249,15 +270,22 @@ function SideBySideView({
 }) {
   // undefined = 초기(각 패널 fitView 자동정렬). 첫 이동 후 controlled로 전환돼 동기화.
   const [viewport, setViewport] = useState<Viewport | undefined>(undefined);
+  // before/after 합집합으로 좌표를 한 번 계산해 두 패널이 공유 → 같은 테이블 동일 위치.
+  const positions = useMemo(
+    () => computeUnionPositions([diff.before, diff.after]),
+    [diff.before, diff.after],
+  );
   return (
     <div style={{ display: 'flex', flex: 1, gap: 4, minHeight: 0 }}>
+      {/* before(현재 baseline)엔 위험 강조 안 함 — 위험은 적용 결과(after)에만 */}
       <ErdPanel
         graph={diff.before}
         label="Before"
         highlightTable={highlightTable}
-        riskMap={riskMap}
+        riskMap={{}}
         viewport={viewport}
         onViewportChange={setViewport}
+        positions={positions}
       />
       <div style={{ width: 1, background: 'var(--border)', flexShrink: 0 }} />
       <ErdPanel
@@ -267,12 +295,14 @@ function SideBySideView({
         riskMap={riskMap}
         viewport={viewport}
         onViewportChange={setViewport}
+        positions={positions}
       />
     </div>
   );
 }
 
-// ── overlay: after 그래프에 diff 색상만 ──
+// ── overlay(Unified): 누적 전체 그래프에 diff 색상. 누적 dry-run이면 cumulativeAfter,
+//    아니면 after를 쓴다 → Unified는 "지금까지 쌓은 전체", Split은 직전 1개(선명한 비교). ──
 function OverlayView({
   diff,
   sqlSheetOpen,
@@ -286,17 +316,26 @@ function OverlayView({
   highlightTable?: string | null;
   riskMap?: RiskMap;
 }) {
-  const { nodes: rawNodes, edges } = useErdLayout(diff.after);
-  const nodes = applyHighlight(applyRisk(rawNodes, riskMap), highlightTable);
-  useChangedNodesFitView(diff.after, sqlSheetOpen, riskSheetOpen);
+  const overlayGraph = diff.cumulativeAfter ?? diff.after;
+  const { nodes: rawNodes, edges } = useErdLayout(overlayGraph);
+  const { onNodeMouseEnter, onNodeMouseLeave } = useHoverHandlers();
+  const nodes = useMemo(
+    () => applyHighlight(rawNodes, highlightTable),
+    [rawNodes, highlightTable],
+  );
+  useChangedNodesFitView(overlayGraph, sqlSheetOpen, riskSheetOpen);
   return (
     <div style={{ flex: 1, position: 'relative', minHeight: 0 }}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
         nodeTypes={NODE_TYPES}
+        edgeTypes={EDGE_TYPES}
+        onNodeMouseEnter={onNodeMouseEnter}
+        onNodeMouseLeave={onNodeMouseLeave}
         fitView
-        fitViewOptions={{ padding: 0.2 }}
+        fitViewOptions={FIT_VIEW_OPTIONS}
+        maxZoom={MAX_ZOOM}
         proOptions={{ hideAttribution: true }}
         style={{ background: 'var(--bg-primary)' }}
       >
@@ -317,15 +356,23 @@ function SingleGraphView({
   riskMap?: RiskMap;
 }) {
   const { nodes: rawNodes, edges } = useErdLayout(graph);
-  const nodes = applyHighlight(applyRisk(rawNodes, riskMap), highlightTable);
+  const { onNodeMouseEnter, onNodeMouseLeave } = useHoverHandlers();
+  const nodes = useMemo(
+    () => applyHighlight(rawNodes, highlightTable),
+    [rawNodes, highlightTable],
+  );
   return (
     <div style={{ flex: 1, position: 'relative', minHeight: 0 }}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
         nodeTypes={NODE_TYPES}
+        edgeTypes={EDGE_TYPES}
+        onNodeMouseEnter={onNodeMouseEnter}
+        onNodeMouseLeave={onNodeMouseLeave}
         fitView
-        fitViewOptions={{ padding: 0.2 }}
+        fitViewOptions={FIT_VIEW_OPTIONS}
+        maxZoom={MAX_ZOOM}
         proOptions={{ hideAttribution: true }}
         style={{ background: 'var(--bg-primary)' }}
       >

@@ -38,6 +38,11 @@
   --color-warning-border: rgba(196, 149, 90, 0.4);
   --color-warning-glow: rgba(196, 149, 90, 0.45);    /* 변경노드 외곽 글로우 */
 
+  /* diff 색광 강한 halo(가까운 진한 색) — 유리 투과 발광용. semantic hex 분해값. */
+  --color-success-glow-strong: rgba(91, 154, 111, 0.55);
+  --color-error-glow-strong: rgba(196, 91, 91, 0.55);
+  --color-warning-glow-strong: rgba(196, 149, 90, 0.55);
+
   --color-info: #5A8FC4;
   --color-info-bg: rgba(90, 143, 196, 0.12);
   --color-info-border: rgba(90, 143, 196, 0.4);
@@ -98,6 +103,67 @@ body {
   background: var(--bg-primary);
   margin: 0;
   padding: 0;
+}
+
+/* ERD 카드 specular trim — 가장자리를 따라 빛이 굴절되는 유리 보더(Apple Liquid Glass).
+   본체는 불투명(텍스트 선명), 유리감은 가장자리에서만 표현(Apple HIG: 텍스트는 solid 위에).
+   좌상단 강한 광택 + 우하단 약한 반사 → 입체적 유리 가장자리.
+
+   ⚠ 이전 구현(masked gradient-ring: -webkit-mask + mask-composite)은 Safari(WebKit)에서
+   ::before를 별도 합성 backing store로 승격시켜 "처음부터 흐림"을 만들고, :hover::before의
+   background gradient 스왑(transition:background)은 GPU 비합성이라 hover마다 메인스레드
+   repaint("멈칫")를 일으켰다. 실제 WebKit ablation으로 확정(이 ::before 비활성 시 hover
+   repaint delta=0, 정적 래스터 2.3배↓). gradient는 transition 불가 속성이라 hover 효과를
+   제거하고, 링은 radius를 따르는 box-shadow inset(비합성·저비용, ablation 확인)으로 대체. */
+.erd-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  /* 좌상단 밝은 광택(0.5) + 우하단 약한 반사(0.14) — 원래 135deg gradient 양끝 재현 */
+  box-shadow:
+    inset 1px 1px 0 0 rgba(255, 255, 255, 0.5),
+    inset -1px -1px 0 0 rgba(255, 255, 255, 0.14);
+  pointer-events: none;
+  z-index: 4;
+}
+
+/* 상단 specular sweep — 카드 윗부분을 가로지르는 은은한 빛 띠(유리 표면 반사).
+   ::after로 본문 위 얇은 그라데이션, 텍스트 대비엔 영향 없는 수준(상단 28%만).
+   mix-blend-mode 제거 — Safari 26 회귀(블렌드 레이어가 hover repaint마다 재합성돼 흐림/
+   끊김)의 트리거. 어두운 배경 위 흰빛은 normal 합성도 거의 동일(screen≈알파 오버레이). */
+.erd-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.06) 0%,
+    rgba(255, 255, 255, 0.015) 28%,
+    transparent 50%
+  );
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* diff 색광 투과 레이어 — 본문(z1) 아래(z0)라 텍스트 절대 안 가림. 어두운 유리 위 '빛'.
+   background(가장자리 radial bleed)·box-shadow(inner glow)·애니는 TableNode 인라인에서 diff별 주입.
+   mix-blend-mode 제거 — 위와 동일(Safari 26 블렌드 재합성 회귀). 색광 alpha는 normal로도 충분. */
+.erd-glow {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* ERD 엣지 flow dash 흐름 — ErdRelationEdge가 edgeFlow on일 때 인라인 animation으로 참조.
+   본 제품 기본 off라 평소 미사용, 데모/토글 시 동작. */
+@keyframes erd-edge-flow {
+  to {
+    stroke-dashoffset: -20;
+  }
 }
 
 /* 스크롤바 스타일 */

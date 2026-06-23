@@ -4,13 +4,15 @@ import { create } from 'zustand';
 import type { SchemaDiff } from '../lib/api';
 
 export type PipelineStage = 'idle' | 'analyzing' | 'preview' | 'applying' | 'applied';
-export type InputMode = 'auto' | 'nl' | 'sql';
 
 export interface RiskItem {
   level: 'critical' | 'warning' | 'info';
   rule: string;
-  message: string;
+  message: string; // 영어 (기본)
+  messageKo?: string; // 한국어 (토글용)
+  tables: string[]; // 이 위험이 영향을 주는 테이블명 — ERD 노드 강조용
   llmNote?: string;
+  llmNoteKo?: string;
 }
 
 export interface AnalyzeResult {
@@ -34,9 +36,11 @@ interface PipelineState {
 
   /* 입력 상태 */
   inputText: string;
-  inputMode: InputMode;
   isAnalyzing: boolean;
   analyzeError: string | null;
+
+  /* 누적 dry-run 스택 — append-only, Undo는 끝에서만 pop. 매 analyze에 priorSqls로 동봉. */
+  dryRunStack: string[];
 
   /* 액션 */
   setStage: (stage: PipelineStage) => void;
@@ -46,9 +50,12 @@ interface PipelineState {
   closeAudit: () => void;
 
   setInputText: (text: string) => void;
-  setInputMode: (mode: InputMode) => void;
   setAnalyzing: (v: boolean) => void;
   setAnalyzeError: (err: string | null) => void;
+
+  pushDryRun: (sql: string) => void;
+  popDryRun: () => void;
+  clearDryRun: () => void;
 }
 
 export const usePipelineStore = create<PipelineState>((set) => ({
@@ -57,9 +64,9 @@ export const usePipelineStore = create<PipelineState>((set) => ({
   auditOpen: false,
 
   inputText: '',
-  inputMode: 'auto',
   isAnalyzing: false,
   analyzeError: null,
+  dryRunStack: [],
 
   setStage: (stage) => set({ stage }),
   setAnalyzeResult: (result) =>
@@ -75,12 +82,16 @@ export const usePipelineStore = create<PipelineState>((set) => ({
       analyzeResult: null,
       analyzeError: null,
       isAnalyzing: false,
+      dryRunStack: [],
     }),
   openAudit: () => set({ auditOpen: true }),
   closeAudit: () => set({ auditOpen: false }),
 
   setInputText: (text) => set({ inputText: text }),
-  setInputMode: (mode) => set({ inputMode: mode }),
   setAnalyzing: (v) => set({ isAnalyzing: v }),
   setAnalyzeError: (err) => set({ analyzeError: err }),
+
+  pushDryRun: (sql) => set((s) => ({ dryRunStack: [...s.dryRunStack, sql] })),
+  popDryRun: () => set((s) => ({ dryRunStack: s.dryRunStack.slice(0, -1) })),
+  clearDryRun: () => set({ dryRunStack: [] }),
 }));

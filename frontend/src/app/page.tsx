@@ -7,8 +7,6 @@ import { buildRiskMap, type RiskMap } from '../lib/riskMap';
 import InputPanel from '../components/InputPanel';
 import SqlDraftPanel from '../components/SqlDraftPanel';
 import ErdDiffViewer from '../components/erd/ErdDiffViewer';
-import RiskPanel from '../components/RiskPanel';
-import ApprovalBar from '../components/ApprovalBar';
 import CompletedBar from '../components/CompletedBar';
 import AuditDrawer from '../components/AuditDrawer';
 import StageBadge from '../components/StageBadge';
@@ -34,16 +32,15 @@ export default function Home() {
 
   // ERD mode 상태 lift-up — DiffControls·ErdDiffViewer가 공유.
   const [mode, setMode] = useState<DiffMode>('side-by-side');
-  // 사이드시트 열림 상태(fitView padding 보정용 + RiskSheet controlled).
+  // SqlDraft 사이드시트 열림 상태(fitView padding 보정용).
   const [sqlSheetOpen, setSqlSheetOpen] = useState(false);
-  const [riskSheetOpen, setRiskSheetOpen] = useState(false);
-  // 위험카드 hover 중인 테이블명 — RiskSheet → ErdCanvas 노드 하이라이트.
-  const [hoverTable, setHoverTable] = useState<string | null>(null);
   // idle/applied SingleGraphView용 현재 스키마 그래프.
   const [graph, setGraph] = useState<SchemaGraph | undefined>(undefined);
 
-  // 현재 스키마 그래프 1회 로드(idle/applied single 뷰 데이터 출처).
+  // 현재 스키마 그래프 로드(idle/applied single 뷰 데이터 출처).
+  // applied 진입 시 재로드 — Apply All로 누적 변경이 실DB에 반영됐으므로 ERD를 갱신한다.
   useEffect(() => {
+    if (stage !== 'idle' && stage !== 'applied') return;
     let alive = true;
     fetchSchemaGraph()
       .then((g) => {
@@ -55,29 +52,16 @@ export default function Home() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [stage]);
 
   const isDiffStage = stage === 'preview' || stage === 'applying';
   const isResultStage = isDiffStage || stage === 'applied';
-  const hasRisks = (analyzeResult?.risks.length ?? 0) > 0;
 
-  // 위험 테이블 노드 강조용 맵(table→level). 결과 stage에서만 캔버스에 반영.
+  // 위험 테이블 노드 강조용 맵(table→level). 결과 stage에서 ERD 노드에 붉은/노란 강조로 반영.
   const riskMap: RiskMap = useMemo(() => {
     if (!analyzeResult || analyzeResult.risks.length === 0) return {};
-    const tables = Array.from(
-      new Set([
-        ...analyzeResult.schemaDiff.before.nodes.map((n) => n.table),
-        ...analyzeResult.schemaDiff.after.nodes.map((n) => n.table),
-      ]),
-    );
-    return buildRiskMap(analyzeResult.risks, tables);
+    return buildRiskMap(analyzeResult.risks);
   }, [analyzeResult]);
-
-  // RiskSheet 점진 노출: preview 진입 시 자동 열림, applied 진입 시 자동 접힘.
-  useEffect(() => {
-    if (stage === 'preview') setRiskSheetOpen(true);
-    else if (stage === 'applied') setRiskSheetOpen(false);
-  }, [stage]);
 
   // ErdCanvas 데이터: preview/applying=diff, idle/applied=single graph.
   const erdDiff = isDiffStage ? analyzeResult?.schemaDiff : undefined;
@@ -105,8 +89,7 @@ export default function Home() {
           mode={mode}
           onModeChange={setMode}
           sqlSheetOpen={sqlSheetOpen}
-          riskSheetOpen={riskSheetOpen}
-          highlightTable={hoverTable}
+          riskSheetOpen={false}
           riskMap={isResultStage ? riskMap : {}}
         />
       </div>
@@ -202,38 +185,32 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Layer5: RiskSheet — preview에서 risks>0이면 자동 등장. risks===0 미렌더.
-          controlled: open=riskSheetOpen(preview 자동열림/applied 자동접힘), 핸들 토글은 onToggle. */}
-      {isResultStage && hasRisks && (
-        <RiskPanel
-          open={riskSheetOpen}
-          onToggle={setRiskSheetOpen}
-          onRiskHover={setHoverTable}
-        />
-      )}
+      {/* 위험은 오른쪽 시트 대신 ERD 노드 붉은/노란 강조(riskMap)로 표시하고,
+          critical은 InputPanel의 경고 모달로 알린다(별도 RiskSheet 제거). */}
 
-      {/* Layer2: CommandBar(idle/analyzing) — 하단 중앙. InputPanel은 self-width(720px)라
-          래퍼 하나로 중앙 정렬 + reveal. preview/applied는 ApprovalBar/CompletedBar가 같은 자리. */}
+      {/* Layer2: CommandBar(idle/analyzing/preview) — 하단 중앙. InputPanel은 self-width(720px)라
+          래퍼 하나로 중앙 정렬 + reveal. preview에서도 노출돼 누적 dry-run 입력을 받고,
+          누적 액션(pending·Undo·Cancel·Apply All)은 InputPanel 하단에 통합. applying/applied는 숨김. */}
       <div
         style={{
           position: 'absolute',
           bottom: 24,
           left: '50%',
           zIndex: 36,
-          transform: (stage === 'idle' || stage === 'analyzing')
+          transform: (stage === 'idle' || stage === 'analyzing' || stage === 'preview')
             ? 'translate(-50%, 0)'
             : 'translate(-50%, 8px)',
-          opacity: (stage === 'idle' || stage === 'analyzing') ? 1 : 0,
-          visibility: (stage === 'idle' || stage === 'analyzing') ? 'visible' : 'hidden',
-          pointerEvents: (stage === 'idle' || stage === 'analyzing') ? 'auto' : 'none',
+          opacity: (stage === 'idle' || stage === 'analyzing' || stage === 'preview') ? 1 : 0,
+          visibility: (stage === 'idle' || stage === 'analyzing' || stage === 'preview') ? 'visible' : 'hidden',
+          pointerEvents: (stage === 'idle' || stage === 'analyzing' || stage === 'preview') ? 'auto' : 'none',
           transition: 'opacity var(--transition-base), transform var(--transition-base)',
         }}
       >
         <InputPanel />
       </div>
 
-      {/* ApprovalBar/CompletedBar는 자체 stage 가드 + self-position. 항상 마운트. */}
-      <ApprovalBar />
+      {/* 누적 dry-run 액션(pending·Undo·Cancel·Apply All)은 InputPanel 하단에 통합됨.
+          CompletedBar는 자체 stage 가드 + self-position. 항상 마운트. */}
       <CompletedBar />
 
       {/* Layer7: AuditDrawer */}

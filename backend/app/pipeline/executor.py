@@ -140,27 +140,30 @@ def apply(
     down_script: Optional[str],
     session: Session,
     target_engine: Optional[Engine] = None,
+    confirm_critical: bool = False,
 ) -> ApplyResult:
     """SQL을 적용하고 MigrationHistory/AuditLog에 기록한다.
 
     보안 (fail-closed, 함수 직접호출 우회 방어):
-    1. parse(sql) + check_forbidden(ast) — 금지 패턴 차단
-    2. deterministic_rules(ast) — critical 위험 차단 (WHERE 없는 DELETE, DROP TABLE 등)
+    1. parse(sql) + check_forbidden(ast) — 금지 패턴(시스템 스키마 등) 항상 차단. 우회 불가.
+    2. deterministic_rules(ast) — critical 위험은 기본 차단(실수 방지)하되,
+       confirm_critical=True면 통과(경고는 했으니 적용은 사용자 판단).
     """
     from app.models.audit import AuditLog, MigrationHistory
     from app.pipeline.risk import deterministic_rules
 
-    # ① 재검증 — 검증 우회 방지
+    # ① 재검증 — 검증 우회 방지. 금지 패턴(보안)은 confirm과 무관하게 항상 차단.
     ast = parse(sql)
     violations = check_forbidden(ast)
     if violations:
-        raise ValidationError(f"금지 패턴 위반: {violations[0].message}")
+        # UI 노출 문자열은 영어(주석은 한국어)
+        raise ValidationError(f"Forbidden pattern: {violations[0].message}")
 
-    # ② critical 위험 차단 — API 레이어 우회 시에도 함수 레벨에서 차단
+    # ② critical 위험 — 명시 확인이 없으면 차단(실수 방지). 확인 시 통과.
     critical_risks = [r for r in deterministic_rules(ast) if r.level == "critical"]
-    if critical_risks:
+    if critical_risks and not confirm_critical:
         raise ValidationError(
-            f"critical 위험 SQL은 적용할 수 없습니다: {critical_risks[0].rule}"
+            f"Critical-risk SQL cannot be applied without confirmation: {critical_risks[0].rule}"
         )
 
     # ③ target 실행 후 메타 기록 — target 실패 시 메타 기록 없음(원자성 보장)
@@ -186,6 +189,74 @@ def apply(
         appliedAt=applied_at,
         sql=sql,
     )
+
+
+# ─── apply_all (누적 dry-run 일괄 적용) ──────────────────────────────
+
+def apply_all(
+    sqls: list[str],
+    session: Session,
+    target_engine: Optional[Engine] = None,
+    confirm_critical: bool = False,
+):
+    """N개 SQL을 단일 TX로 일괄 적용한다(all-or-nothing). SQL당 감사 로그 1건.
+
+    보안 (fail-closed):
+    1. TX 진입 전 전수 선검사 — 금지 패턴(보안)은 항상 거부. critical은 기본 거부하되
+       confirm_critical=True면 통과(경고는 했으니 적용은 사용자 판단).
+    2. 단일 engine.begin() — 중간 구문 실패 시 앞 구문까지 전부 롤백.
+    3. down_script는 단계별 누적 baseline 기준으로 생성(apply_ast_to_graph로 fold).
+    """
+    from app.models.audit import AuditLog, MigrationHistory
+    from app.pipeline.risk import deterministic_rules
+    from app.pipeline.schema_graph import build_graph
+    from app.pipeline.simulation import apply_ast_to_graph
+    from app.schemas.analysis import ApplyAllResult
+
+    if not sqls:
+        raise ValidationError("적용할 SQL이 없습니다.")
+
+    engine = target_engine if target_engine is not None else session.get_bind()
+
+    # ① TX 진입 전 전수 선검사 — 하나라도 위반/critical이면 실행 전 전체 거부
+    asts: list[exp.Expression] = []
+    for i, s in enumerate(sqls):
+        ast = parse(s)
+        if check_forbidden(ast):  # 금지 패턴(보안) — 항상 차단, confirm 무관
+            raise ValidationError(f"sqls[{i}] forbidden pattern: {s[:80]}")
+        if not confirm_critical and any(r.level == "critical" for r in deterministic_rules(ast)):
+            raise ValidationError(f"sqls[{i}] critical-risk SQL cannot be applied without confirmation: {s[:80]}")
+        asts.append(ast)
+
+    # ② 단일 target TX — 중간 실패 시 모두 롤백(all-or-nothing)
+    graph = build_graph(engine)  # down_script 누적 생성용 baseline
+    audit_ids: list[str] = []
+    applied_at = ""
+
+    with engine.begin() as conn:
+        for s, ast in zip(sqls, asts):
+            conn.execute(text(s))
+
+    # ③ target TX 정상 종료 후 메타 기록 — SQL당 MigrationHistory+AuditLog 1건
+    for s, ast in zip(sqls, asts):
+        before_tables = {n.id: n for n in graph.nodes}
+        down = build_down_script(ast, before_tables) or None
+        migration = MigrationHistory(sql=s, down_script=down)
+        session.add(migration)
+        session.flush()
+
+        audit = AuditLog(
+            migration_id=migration.id,
+            action="apply",
+            detail=f"apply-all: {s[:200]}",
+        )
+        session.add(audit)
+        session.flush()
+        audit_ids.append(str(audit.id))
+        applied_at = audit.created_at.isoformat() if audit.created_at else datetime.datetime.utcnow().isoformat()
+        graph = apply_ast_to_graph(ast, graph)  # 다음 단계 down_script용 누적
+
+    return ApplyAllResult(auditIds=audit_ids, appliedAt=applied_at, count=len(sqls))
 
 
 # ─── rollback ────────────────────────────────────────────────────────
@@ -215,7 +286,7 @@ def rollback(
         stmt_violations = check_forbidden(stmt_ast)
         if stmt_violations:
             raise ValidationError(
-                f"롤백 스크립트 금지 패턴 위반: {stmt_violations[0].message} (stmt: {stmt[:80]})"
+                f"Rollback script forbidden pattern: {stmt_violations[0].message} (stmt: {stmt[:80]})"
             )
 
     engine = target_engine if target_engine is not None else session.get_bind()

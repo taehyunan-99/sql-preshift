@@ -23,6 +23,10 @@ venv/
 *.sqlite3
 data/
 
+# 테스트/검증 산출물 (시나리오 결과·스크린샷 캡처)
+backend/scenario_results.json
+frontend/scripts/
+
 # 로컬 LLM 모델 파일
 *.gguf
 models/

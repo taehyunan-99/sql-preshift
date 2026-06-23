@@ -27,13 +27,23 @@ class Risk(BaseModel):
 
     level: Literal["critical", "warning", "info"]
     rule: str
-    message: str
+    message: str  # 영어 (UI 기본)
+    message_ko: str = Field(default="", serialization_alias="messageKo")  # 한국어 (UI 토글용)
+    # 이 위험이 영향을 주는 테이블명 — ERD 노드 강조용(프론트가 메시지 파싱 대신 이걸 씀).
+    tables: list[str] = Field(default_factory=list)
     llm_note: Optional[str] = Field(default=None, serialization_alias="llmNote")
+    llm_note_ko: Optional[str] = Field(default=None, serialization_alias="llmNoteKo")
 
 
 class SchemaSimResult(BaseModel):
     before: SchemaGraph
     after: SchemaGraph
+    # 누적 dry-run 전용: 원본 실DB 대비 "스택 전체" 적용 결과(diff 마킹 포함).
+    # Split뷰는 before/after(직전 1개)로 선명한 비교, Unified뷰는 이걸로 전체 누적 표시.
+    # 누적이 아니면(단건) None — Unified도 after를 그대로 쓴다.
+    cumulative_after: Optional[SchemaGraph] = Field(
+        default=None, serialization_alias="cumulativeAfter"
+    )
 
 
 class DataSimResult(BaseModel):
@@ -48,6 +58,8 @@ class AnalyzeRequest(BaseModel):
     input: Optional[str] = None
     sql: Optional[str] = None  # 하위 호환 (직접 SQL 입력 경로)
     mode: InputMode = InputMode.AUTO
+    # 누적 dry-run baseline: 직전까지 dry-run으로 쌓은 SQL(순서대로). 비면 기존 동작과 동일.
+    priorSqls: list[str] = Field(default_factory=list)
 
     def get_raw_input(self) -> str:
         """input 또는 sql 중 있는 것을 반환한다."""
@@ -75,7 +87,12 @@ class AnalyzeResponse(BaseModel):
 # ─── apply DTO ───────────────────────────────────────────────────────
 
 class ApplyRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     token: str
+    # critical 위험을 사용자가 명시적으로 확인하고 적용을 강행할 때 true.
+    # 기본 false → critical은 422 차단(실수 방지). true → 경고는 했으니 적용은 사용자 판단.
+    confirm_critical: bool = Field(default=False, alias="confirmCritical")
 
 
 class ApplyResult(BaseModel):
@@ -83,6 +100,24 @@ class ApplyResult(BaseModel):
     auditId: str
     appliedAt: str
     sql: str
+
+
+# ─── apply-all DTO (누적 dry-run 일괄 적용) ──────────────────────────
+
+class ApplyAllRequest(BaseModel):
+    """dry-run으로 쌓은 전체 SQL(순서대로) — 단일 TX로 일괄 적용한다."""
+    model_config = ConfigDict(populate_by_name=True)
+
+    sqls: list[str]
+    # critical 위험 명시 확인 후 강행 시 true. 기본 false → critical 포함 시 422 차단.
+    confirm_critical: bool = Field(default=False, alias="confirmCritical")
+
+
+class ApplyAllResult(BaseModel):
+    """SQL당 AuditLog 1건 → auditIds는 sqls 순서와 일치."""
+    auditIds: list[str]
+    appliedAt: str  # 마지막 커밋 시각 ISO
+    count: int
 
 
 # ─── audit DTO ───────────────────────────────────────────────────────

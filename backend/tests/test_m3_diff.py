@@ -6,7 +6,7 @@ import pytest
 from sqlalchemy import create_engine, text
 
 from app.pipeline.schema_graph import build_graph, diff_graphs
-from app.pipeline.simulation import simulate_schema
+from app.pipeline.simulation import simulate_cumulative, simulate_schema
 from app.pipeline.validation import parse
 from app.schemas.schema_graph import ColumnChange, ColumnNode, FkEdge, SchemaGraph, TableNode
 
@@ -189,6 +189,64 @@ def test_simulate_alter_type_produces_modified_column_with_change(base_graph):
     assert email.diff == "modified"
     assert email.change is not None
     assert email.change.to.startswith("varchar") or "varchar" in email.change.to.lower()
+
+
+def test_simulate_create_table_with_fk_produces_added_edge(base_graph):
+    """CREATE TABLE wishlists ... REFERENCES users(id) → wishlists=added + 새 FK 엣지=added."""
+    ast = parse(
+        "CREATE TABLE wishlists (id INTEGER PRIMARY KEY, "
+        "user_id INTEGER NOT NULL REFERENCES users(id))"
+    )
+    result = simulate_schema(ast, base_graph)
+
+    wishlists = next((n for n in result.after.nodes if "wishlists" in n.id), None)
+    assert wishlists is not None
+    assert wishlists.diff == "added"
+
+    new_edge = next(
+        (e for e in result.after.edges if "wishlists" in e.source and "users" in e.target),
+        None,
+    )
+    assert new_edge is not None, "CREATE TABLE의 inline FK가 관계 엣지로 표시돼야 함"
+    assert new_edge.diff == "added"
+    assert new_edge.sourceColumn == "user_id"
+    assert new_edge.targetColumn == "id"
+
+
+def test_simulate_alter_add_fk_column_produces_added_edge(base_graph):
+    """ALTER TABLE orders ADD COLUMN reviewer_id ... REFERENCES users(id) → 새 FK 엣지=added."""
+    ast = parse("ALTER TABLE orders ADD COLUMN reviewer_id INTEGER REFERENCES users(id)")
+    result = simulate_schema(ast, base_graph)
+
+    new_edge = next(
+        (
+            e
+            for e in result.after.edges
+            if "orders" in e.source and e.sourceColumn == "reviewer_id"
+        ),
+        None,
+    )
+    assert new_edge is not None, "ALTER ADD COLUMN의 inline FK가 관계 엣지로 표시돼야 함"
+    assert new_edge.diff == "added"
+    assert "users" in new_edge.target
+
+
+def test_simulate_cumulative_shows_full_stack(base_graph):
+    """누적 dry-run: before=원본, after=(prior 전체 + 현재)가 모두 누적 표시돼야."""
+    prior = [
+        "CREATE TABLE wishlists (id INTEGER PRIMARY KEY, user_id INTEGER REFERENCES users(id))",
+    ]
+    current = parse("ALTER TABLE orders ADD COLUMN note TEXT")
+    result = simulate_cumulative(prior, current, base_graph)
+
+    # before는 원본 그대로(전부 unchanged)
+    assert all(n.diff == "unchanged" for n in result.before.nodes)
+
+    after = {n.table: n.diff for n in result.after.nodes}
+    # prior에서 만든 wishlists가 added로 (이전 스택도 누적 표시)
+    assert after.get("wishlists") == "added", f"누적 전체가 안 보임: {after}"
+    # 현재 SQL 변경도 함께
+    assert after.get("orders") == "modified", f"현재 변경 누락: {after}"
 
 
 def test_simulate_before_is_all_unchanged(base_graph):

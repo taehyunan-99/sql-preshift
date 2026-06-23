@@ -24,6 +24,31 @@ def _table_id(table_expr: exp.Table, fallback_schema: str | None = "public") -> 
     return f"{schema}.{name}" if schema else name
 
 
+def _inline_fk(col_def: exp.ColumnDef) -> tuple[str, str] | None:
+    """컬럼 정의의 inline REFERENCES에서 (참조 테이블명, 참조 컬럼명)을 추출한다.
+
+    예: `user_id INTEGER REFERENCES users(id)` → ("users", "id").
+    참조 컬럼 미지정(`REFERENCES users`) 시 컬럼은 None 대신 빈 문자열로 둔다(엣지는 생성).
+    """
+    for c in col_def.args.get("constraints", []):
+        kind = c.args.get("kind") if isinstance(c, exp.ColumnConstraint) else c
+        if isinstance(kind, exp.Reference):
+            ref_tbl = kind.find(exp.Table)
+            if ref_tbl is None:
+                return None
+            # Reference 내부 Schema의 Identifier 중 테이블명이 아닌 것이 참조 컬럼.
+            schema_expr = kind.find(exp.Schema)
+            ref_col = ""
+            if schema_expr:
+                idents = [
+                    i.name for i in schema_expr.find_all(exp.Identifier)
+                    if i.name != ref_tbl.name
+                ]
+                ref_col = idents[0] if idents else ""
+            return ref_tbl.name, ref_col
+    return None
+
+
 def _col_from_def(col_def: exp.ColumnDef, diff: str = "unchanged") -> ColumnNode:
     constraints = col_def.args.get("constraints", [])
     is_pk = any(
@@ -37,11 +62,12 @@ def _col_from_def(col_def: exp.ColumnDef, diff: str = "unchanged") -> ColumnNode
         if isinstance(c, exp.ColumnConstraint)
     )
     col_type = col_def.args.get("kind")
+    fk_ref = _inline_fk(col_def)
     return ColumnNode(
         name=col_def.name,
         type=str(col_type).lower() if col_type else "unknown",
         pk=is_pk,
-        fk=None,
+        fk=fk_ref[0] if fk_ref else None,  # 참조 테이블명(api 계약: fk = 테이블명)
         nullable=not is_not_null and not is_pk,
         diff=diff,  # type: ignore[arg-type]
     )
@@ -55,8 +81,12 @@ def _detect_schema(before: SchemaGraph) -> str | None:
     return None
 
 
-def simulate_schema(ast: exp.Expression, before: SchemaGraph) -> SchemaSimResult:
-    """AST를 before SchemaGraph에 가상 적용해 after SchemaGraph를 생성하고 diff를 산출한다."""
+def apply_ast_to_graph(ast: exp.Expression, before: SchemaGraph) -> SchemaGraph:
+    """AST를 before에 가상 적용해 '순수 after' 그래프를 반환한다(diff 플래그 마킹 없음).
+
+    누적 dry-run의 fold 전용 — diff_graphs를 거치지 않은 순수 그래프라 다음 SQL의
+    baseline으로 다시 먹일 수 있다(simulate_schema의 after는 diff 결과라 fold에 부적합).
+    """
     # before 그래프에서 스키마 prefix 감지 (SQLite=None, PostgreSQL="public" 등)
     fallback_schema = _detect_schema(before)
 
@@ -78,7 +108,25 @@ def simulate_schema(ast: exp.Expression, before: SchemaGraph) -> SchemaSimResult
         col_nodes: list[ColumnNode] = []
         if schema_expr:
             for col_def in schema_expr.find_all(exp.ColumnDef):
-                col_nodes.append(_col_from_def(col_def, diff="added"))
+                col = _col_from_def(col_def, diff="added")
+                # inline REFERENCES → 새 FK 엣지(관계선) 생성. 참조 테이블이 존재할 때만.
+                fk_ref = _inline_fk(col_def)
+                if fk_ref:
+                    ref_tid = f"{fallback_schema}.{fk_ref[0]}" if fallback_schema else fk_ref[0]
+                    if ref_tid in nodes:
+                        eid = f"fk_{tbl.name}_{col_def.name}"
+                        edges[eid] = FkEdge(
+                            id=eid,
+                            source=tid,
+                            target=ref_tid,
+                            sourceColumn=col_def.name,
+                            targetColumn=fk_ref[1] or "id",
+                            diff="added",
+                        )
+                    else:
+                        # 참조 테이블이 없으면 FK 핸들(N)이 타깃 없이 떠 착시를 만든다 → fk 필드 정정.
+                        col = col.model_copy(update={"fk": None})
+                col_nodes.append(col)
 
         nodes[tid] = TableNode(
             id=tid,
@@ -119,8 +167,25 @@ def simulate_schema(ast: exp.Expression, before: SchemaGraph) -> SchemaSimResult
             # ADD COLUMN
             if isinstance(action, exp.ColumnDef):
                 new_col = _col_from_def(action, diff="added")
-                col_map[new_col.name] = new_col
                 changed = True
+                # ADD COLUMN ... REFERENCES → 새 FK 엣지(관계선) 생성.
+                fk_ref = _inline_fk(action)
+                if fk_ref:
+                    ref_tid = f"{fallback_schema}.{fk_ref[0]}" if fallback_schema else fk_ref[0]
+                    if ref_tid in nodes:
+                        eid = f"fk_{tbl.name}_{action.name}"
+                        edges[eid] = FkEdge(
+                            id=eid,
+                            source=tid,
+                            target=ref_tid,
+                            sourceColumn=action.name,
+                            targetColumn=fk_ref[1] or "id",
+                            diff="added",
+                        )
+                    else:
+                        # 참조 테이블이 없으면 타깃 없는 FK 핸들 착시 → fk 필드 정정.
+                        new_col = new_col.model_copy(update={"fk": None})
+                col_map[new_col.name] = new_col
 
             # DROP COLUMN
             elif isinstance(action, exp.Drop):
@@ -150,9 +215,76 @@ def simulate_schema(ast: exp.Expression, before: SchemaGraph) -> SchemaSimResult
                 update={"columns": list(col_map.values()), "diff": "modified"}
             )
 
-    after = SchemaGraph(nodes=list(nodes.values()), edges=list(edges.values()))
+    return SchemaGraph(nodes=list(nodes.values()), edges=list(edges.values()))
+
+
+def simulate_schema(ast: exp.Expression, before: SchemaGraph) -> SchemaSimResult:
+    """AST를 before SchemaGraph에 가상 적용해 after를 만들고 diff를 산출한다."""
+    after = apply_ast_to_graph(ast, before)
     diff = diff_graphs(before, after)
     return SchemaSimResult(before=before, after=diff)
+
+
+def _normalize_unchanged(graph: SchemaGraph) -> SchemaGraph:
+    """그래프의 모든 노드/컬럼/엣지 diff를 'unchanged'로 초기화한다.
+
+    apply_ast_to_graph는 추가/변경 컬럼에 added/modified를 박는다. baseline은 '이미 확정된
+    기준선'이므로 그 마킹을 지워야 split뷰 before가 깨끗하게(diff 색 없이) 보인다.
+    """
+    nodes = [
+        n.model_copy(
+            update={
+                "diff": "unchanged",
+                "columns": [c.model_copy(update={"diff": "unchanged", "change": None}) for c in n.columns],
+            }
+        )
+        for n in graph.nodes
+    ]
+    edges = [e.model_copy(update={"diff": "unchanged"}) for e in graph.edges]
+    return SchemaGraph(nodes=nodes, edges=edges)
+
+
+def fold_baseline(prior_sqls: list[str], base: SchemaGraph) -> SchemaGraph:
+    """실DB base 위에 prior_sqls를 순차 가상 적용한 '누적 baseline'을 반환한다.
+
+    각 SQL은 parse + check_forbidden으로 재검증(fail-closed) — priorSqls는 프론트가
+    보낸 신뢰 불가 입력이라 우회 금지. critical은 dry-run이라 막지 않는다(실DB 무변경).
+    fold는 순수 그래프(apply_ast_to_graph)만 누적 — diff 그래프 절대 금지.
+    마지막에 diff 마킹을 지워 baseline을 깨끗한 기준선으로 만든다(split뷰 before용).
+    """
+    graph = base
+    for i, s in enumerate(prior_sqls):
+        try:
+            ast = parse(s)  # 멀티스테이트먼트/파싱 실패 → ValidationError
+        except ValidationError as e:
+            raise ValidationError(f"priorSqls[{i}] 파싱 실패: {e}")
+        if check_forbidden(ast):
+            raise ValidationError(f"priorSqls[{i}] 금지 패턴 위반")
+        graph = apply_ast_to_graph(ast, graph)  # diff 없는 순수 누적
+    return _normalize_unchanged(graph)
+
+
+def simulate_cumulative(
+    prior_sqls: list[str], current_ast: exp.Expression, base: SchemaGraph
+) -> SchemaSimResult:
+    """누적 dry-run 전체 diff: before=원본 실DB(base), after=(prior + current) 전부 적용.
+
+    fold_baseline과 달리 normalize하지 않고 prior+current를 순수 누적한 뒤 base와 diff한다.
+    → 스택에 쌓인 모든 변경이 한 화면에 added/modified/removed로 누적 표시된다.
+    prior_sqls는 신뢰 불가 입력이라 parse+check_forbidden 재검증(fail-closed) 유지.
+    """
+    graph = base
+    for i, s in enumerate(prior_sqls):
+        try:
+            ast = parse(s)
+        except ValidationError as e:
+            raise ValidationError(f"priorSqls[{i}] 파싱 실패: {e}")
+        if check_forbidden(ast):
+            raise ValidationError(f"priorSqls[{i}] 금지 패턴 위반")
+        graph = apply_ast_to_graph(ast, graph)
+    full_after = apply_ast_to_graph(current_ast, graph)
+    diff = diff_graphs(base, full_after)
+    return SchemaSimResult(before=base, after=diff)
 
 
 def simulate_data(sql: str, engine: Engine) -> DataSimResult:
