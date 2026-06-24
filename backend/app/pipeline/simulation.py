@@ -344,5 +344,54 @@ def simulate_data(sql: str, engine: Engine) -> DataSimResult:
     return DataSimResult(affectedRows=affected, estimatedRows=estimated)
 
 
+def simulate_constraint_violation(ast: exp.Expression, engine: Engine):
+    """ALTER가 SET NOT NULL이면, 적용 시 위반할 기존 NULL 행 수를 read-only로 센다.
+
+    반환: (violations:int, hint_en:str, hint_ko:str) 또는 None(점검 비대상).
+    - 오직 SELECT COUNT(*) 한 줄만 실행(쓰기 없음, target_engine 전용).
+    - 테이블/컬럼 식별자는 AST에서 추출 후 따옴표로 감싸 주입(인젝션 방지).
+    """
+    if not isinstance(ast, exp.Alter) or str(ast.args.get("kind", "")).upper() != "TABLE":
+        return None
+    tbl = ast.find(exp.Table)
+    if tbl is None:
+        return None
+
+    # SET NOT NULL 대상 컬럼명 추출(타입 변경이 아닌 NOT NULL 강제만)
+    target_col: str | None = None
+    for action in ast.args.get("actions", []):
+        if (
+            isinstance(action, exp.AlterColumn)
+            and action.args.get("dtype") is None
+            and action.args.get("allow_null") is False
+        ):
+            ident = action.args.get("this")
+            if ident is not None:
+                target_col = ident.name
+                break
+    if not target_col:
+        return None
+
+    # 식별자만 안전 재직렬화(리터럴 보간 없음). COUNT는 read-only.
+    tbl_sql = tbl.sql(dialect="postgres")
+    col_sql = exp.column(target_col).sql(dialect="postgres")
+    count_sql = f"SELECT COUNT(*) FROM {tbl_sql} WHERE {col_sql} IS NULL"
+
+    try:
+        with engine.connect() as conn:
+            n = conn.execute(text(count_sql)).scalar() or 0
+    except Exception:
+        return None  # 테이블/컬럼 부재 등 — 점검 불가 시 조용히 생략
+
+    n = int(n)
+    if n <= 0:
+        en = f'No existing rows violate NOT NULL on "{target_col}" — safe to apply.'
+        ko = f'"{target_col}"의 기존 행이 NOT NULL을 위반하지 않습니다 — 안전하게 적용 가능.'
+    else:
+        en = f'SET NOT NULL on "{target_col}" would reject {n:,} existing NULL row(s).'
+        ko = f'"{target_col}"에 SET NOT NULL 적용 시 기존 NULL {n:,}행이 거부됩니다.'
+    return n, en, ko
+
+
 class _RollbackSignal(Exception):
     """simulate_data 전용 내부 rollback 트리거 — 절대 외부로 전파되지 않는다."""

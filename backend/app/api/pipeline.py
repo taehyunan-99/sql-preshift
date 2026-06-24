@@ -131,6 +131,23 @@ async def analyze(req: AnalyzeRequest, session: Session = Depends(get_meta_sessi
                 data_sim = simulate_data(sql, engine)
             except Exception:
                 data_sim = None
+        # ALTER ... SET NOT NULL: 적용 시 위반할 기존 NULL 행 수를 read-only로 점검(누적 중에도 실DB 기준 유효).
+        elif data_sim is None:
+            try:
+                from app.pipeline.simulation import simulate_constraint_violation
+
+                cv = simulate_constraint_violation(ast, engine)
+                if cv is not None:
+                    n, hint_en, hint_ko = cv
+                    data_sim = DataSimResult(
+                        affectedRows=0,
+                        estimatedRows=0,
+                        constraintViolations=n,
+                        constraintHint=hint_en,
+                        constraintHintKo=hint_ko,
+                    )
+            except Exception:
+                data_sim = None
 
         try:
             from app.pipeline.executor import build_down_script

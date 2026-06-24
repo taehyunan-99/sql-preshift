@@ -49,6 +49,13 @@ class SchemaSimResult(BaseModel):
 class DataSimResult(BaseModel):
     affectedRows: int
     estimatedRows: int
+    # 제약 위반 사전 점검(read-only): ADD/SET NOT NULL 시 NULL인 기존 행 수.
+    # None=점검 비대상(일반 DML), 0=위반 없음(안전), N>0=적용 시 N행이 위반.
+    constraintViolations: Optional[int] = Field(default=None)
+    constraintHint: Optional[str] = Field(default=None)  # "column \"x\" would reject N rows" 류 영어 힌트
+    constraintHintKo: Optional[str] = Field(
+        default=None, serialization_alias="constraintHintKo"
+    )
 
 
 # ─── analyze 요청/응답 DTO ──────────────────────────────────────────

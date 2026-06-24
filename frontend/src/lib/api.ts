@@ -66,7 +66,14 @@ export interface AnalyzeResponse {
   valid: boolean;
   violations: string[];
   schemaDiff: SchemaDiff;
-  dataSim: { affectedRows: number; estimatedRows: number } | null;
+  dataSim: {
+    affectedRows: number;
+    estimatedRows: number;
+    // 제약 위반 사전 점검(ADD/SET NOT NULL): null=비대상, 0=안전, N>0=위반 행수
+    constraintViolations?: number | null;
+    constraintHint?: string | null;
+    constraintHintKo?: string | null;
+  } | null;
   risks: RiskItem[];
   downScript: string;
   token: string;

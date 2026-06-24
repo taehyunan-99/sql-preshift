@@ -85,6 +85,77 @@ class TestWarningRules:
         )
 
 
+class TestLockingDdlRules:
+    """락 유발 DDL — 운영 중 다운타임 위험(warning)."""
+
+    def test_alter_column_type_is_warning(self):
+        """ALTER COLUMN TYPE → warning (테이블 재작성 + ACCESS EXCLUSIVE 락)."""
+        risks = _rules("ALTER TABLE users ALTER COLUMN age TYPE bigint")
+        assert "ALTER_COLUMN_TYPE" in _rule_ids(risks), f"risks={risks}"
+
+    def test_set_not_null_is_warning(self):
+        """SET NOT NULL → warning (전체 스캔 + 락)."""
+        risks = _rules("ALTER TABLE users ALTER COLUMN email SET NOT NULL")
+        assert "SET_NOT_NULL" in _rule_ids(risks), f"risks={risks}"
+
+    def test_create_index_blocking_is_warning(self):
+        """CREATE INDEX(비 CONCURRENTLY) → warning (쓰기 차단)."""
+        risks = _rules("CREATE INDEX idx_email ON users(email)")
+        assert "CREATE_INDEX_BLOCKING" in _rule_ids(risks), f"risks={risks}"
+
+    def test_create_index_concurrently_is_safe(self):
+        """CREATE INDEX CONCURRENTLY → 위험 없음(쓰기 차단 없음)."""
+        risks = _rules("CREATE INDEX CONCURRENTLY idx_email ON users(email)")
+        assert "CREATE_INDEX_BLOCKING" not in _rule_ids(risks), f"risks={risks}"
+
+    def test_add_unique_is_warning(self):
+        """ADD UNIQUE → warning (인덱스 빌드 락)."""
+        risks = _rules("ALTER TABLE users ADD CONSTRAINT uq UNIQUE (email)")
+        assert "ADD_PK_OR_UNIQUE" in _rule_ids(risks), f"risks={risks}"
+
+    def test_add_primary_key_is_warning(self):
+        """ADD PRIMARY KEY → warning."""
+        risks = _rules("ALTER TABLE users ADD PRIMARY KEY (id)")
+        assert "ADD_PK_OR_UNIQUE" in _rule_ids(risks), f"risks={risks}"
+
+    def test_add_foreign_key_is_not_locking_warning(self):
+        """ADD FOREIGN KEY → 락 규칙 비대상(NOT VALID로 회피 가능, 약한 락)."""
+        risks = _rules(
+            "ALTER TABLE a ADD CONSTRAINT fk FOREIGN KEY (b) REFERENCES c(id)"
+        )
+        assert "ADD_PK_OR_UNIQUE" not in _rule_ids(risks), f"risks={risks}"
+
+
+class TestDownScriptRollback:
+    """build_down_script 역연산 — A-4."""
+
+    def _down(self, sql: str) -> str:
+        from app.pipeline.executor import build_down_script  # noqa: PLC0415
+        return build_down_script(_ast(sql), {})
+
+    def test_create_index_reverses_to_drop_index(self):
+        assert "DROP INDEX IF EXISTS idx_email" in self._down(
+            "CREATE INDEX idx_email ON users(email)"
+        )
+
+    def test_rename_table_reverses(self):
+        down = self._down("ALTER TABLE users RENAME TO members")
+        assert "ALTER TABLE members RENAME TO users" in down
+
+    def test_rename_column_reverses(self):
+        down = self._down("ALTER TABLE users RENAME COLUMN email TO mail")
+        assert "RENAME COLUMN mail TO email" in down
+
+    def test_named_constraint_reverses_to_drop(self):
+        down = self._down("ALTER TABLE users ADD CONSTRAINT uq UNIQUE (email)")
+        assert "DROP CONSTRAINT IF EXISTS uq" in down
+
+    def test_anonymous_constraint_marked_unsupported(self):
+        """익명 제약은 자동 롤백 불가 — 주석으로 표시(실행에서 제외)."""
+        down = self._down("ALTER TABLE users ADD PRIMARY KEY (id)")
+        assert "ROLLBACK UNSUPPORTED" in down
+
+
 class TestNoRisk:
     """위험 없음 — 8번 케이스."""
 

@@ -72,6 +72,10 @@ def deterministic_rules(
     - TRUNCATE → critical
     - CASCADE 절 포함 → warning
     - NOT NULL 컬럼 추가(DEFAULT 없음) → warning
+    - ALTER COLUMN TYPE → warning (테이블 재작성 + ACCESS EXCLUSIVE 락)
+    - ALTER COLUMN SET NOT NULL → warning (전체 스캔 + 락)
+    - CREATE INDEX(비 CONCURRENTLY) → warning (쓰기 차단)
+    - ADD UNIQUE/PRIMARY KEY → warning (인덱스 빌드 락)
     """
     risks: list[Risk] = []
 
@@ -170,6 +174,63 @@ def deterministic_rules(
                             tables=alter_tables,
                         )
                     )
+
+            # ALTER COLUMN — 락 유발 변경(운영 중 다운타임 위험)
+            elif isinstance(action, exp.AlterColumn):
+                # 타입 변경: dtype 지정 시 → 테이블 전체 재작성 + ACCESS EXCLUSIVE 락
+                if action.args.get("dtype") is not None:
+                    risks.append(
+                        Risk(
+                            level="warning",
+                            rule="ALTER_COLUMN_TYPE",
+                            message="ALTER COLUMN TYPE — rewrites the whole table under an ACCESS EXCLUSIVE lock, blocking reads/writes.",
+                            message_ko="ALTER COLUMN TYPE — 테이블 전체를 재작성하며 ACCESS EXCLUSIVE 락으로 읽기/쓰기를 차단합니다.",
+                            tables=alter_tables,
+                        )
+                    )
+                # SET NOT NULL: allow_null=False(타입 변경 아님) → 전체 스캔 + 락
+                elif action.args.get("allow_null") is False:
+                    risks.append(
+                        Risk(
+                            level="warning",
+                            rule="SET_NOT_NULL",
+                            message="SET NOT NULL — scans the entire table under a lock to validate existing rows.",
+                            message_ko="SET NOT NULL — 기존 행 검증을 위해 락 상태로 테이블 전체를 스캔합니다.",
+                            tables=alter_tables,
+                        )
+                    )
+
+            # ADD CONSTRAINT — UNIQUE/PRIMARY KEY는 인덱스 빌드 중 쓰기 차단
+            elif isinstance(action, (exp.AddConstraint, exp.PrimaryKey)):
+                is_pk = isinstance(action, exp.PrimaryKey) or action.find(exp.PrimaryKey) is not None
+                is_unique = action.find(exp.UniqueColumnConstraint) is not None
+                if is_pk or is_unique:
+                    kind_label = "PRIMARY KEY" if is_pk else "UNIQUE"
+                    risks.append(
+                        Risk(
+                            level="warning",
+                            rule="ADD_PK_OR_UNIQUE",
+                            message=f"ADD {kind_label} — builds an index that blocks writes on the table until complete.",
+                            message_ko=f"ADD {kind_label} — 완료될 때까지 테이블 쓰기를 차단하는 인덱스를 생성합니다.",
+                            tables=alter_tables,
+                        )
+                    )
+
+    # CREATE INDEX(비 CONCURRENTLY) — 인덱스 빌드 동안 테이블 쓰기 차단
+    for create in ast.find_all(exp.Create):
+        if str(create.args.get("kind", "")).upper() != "INDEX":
+            continue
+        if create.args.get("concurrently"):
+            continue  # CONCURRENTLY는 쓰기 차단 없음 — 안전
+        risks.append(
+            Risk(
+                level="warning",
+                rule="CREATE_INDEX_BLOCKING",
+                message="CREATE INDEX without CONCURRENTLY — blocks writes on the table while the index builds.",
+                message_ko="CONCURRENTLY 없는 CREATE INDEX — 인덱스 생성 동안 테이블 쓰기를 차단합니다.",
+                tables=_table_names(create),
+            )
+        )
 
     # CASCADE — Drop.args["cascade"] 또는 Alter.args["cascade"]
     cascade_nodes = [

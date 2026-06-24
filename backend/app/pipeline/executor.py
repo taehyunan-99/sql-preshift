@@ -38,12 +38,19 @@ def build_down_script(ast: exp.Expression, before_tables: dict) -> str:
     parts: list[str] = []
 
     for create in ast.find_all(exp.Create):
-        if str(create.args.get("kind", "")).upper() != "TABLE":
-            continue
-        schema_expr = create.find(exp.Schema)
-        tbl = schema_expr.find(exp.Table) if schema_expr else create.find(exp.Table)
-        if tbl:
-            parts.append(f"DROP TABLE IF EXISTS {tbl.sql(dialect='postgres')};")
+        kind = str(create.args.get("kind", "")).upper()
+        # CREATE TABLE → DROP TABLE
+        if kind == "TABLE":
+            schema_expr = create.find(exp.Schema)
+            tbl = schema_expr.find(exp.Table) if schema_expr else create.find(exp.Table)
+            if tbl:
+                parts.append(f"DROP TABLE IF EXISTS {tbl.sql(dialect='postgres')};")
+        # CREATE INDEX → DROP INDEX
+        elif kind == "INDEX":
+            idx = create.this
+            idx_name = idx.this.sql(dialect="postgres") if idx and idx.this else None
+            if idx_name:
+                parts.append(f"DROP INDEX IF EXISTS {idx_name};")
 
     for drop in ast.find_all(exp.Drop):
         if str(drop.args.get("kind", "")).upper() != "TABLE":
@@ -102,13 +109,48 @@ def build_down_script(ast: exp.Expression, before_tables: dict) -> str:
             elif isinstance(action, exp.AlterColumn):
                 col_ident = action.args.get("this")
                 col_name = col_ident.name if col_ident else None
-                if col_name:
+                if col_name and action.args.get("dtype") is not None:
                     before_col = col_map.get(col_name)
                     if before_col:
                         parts.append(
                             f"ALTER TABLE {tbl.sql(dialect='postgres')} "
                             f"ALTER COLUMN {col_name} TYPE {before_col.type};"
                         )
+                    else:
+                        parts.append(
+                            f"-- ROLLBACK UNSUPPORTED: ALTER TABLE {tbl.sql(dialect='postgres')} "
+                            f"ALTER COLUMN {col_name} TYPE -- 원본 타입 정보 없음"
+                        )
+
+            # RENAME COLUMN → 역방향 RENAME
+            elif isinstance(action, exp.RenameColumn):
+                old_id = action.args.get("this")
+                new_id = action.args.get("to")
+                if old_id and new_id:
+                    parts.append(
+                        f"ALTER TABLE {tbl.sql(dialect='postgres')} "
+                        f"RENAME COLUMN {new_id.name} TO {old_id.name};"
+                    )
+
+            # RENAME TABLE → 역방향 RENAME (옛 이름 = ALTER 대상 테이블, 새 이름 = action.this)
+            elif isinstance(action, exp.AlterRename):
+                new_name = action.this.name if action.this else None
+                if new_name and tbl_name:
+                    parts.append(f"ALTER TABLE {new_name} RENAME TO {tbl_name};")
+
+            # ADD UNIQUE/PRIMARY KEY → 제약명 있으면 DROP CONSTRAINT, 없으면 복원 불가 표시
+            elif isinstance(action, (exp.AddConstraint, exp.PrimaryKey)):
+                constraint = action.find(exp.Constraint)
+                cname = constraint.name if constraint else None
+                if cname:
+                    parts.append(
+                        f"ALTER TABLE {tbl.sql(dialect='postgres')} DROP CONSTRAINT IF EXISTS {cname};"
+                    )
+                else:
+                    parts.append(
+                        f"-- ROLLBACK UNSUPPORTED: ALTER TABLE {tbl.sql(dialect='postgres')} "
+                        f"ADD CONSTRAINT -- 제약명 미지정(익명 제약은 자동 롤백 불가)"
+                    )
 
     return "\n".join(parts)
 
