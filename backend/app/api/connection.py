@@ -16,6 +16,7 @@ from fastapi import APIRouter, HTTPException
 
 from app.config import settings
 from app.db import (
+    clear_target_engine,
     get_connection_epoch,
     get_connection_meta,
     is_target_connected,
@@ -32,6 +33,7 @@ from app.schemas.connection import (
     ConnectionRequest,
     ConnectionStatus,
     ConnectionTestResult,
+    SampleRequest,
 )
 
 router = APIRouter(prefix="/api/connection", tags=["connection"])
@@ -51,6 +53,16 @@ def _current_status() -> ConnectionStatus:
 @router.get("/status", response_model=ConnectionStatus)
 async def connection_status() -> ConnectionStatus:
     """현재 target DB 연결 상태. 프론트 온보딩 게이트가 최초 로드 시 조회한다."""
+    return _current_status()
+
+
+@router.delete("", response_model=ConnectionStatus)
+async def disconnect() -> ConnectionStatus:
+    """target 연결을 해제하고 미연결 상태로 되돌린다 — 프론트 온보딩 로비로 복귀.
+
+    슬롯만 비울 뿐 어떤 DB도 변경/삭제하지 않는다(read-only). 메타 DB도 무관.
+    """
+    clear_target_engine()
     return _current_status()
 
 
@@ -84,8 +96,12 @@ async def connect(req: ConnectionRequest) -> ConnectionStatus:
 
 
 @router.post("/sample", response_model=ConnectionStatus)
-async def connect_sample() -> ConnectionStatus:
-    """기본 docker DB에 e커머스 샘플을 시드한 뒤 연결한다(클릭 한 번 체험용)."""
+async def connect_sample(req: SampleRequest | None = None) -> ConnectionStatus:
+    """기본 docker DB에 샘플을 시드한 뒤 연결한다(클릭 한 번 체험용).
+
+    kind: ecommerce(9테이블, 기본) / erp(92테이블). body 미전송 시 ecommerce(기존 호환).
+    """
+    kind = req.kind if req else "ecommerce"
     url = settings.target_database_url
     if not url:
         raise HTTPException(
@@ -95,10 +111,14 @@ async def connect_sample() -> ConnectionStatus:
     try:
         validated = validate_url(url)
         test_connection(validated)
-        # 샘플 스키마 시드(드롭 후 재생성) — 함수만 호출(스크립트 부작용 없음)
+        # 샘플 스키마 시드(드롭 후 재생성) — 함수만 호출(스크립트 부작용 없음).
+        # 두 시드 모두 seed(target_engine) 시그니처 동일.
         from sqlalchemy import create_engine
 
-        from migrations.seed_ecommerce import seed
+        if kind == "erp":
+            from migrations.seed_erp import seed
+        else:
+            from migrations.seed_ecommerce import seed
 
         seed_engine = create_engine(validated, connect_args={"connect_timeout": 5})
         try:

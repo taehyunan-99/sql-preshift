@@ -14,17 +14,22 @@ import os
 
 from sqlalchemy import create_engine, text
 
-# 기존 단순 시드(users/orders/products)를 의존 역순으로 정리 후 재구성.
+# 메타 테이블(앱 인프라)을 뺀 public 스키마의 모든 테이블을 동적으로 DROP CASCADE.
+# 고정 9테이블만 DROP하면 다른 샘플(seed_erp 92테이블)에서 전환 시 그쪽 잔재가 남는다.
+# seed_erp와 동일한 동적 방식으로 통일 → 어느 샘플로 전환해도 깨끗이 비우고 재생성.
+# (메타 4테이블은 target=메타DB 동일 시 보존 필수 — AGENTS.md 가드.)
 DROP = """
-DROP TABLE IF EXISTS payments      CASCADE;
-DROP TABLE IF EXISTS order_items    CASCADE;
-DROP TABLE IF EXISTS reviews        CASCADE;
-DROP TABLE IF EXISTS inventory      CASCADE;
-DROP TABLE IF EXISTS orders         CASCADE;
-DROP TABLE IF EXISTS addresses      CASCADE;
-DROP TABLE IF EXISTS products       CASCADE;
-DROP TABLE IF EXISTS categories     CASCADE;
-DROP TABLE IF EXISTS users          CASCADE;
+DO $$
+DECLARE r RECORD;
+BEGIN
+    FOR r IN
+        SELECT tablename FROM pg_tables
+        WHERE schemaname = 'public'
+          AND tablename NOT IN ('alembic_version','audit_log','migration_history','schema_embeddings')
+    LOOP
+        EXECUTE 'DROP TABLE IF EXISTS public.' || quote_ident(r.tablename) || ' CASCADE';
+    END LOOP;
+END $$;
 """
 
 DDL = """

@@ -85,6 +85,23 @@ def set_target_engine(url: str) -> None:
             pass
 
 
+def clear_target_engine() -> None:
+    """target 연결을 해제한다 — 슬롯을 비우고(None) 미연결 상태로 되돌린다.
+
+    set_target_engine과 대칭: epoch 증가(캐시 무효화 신호) + 이전 엔진 dispose.
+    온보딩 로비로 복귀시키는 Disconnect 경로에서 호출. 메타 DB는 건드리지 않는다.
+    """
+    old: Optional[Engine] = _target_holder["engine"]  # type: ignore[assignment]
+    _target_holder["engine"] = None
+    _target_holder["epoch"] = _target_holder["epoch"] + 1  # type: ignore[operator]
+    _clear_token_cache()
+    if old is not None:
+        try:
+            old.dispose()
+        except Exception:
+            pass
+
+
 def _clear_token_cache() -> None:
     """DB 교체 시 이전 DB 기준 분석 토큰 캐시를 비운다(지연 import로 순환 회피)."""
     try:

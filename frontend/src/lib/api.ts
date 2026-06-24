@@ -211,8 +211,21 @@ export async function connectDatabase(req: ConnectionRequest): Promise<Connectio
   return res.json();
 }
 
-export async function connectSampleDatabase(): Promise<ConnectionStatus> {
-  const res = await fetch(`${API_BASE}/api/connection/sample`, { method: 'POST' });
+// 샘플 시드 종류 — ecommerce(9테이블) / erp(92테이블). 로비 카드에서 선택.
+export type SampleKind = 'ecommerce' | 'erp';
+
+export async function disconnectDatabase(): Promise<ConnectionStatus> {
+  const res = await fetch(`${API_BASE}/api/connection`, { method: 'DELETE' });
+  if (!res.ok) throw new Error(`disconnect failed: ${res.status}`);
+  return res.json();
+}
+
+export async function connectSampleDatabase(kind: SampleKind = 'ecommerce'): Promise<ConnectionStatus> {
+  const res = await fetch(`${API_BASE}/api/connection/sample`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ kind }),
+  });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body?.detail ?? `sample connect failed: ${res.status}`);
