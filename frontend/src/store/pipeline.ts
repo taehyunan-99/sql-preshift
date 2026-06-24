@@ -5,6 +5,9 @@ import type { SchemaDiff } from '../lib/api';
 
 export type PipelineStage = 'idle' | 'analyzing' | 'preview' | 'applying' | 'applied';
 
+// UI 표시 언어 — 영어가 default(source-of-truth), 한국어는 토글 시 표시되는 보조 레이어.
+export type Language = 'en' | 'ko';
+
 export interface RiskItem {
   level: 'critical' | 'warning' | 'info';
   rule: string;
@@ -34,6 +37,9 @@ interface PipelineState {
   analyzeResult: AnalyzeResult | null;
   auditOpen: boolean;
 
+  /* 전역 UI 표시 언어 — TopBar 토글이 제어. reset에 미포함(언어는 세션 내내 유지). */
+  language: Language;
+
   /* 입력 상태 */
   inputText: string;
   isAnalyzing: boolean;
@@ -54,6 +60,7 @@ interface PipelineState {
   reset: () => void;
   openAudit: () => void;
   closeAudit: () => void;
+  setLanguage: (lang: Language) => void;
 
   setInputText: (text: string) => void;
   setAnalyzing: (v: boolean) => void;
@@ -75,6 +82,7 @@ export const usePipelineStore = create<PipelineState>((set) => ({
   stage: 'idle',
   analyzeResult: null,
   auditOpen: false,
+  language: 'en',
 
   inputText: '',
   isAnalyzing: false,
@@ -104,6 +112,7 @@ export const usePipelineStore = create<PipelineState>((set) => ({
     }),
   openAudit: () => set({ auditOpen: true }),
   closeAudit: () => set({ auditOpen: false }),
+  setLanguage: (language) => set({ language }),
 
   setInputText: (text) => set({ inputText: text }),
   setAnalyzing: (v) => set({ isAnalyzing: v }),

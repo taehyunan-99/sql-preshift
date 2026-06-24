@@ -26,7 +26,7 @@ function formatDate(iso: string): string {
 }
 
 export default function AuditDrawer() {
-  const { auditOpen, closeAudit } = usePipelineStore();
+  const { auditOpen, closeAudit, language } = usePipelineStore();
   const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [rollingBack, setRollingBack] = useState<string | null>(null);
@@ -54,7 +54,7 @@ export default function AuditDrawer() {
         prev.map((e) => (e.id === id ? { ...e, rolledBack: true } : e))
       );
     } catch {
-      setError(`Rollback failed: ${id}`);
+      setError(language === 'ko' ? `롤백 실패: ${id}` : `Rollback failed: ${id}`);
     } finally {
       setRollingBack(null);
     }
@@ -102,7 +102,7 @@ export default function AuditDrawer() {
           }}
         >
           <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)' }}>
-            History
+            {language === 'ko' ? '이력' : 'History'}
           </span>
           <button
             onClick={closeAudit}
@@ -125,7 +125,7 @@ export default function AuditDrawer() {
         <div style={{ flex: 1, overflowY: 'auto', padding: 12 }}>
           {loading && (
             <p style={{ fontSize: 12, color: 'var(--text-secondary)', textAlign: 'center', marginTop: 40 }}>
-              Loading…
+              {language === 'ko' ? '불러오는 중…' : 'Loading…'}
             </p>
           )}
 
@@ -135,7 +135,7 @@ export default function AuditDrawer() {
 
           {!loading && entries.length === 0 && (
             <p style={{ fontSize: 12, color: 'var(--text-secondary)', textAlign: 'center', marginTop: 40 }}>
-              No history yet.
+              {language === 'ko' ? '아직 이력이 없습니다.' : 'No history yet.'}
             </p>
           )}
 
@@ -184,7 +184,7 @@ export default function AuditDrawer() {
                       border: '1px solid var(--color-warning)',
                     }}
                   >
-                    Rolled back
+                    {language === 'ko' ? '롤백됨' : 'Rolled back'}
                   </span>
                 ) : (
                   <button
@@ -201,7 +201,13 @@ export default function AuditDrawer() {
                       opacity: rollingBack === entry.id ? 0.6 : 1,
                     }}
                   >
-                    {rollingBack === entry.id ? 'Rolling back…' : 'Rollback'}
+                    {language === 'ko'
+                      ? rollingBack === entry.id
+                        ? '롤백 중…'
+                        : '롤백'
+                      : rollingBack === entry.id
+                        ? 'Rolling back…'
+                        : 'Rollback'}
                   </button>
                 )}
               </div>

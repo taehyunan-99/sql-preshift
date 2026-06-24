@@ -16,6 +16,7 @@ export default function InputPanel() {
     analyzeResult,
     stage,
     dryRunStack,
+    language,
     setInputText,
     setStage,
     setAnalyzing,
@@ -35,7 +36,6 @@ export default function InputPanel() {
   // 모달을 확인(ack)하면 그 token에 한해 Apply All이 허용된다(별도 강행 버튼 없음).
   const [criticalOpen, setCriticalOpen] = useState(false);
   const [ackedToken, setAckedToken] = useState<string | null>(null);
-  const [riskLang, setRiskLang] = useState<'en' | 'ko'>('en'); // 위험 해설 표시 언어
   // 모달은 createPortal로 document.body에 렌더(부모의 transform이 fixed를 가두는 문제 회피).
   // SSR엔 document가 없으므로 클라이언트 마운트 후에만 portal한다.
   const [mounted, setMounted] = useState(false);
@@ -107,7 +107,7 @@ export default function InputPanel() {
       // 금지 패턴/파싱 실패는 200 OK + valid=false로 온다(예외 아님). 이 경우 스택에 쌓지 않고
       // 위반 사유를 에러 배너로 띄운 뒤 직전 화면/스택을 그대로 유지한다(입력도 보존).
       if (!res.valid) {
-        setAnalyzeError(res.violations[0] ?? 'This SQL was rejected.');
+        setAnalyzeError(res.violations[0] ?? (language === 'ko' ? '이 SQL은 거부되었습니다.' : 'This SQL was rejected.'));
         setAnalyzing(false);
         return;
       }
@@ -115,7 +115,7 @@ export default function InputPanel() {
       pushDryRun(res.sql); // 정규화된 SQL을 스택에 쌓음(NL도 생성 SQL이 쌓임)
       setInputText(''); // 다음 누적 입력을 위해 비움
     } catch (e) {
-      setAnalyzeError(e instanceof Error ? e.message : 'Analysis failed');
+      setAnalyzeError(e instanceof Error ? e.message : (language === 'ko' ? '분석에 실패했습니다' : 'Analysis failed'));
       setAnalyzing(false);
     }
   };
@@ -137,7 +137,7 @@ export default function InputPanel() {
       const res = await analyzeInput({ input: last, priorSqls: prior });
       setAnalyzeResult(mapResult(res));
     } catch (e) {
-      setActionError(e instanceof Error ? e.message : 'Undo failed');
+      setActionError(e instanceof Error ? e.message : (language === 'ko' ? 'Undo에 실패했습니다' : 'Undo failed'));
       setStage('preview');
     }
   };
@@ -265,9 +265,13 @@ export default function InputPanel() {
         disabled={isDisabled}
         rows={collapsed ? 1 : 3}
         placeholder={
-          stacking
-            ? 'Add another change (natural language or SQL) — Cmd/Ctrl+Enter to add'
-            : 'Enter natural language or SQL (auto-detected) — Cmd/Ctrl+Enter to analyze'
+          language === 'ko'
+            ? stacking
+              ? '다른 변경을 추가하세요 (자연어 또는 SQL) — Cmd/Ctrl+Enter로 추가'
+              : '자연어 또는 SQL을 입력하세요 (자동 감지) — Cmd/Ctrl+Enter로 분석'
+            : stacking
+              ? 'Add another change (natural language or SQL) — Cmd/Ctrl+Enter to add'
+              : 'Enter natural language or SQL (auto-detected) — Cmd/Ctrl+Enter to analyze'
         }
         style={{
           resize: 'none',
@@ -328,7 +332,7 @@ export default function InputPanel() {
                 letterSpacing: '0.03em',
               }}
             >
-              {count} pending
+              {language === 'ko' ? `대기 ${count}건` : `${count} pending`}
             </span>
             {hasCritical && (
               <span
@@ -349,10 +353,10 @@ export default function InputPanel() {
             <button
               onClick={handleUndo}
               disabled={isDisabled}
-              title="Undo the last change in the stack"
+              title={language === 'ko' ? '스택의 마지막 변경 되돌리기' : 'Undo the last change in the stack'}
               style={{ ...ghostBtn, opacity: isDisabled ? 0.5 : 1, cursor: isDisabled ? 'not-allowed' : 'pointer' }}
             >
-              Undo
+              {language === 'ko' ? '되돌리기' : 'Undo'}
             </button>
             <button
               onClick={reset}
@@ -364,7 +368,7 @@ export default function InputPanel() {
                 cursor: isApplying ? 'not-allowed' : 'pointer',
               }}
             >
-              Cancel
+              {language === 'ko' ? '취소' : 'Cancel'}
             </button>
           </>
         )}
@@ -404,7 +408,17 @@ export default function InputPanel() {
               }}
             />
           )}
-          {isAnalyzing ? 'Analyzing…' : stacking ? 'Add to preview' : 'Analyze'}
+          {language === 'ko'
+            ? isAnalyzing
+              ? '분석 중…'
+              : stacking
+                ? '미리보기에 추가'
+                : '분석'
+            : isAnalyzing
+              ? 'Analyzing…'
+              : stacking
+                ? 'Add to preview'
+                : 'Analyze'}
         </button>
 
         {/* Apply All (preview·스택≥1에서만) */}
@@ -413,11 +427,17 @@ export default function InputPanel() {
             onClick={handleApplyAll}
             disabled={applyDisabled}
             title={
-              hasCritical && !criticalAcked
-                ? 'Critical risk present. Pressing this shows a warning to confirm first.'
-                : hasCritical
-                ? `Applying ${count} change${count === 1 ? '' : 's'} including a critical risk you confirmed.`
-                : `Apply all ${count} change${count === 1 ? '' : 's'} in a single transaction.`
+              language === 'ko'
+                ? hasCritical && !criticalAcked
+                  ? '심각한 위험이 있습니다. 누르면 먼저 확인 경고가 표시됩니다.'
+                  : hasCritical
+                    ? `확인한 심각한 위험을 포함해 ${count}건의 변경을 적용합니다.`
+                    : `${count}건의 변경을 단일 트랜잭션으로 적용합니다.`
+                : hasCritical && !criticalAcked
+                  ? 'Critical risk present. Pressing this shows a warning to confirm first.'
+                  : hasCritical
+                    ? `Applying ${count} change${count === 1 ? '' : 's'} including a critical risk you confirmed.`
+                    : `Apply all ${count} change${count === 1 ? '' : 's'} in a single transaction.`
             }
             style={{
               padding: '6px 16px',
@@ -431,7 +451,13 @@ export default function InputPanel() {
               opacity: applyDisabled ? 0.5 : 1,
             }}
           >
-            {isApplying ? 'Applying…' : `Apply All (${count})`}
+            {language === 'ko'
+              ? isApplying
+                ? '적용 중…'
+                : `전체 적용 (${count})`
+              : isApplying
+                ? 'Applying…'
+                : `Apply All (${count})`}
           </button>
         )}
       </div>
@@ -464,36 +490,14 @@ export default function InputPanel() {
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 8px' }}>
               <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--color-error)' }}>
-                Critical risk detected
+                {language === 'ko' ? '심각한 위험 감지됨' : 'Critical risk detected'}
               </p>
               <span style={{ flex: 1 }} />
-              {/* 위험 메시지/해설 언어 토글 — message는 항상 영/한 둘 다 있으므로 노출 */}
-              {criticalRisks.some((r) => r.messageKo) && (
-                <div style={{ display: 'flex', gap: 2 }}>
-                  {(['en', 'ko'] as const).map((l) => (
-                    <button
-                      key={l}
-                      onClick={() => setRiskLang(l)}
-                      style={{
-                        padding: '2px 8px',
-                        fontSize: 'var(--font-size-xs)',
-                        borderRadius: 'var(--radius-sm)',
-                        border: `1px solid ${riskLang === l ? 'var(--color-accent-border)' : 'var(--border)'}`,
-                        background: riskLang === l ? 'var(--color-accent-10)' : 'transparent',
-                        color: riskLang === l ? 'var(--color-accent)' : 'var(--text-secondary)',
-                        cursor: 'pointer',
-                        fontWeight: riskLang === l ? 700 : 400,
-                      }}
-                    >
-                      {l === 'en' ? 'EN' : '한국어'}
-                    </button>
-                  ))}
-                </div>
-              )}
             </div>
             <p style={{ margin: '0 0 12px', fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-              This change carries a critical risk. Remove it with Undo, or — if this is intended —
-              dismiss this dialog and press Apply All to proceed.
+              {language === 'ko'
+                ? '이 변경에는 심각한 위험이 있습니다. Undo로 제거하거나, 의도한 변경이라면 이 창을 닫고 Apply All을 눌러 진행하세요.'
+                : 'This change carries a critical risk. Remove it with Undo, or — if this is intended — dismiss this dialog and press Apply All to proceed.'}
             </p>
             {/* 감지된 critical 위험 목록 */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
@@ -520,11 +524,11 @@ export default function InputPanel() {
                     {r.rule}
                   </div>
                   <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)', lineHeight: 1.5 }}>
-                    {riskLang === 'ko' ? (r.messageKo || r.message) : r.message}
+                    {language === 'ko' ? (r.messageKo || r.message) : r.message}
                   </p>
                   {(() => {
                     // 선택 언어 우선, 없으면 반대 언어로 폴백.
-                    const note = riskLang === 'ko' ? (r.llmNoteKo || r.llmNote) : (r.llmNote || r.llmNoteKo);
+                    const note = language === 'ko' ? (r.llmNoteKo || r.llmNote) : (r.llmNote || r.llmNoteKo);
                     return note ? (
                       <p style={{ margin: '6px 0 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
                         {note}
@@ -549,7 +553,7 @@ export default function InputPanel() {
                   cursor: 'pointer',
                 }}
               >
-                Got it
+                {language === 'ko' ? '확인' : 'Got it'}
               </button>
             </div>
           </div>
@@ -584,12 +588,22 @@ export default function InputPanel() {
             onClick={(e) => e.stopPropagation()}
           >
             <p style={{ margin: '0 0 8px', fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>
-              Apply {count} changes
+              {language === 'ko' ? `${count}건의 변경 적용` : `Apply ${count} changes`}
             </p>
             <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-              All {count} previewed changes will be applied to the database in a single transaction.
-              <br />
-              If any statement fails, none of them are applied.
+              {language === 'ko' ? (
+                <>
+                  미리본 {count}건의 변경이 단일 트랜잭션으로 데이터베이스에 적용됩니다.
+                  <br />
+                  하나라도 실패하면 전부 적용되지 않습니다.
+                </>
+              ) : (
+                <>
+                  All {count} previewed changes will be applied to the database in a single transaction.
+                  <br />
+                  If any statement fails, none of them are applied.
+                </>
+              )}
             </p>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
               <button
@@ -604,7 +618,7 @@ export default function InputPanel() {
                   cursor: 'pointer',
                 }}
               >
-                Cancel
+                {language === 'ko' ? '취소' : 'Cancel'}
               </button>
               <button
                 onClick={handleApplyAll}
@@ -619,7 +633,7 @@ export default function InputPanel() {
                   cursor: 'pointer',
                 }}
               >
-                Apply All
+                {language === 'ko' ? '전체 적용' : 'Apply All'}
               </button>
             </div>
           </div>

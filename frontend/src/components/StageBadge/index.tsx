@@ -3,38 +3,43 @@
 import { usePipelineStore } from '../../store/pipeline';
 import type { PipelineStage } from '../../store/pipeline';
 
-// stage별 배지 색/라벨 매핑
+// stage별 배지 색/라벨 매핑. 라벨은 영어 source-of-truth + 한국어 보조(전역 토글).
 // idle=중립(border), analyzing=info, preview=accent, applying=accent, applied=success
 const STAGE_STYLE: Record<
   PipelineStage,
-  { label: string; color: string; border: string; bg: string }
+  { label: string; labelKo: string; color: string; border: string; bg: string }
 > = {
   idle: {
     label: 'Ready',
+    labelKo: '준비됨',
     color: 'var(--text-secondary)',
     border: 'var(--border)',
     bg: 'transparent',
   },
   analyzing: {
     label: 'Analyzing',
+    labelKo: '분석 중',
     color: 'var(--color-info)',
     border: 'var(--color-info-border)',
     bg: 'var(--color-info-bg)',
   },
   preview: {
     label: 'Preview',
+    labelKo: '미리보기',
     color: 'var(--color-accent)',
     border: 'var(--color-accent-border)',
     bg: 'var(--color-accent-10)',
   },
   applying: {
     label: 'Applying',
+    labelKo: '적용 중',
     color: 'var(--color-accent)',
     border: 'var(--color-accent-border)',
     bg: 'var(--color-accent-10)',
   },
   applied: {
     label: 'Applied',
+    labelKo: '적용됨',
     color: 'var(--color-success)',
     border: 'var(--color-success-border)',
     bg: 'var(--color-success-bg)',
@@ -43,7 +48,8 @@ const STAGE_STYLE: Record<
 
 export default function StageBadge() {
   const stage = usePipelineStore((s) => s.stage);
-  const { label, color, border, bg } = STAGE_STYLE[stage];
+  const language = usePipelineStore((s) => s.language);
+  const { label, labelKo, color, border, bg } = STAGE_STYLE[stage];
 
   return (
     <span
@@ -70,7 +76,7 @@ export default function StageBadge() {
           display: 'inline-block',
         }}
       />
-      {label}
+      {language === 'ko' ? labelKo : label}
     </span>
   );
 }

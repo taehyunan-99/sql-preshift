@@ -5,7 +5,7 @@ import { usePipelineStore } from '../../store/pipeline';
 // stage==='applied'에서만 렌더되는 하단 중앙 floating pill
 // [롤백][새 작업] — 롤백은 최근 적용 auditId가 store 계약에 없어 AuditDrawer를 열어 롤백을 수행하게 위임
 export default function CompletedBar() {
-  const { stage, reset, openAudit } = usePipelineStore();
+  const { stage, reset, openAudit, language } = usePipelineStore();
 
   if (stage !== 'applied') return null;
 
@@ -35,7 +35,7 @@ export default function CompletedBar() {
           marginRight: 4,
         }}
       >
-        ✓ Applied
+        {language === 'ko' ? '✓ 적용됨' : '✓ Applied'}
       </span>
 
       {/* 롤백 — AuditDrawer를 열어 최근 적용 항목 롤백 */}
@@ -52,7 +52,7 @@ export default function CompletedBar() {
           fontWeight: 600,
         }}
       >
-        Rollback
+        {language === 'ko' ? '롤백' : 'Rollback'}
       </button>
 
       {/* 새 작업 — 파이프라인 초기화 */}
@@ -69,7 +69,7 @@ export default function CompletedBar() {
           fontWeight: 600,
         }}
       >
-        New
+        {language === 'ko' ? '새 작업' : 'New'}
       </button>
     </div>
   );

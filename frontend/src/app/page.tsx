@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { usePipelineStore } from '../store/pipeline';
 import {
+  disconnectDatabase,
   fetchSchemaGraph,
   getConnectionStatus,
   type ConnectionStatus,
@@ -10,11 +11,12 @@ import {
 } from '../lib/api';
 import { buildRiskMap, type RiskMap } from '../lib/riskMap';
 import InputPanel from '../components/InputPanel';
-import SqlDraftPanel from '../components/SqlDraftPanel';
+import DiagnosticsPanel from '../components/DiagnosticsPanel';
 import ErdDiffViewer from '../components/erd/ErdDiffViewer';
 import CompletedBar from '../components/CompletedBar';
 import AuditDrawer from '../components/AuditDrawer';
 import StageBadge from '../components/StageBadge';
+import LanguageToggle from '../components/LanguageToggle';
 import DiffControls, { type DiffMode } from '../components/DiffControls';
 import DatabaseConnect from '../components/DatabaseConnect';
 import { DEFAULT_HOPS, type SubsetInfo } from '../components/erd/ErdDiffViewer';
@@ -38,13 +40,15 @@ function reveal(visible: boolean): React.CSSProperties {
 }
 
 export default function Home() {
-  const { stage, analyzeResult, connected, connectionEpoch, connectedDbname, setConnection } =
+  const { stage, analyzeResult, connected, connectionEpoch, connectedDbname, language, setConnection } =
     usePipelineStore();
 
   // ERD mode 상태 lift-up — DiffControls·ErdDiffViewer가 공유.
   const [mode, setMode] = useState<DiffMode>('side-by-side');
-  // SqlDraft 사이드시트 열림 상태(fitView padding 보정용).
-  const [sqlSheetOpen, setSqlSheetOpen] = useState(false);
+  // 진단 사이드시트 열림 상태(좌측, fitView padding 보정용).
+  const [panelOpen, setPanelOpen] = useState(false);
+  // Diagnostics "Locate in ERD" → 해당 테이블 ring 강조 + 카메라 이동.
+  const [highlightTable, setHighlightTable] = useState<string | null>(null);
   // idle/applied SingleGraphView용 현재 스키마 그래프.
   const [graph, setGraph] = useState<SchemaGraph | undefined>(undefined);
   // 최초 연결 상태 조회 완료 여부 — 조회 전엔 게이트/메인 둘 다 안 띄움(깜빡임 방지).
@@ -80,6 +84,17 @@ export default function Home() {
   const onConnected = (s: ConnectionStatus) => {
     setConnection({ connected: s.connected, host: s.host, dbname: s.dbname, epoch: s.epoch });
     setReconnectOpen(false);
+  };
+
+  // 연결 해제 → 미연결 상태로 store 갱신 → page가 온보딩 로비 게이트로 복귀(새로고침 불필요).
+  const onDisconnect = async () => {
+    try {
+      const s = await disconnectDatabase();
+      setConnection({ connected: s.connected, host: s.host, dbname: s.dbname, epoch: s.epoch });
+      setReconnectOpen(false);
+    } catch {
+      // 실패해도 게이트는 안 띄움(연결 유지) — 조용히 무시(데모).
+    }
   };
 
   // 현재 스키마 그래프 로드(idle/applied single 뷰 데이터 출처).
@@ -118,6 +133,18 @@ export default function Home() {
   // idle이고 전체보기 전이면 빈 초기화면(중앙 입력창 + 배경 placeholder).
   const isIdleBlank = stage === 'idle' && !showFullSchema;
 
+  // 진단 소스 그래프 — 진단은 base에 박혀 before/현재 graph 양쪽에 보존된다.
+  // preview/applying=schemaDiff.before(원본 실DB), idle/applied=현재 graph.
+  const diagnosticsGraph = isDiffStage ? analyzeResult?.schemaDiff?.before : graph;
+
+  // "Locate in ERD" — 진단 패널에서 테이블 선택 시 ERD에서 강조(+카메라 이동은 ErdDiffViewer가
+  // highlightTable 변경을 감지해 fitView). 같은 테이블 재클릭도 재강조되도록 null 경유 토글.
+  const onLocate = (table: string) => {
+    setHighlightTable(null);
+    // 다음 틱에 set — 동일 값 연속 set은 effect를 안 깨우므로 null→table로 강제 변화.
+    requestAnimationFrame(() => setHighlightTable(table));
+  };
+
   // analyzing/applying dim 오버레이.
   const showDim = stage === 'analyzing' || stage === 'applying';
   const dimLabel = stage === 'applying' ? 'Applying…' : 'Analyzing…';
@@ -153,9 +180,11 @@ export default function Home() {
           graph={erdGraph}
           mode={mode}
           onModeChange={setMode}
-          sqlSheetOpen={sqlSheetOpen}
+          // 진단 패널은 좌측이므로 좌측 padding 보정에 panelOpen을 쓴다(기존 sqlSheetOpen 슬롯 재활용).
+          sqlSheetOpen={panelOpen}
           riskSheetOpen={false}
           riskMap={isResultStage ? riskMap : {}}
+          highlightTable={highlightTable}
           hops={hops}
           showAll={showAll}
           onSubset={setSubset}
@@ -239,36 +268,68 @@ export default function Home() {
       >
         <span style={{ fontWeight: 700, fontSize: 15, letterSpacing: '-0.01em' }}>SQLPreShift</span>
         <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
-          Safe schema migration control
+          {language === 'ko' ? '안전한 스키마 마이그레이션 관리' : 'Safe schema migration control'}
         </span>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-          {/* 연결된 DB 배지 — 클릭 시 교체 모달 */}
-          <button
-            onClick={() => setReconnectOpen(true)}
-            title="Change database"
+          {/* DB 연결 그룹 — [● dbname](교체 모달) | (구분선) | [Disconnect](해제)를 한 pill로 묶어
+              "둘 다 현재 연결을 다룬다"가 시각적으로 읽히게. 그룹 외곽선 하나 + 내부 분할. */}
+          <div
             style={{
               display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              padding: '4px 10px',
-              background: 'var(--bg-tertiary)',
+              alignItems: 'stretch',
               border: '1px solid var(--border)',
               borderRadius: 'var(--radius-pill)',
-              color: 'var(--text-secondary)',
+              overflow: 'hidden',
+              background: 'var(--bg-tertiary)',
               fontSize: 'var(--font-size-xs)',
-              cursor: 'pointer',
             }}
           >
-            <span
+            {/* 연결된 DB 배지 — 클릭 시 교체 모달 */}
+            <button
+              onClick={() => setReconnectOpen(true)}
+              title={language === 'ko' ? '데이터베이스 변경' : 'Change database'}
               style={{
-                width: 7,
-                height: 7,
-                borderRadius: '50%',
-                background: 'var(--color-success)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '4px 12px',
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--text-secondary)',
+                fontSize: 'inherit',
+                cursor: 'pointer',
               }}
-            />
-            {connectedDbname ?? 'Connected'}
-          </button>
+            >
+              <span
+                style={{
+                  width: 7,
+                  height: 7,
+                  borderRadius: '50%',
+                  background: 'var(--color-success)',
+                }}
+              />
+              {connectedDbname ?? (language === 'ko' ? '연결됨' : 'Connected')}
+            </button>
+            {/* 그룹 내부 구분선 */}
+            <span style={{ width: 1, background: 'var(--border)' }} />
+            {/* 연결 해제 — 온보딩 로비로 복귀. Secondary 톤(text-secondary)으로 가시성↑. */}
+            <button
+              onClick={onDisconnect}
+              title={language === 'ko' ? '연결을 해제하고 다른 데이터베이스 선택' : 'Disconnect and pick another database'}
+              style={{
+                padding: '4px 12px',
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--text-secondary)',
+                fontSize: 'inherit',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              {language === 'ko' ? '연결 해제' : 'Disconnect'}
+            </button>
+          </div>
+          <LanguageToggle />
           <StageBadge />
           <AuditButton />
         </div>
@@ -288,24 +349,32 @@ export default function Home() {
         onShowAllChange={setShowAll}
       />
 
-      {/* Layer4: SqlSheet — preview/applied만. 컴포넌트가 self-position. */}
-      <div
-        style={{
-          ...reveal(isResultStage),
-          // self-position(absolute) 컴포넌트라 래퍼는 reveal만 담당.
-          position: 'absolute',
-          inset: 0,
-          zIndex: 30,
-          pointerEvents: 'none',
-        }}
-      >
-        <div style={{ pointerEvents: isResultStage ? 'auto' : 'none' }}>
-          <SqlDraftPanel
-            open={sqlSheetOpen}
-            onToggle={() => setSqlSheetOpen((v) => !v)}
-          />
-        </div>
-      </div>
+      {/* Layer4: 진단 시트(좌측) — ERD가 그려지는 동안 노출. 진단 모아보기가 主, SQL은 탭 보조.
+          idle 빈 화면(입력 전, ERD 없음)에선 숨김. 컴포넌트가 self-position. */}
+      {(() => {
+        // ERD에 그릴 그래프가 있는 상태에서만 패널 노출(preview/applying/applied + idle 전체보기).
+        const panelVisible = isResultStage || showIdleSchema;
+        return (
+          <div
+            style={{
+              ...reveal(panelVisible),
+              position: 'absolute',
+              inset: 0,
+              zIndex: 30,
+              pointerEvents: 'none',
+            }}
+          >
+            <div style={{ pointerEvents: panelVisible ? 'auto' : 'none' }}>
+              <DiagnosticsPanel
+                open={panelOpen}
+                onToggle={() => setPanelOpen((v) => !v)}
+                diagnosticsGraph={diagnosticsGraph}
+                onLocate={onLocate}
+              />
+            </div>
+          </div>
+        );
+      })()}
 
       {/* 위험은 오른쪽 시트 대신 ERD 노드 붉은/노란 강조(riskMap)로 표시하고,
           critical은 InputPanel의 경고 모달로 알린다(별도 RiskSheet 제거). */}
@@ -339,15 +408,22 @@ export default function Home() {
             <div style={{ pointerEvents: visible ? 'auto' : 'none' }}>
               <InputPanel />
             </div>
-            {/* idle 빈상태 옵트인 — 전체 스키마를 한 번에 보고 싶을 때. 큰 DB는 경고 후 진행. */}
-            {isIdleBlank && (
+            {/* 전체 스키마 토글 — idle에서 항상 같은 자리(입력창 아래)에 노출. 라벨/동작만
+                View full schema(켜기) ↔ Close schema(끄기)로 토글 → 버튼이 점프하지 않는다.
+                좌상단 별도 Close 버튼을 없애 좌측 진단 패널과의 겹침도 해소. 큰 DB는 켤 때만 경고. */}
+            {stage === 'idle' && (
               <button
                 onClick={() => {
+                  if (showFullSchema) {
+                    setShowFullSchema(false);
+                    return;
+                  }
                   const total = graph?.nodes.length ?? 0;
-                  if (
-                    total > LARGE_SCHEMA_THRESHOLD &&
-                    !window.confirm(`${total} tables — rendering the full schema may be slow. Continue?`)
-                  ) {
+                  const warn =
+                    language === 'ko'
+                      ? `${total}개 테이블 — 전체 스키마 렌더링이 느릴 수 있습니다. 계속할까요?`
+                      : `${total} tables — rendering the full schema may be slow. Continue?`;
+                  if (total > LARGE_SCHEMA_THRESHOLD && !window.confirm(warn)) {
                     return;
                   }
                   setShowFullSchema(true);
@@ -363,34 +439,19 @@ export default function Home() {
                   cursor: 'pointer',
                 }}
               >
-                View full schema
+                {language === 'ko'
+                  ? showFullSchema
+                    ? '스키마 닫기'
+                    : '전체 스키마 보기'
+                  : showFullSchema
+                    ? 'Close schema'
+                    : 'View full schema'}
               </button>
             )}
           </div>
         );
       })()}
 
-      {/* idle 전체보기 중이면 부분집합으로 돌아가는(빈 캔버스 복귀) 닫기 버튼 — 좌상단 */}
-      {showIdleSchema && (
-        <button
-          onClick={() => setShowFullSchema(false)}
-          style={{
-            position: 'absolute',
-            top: 56,
-            left: 16,
-            zIndex: 37,
-            padding: '4px 12px',
-            fontSize: 'var(--font-size-xs)',
-            borderRadius: 'var(--radius-pill)',
-            border: '1px solid var(--border)',
-            background: 'var(--bg-secondary)',
-            color: 'var(--text-secondary)',
-            cursor: 'pointer',
-          }}
-        >
-          Close schema
-        </button>
-      )}
 
       {/* 누적 dry-run 액션(pending·Undo·Cancel·Apply All)은 InputPanel 하단에 통합됨.
           CompletedBar는 자체 stage 가드 + self-position. 항상 마운트. */}
@@ -422,6 +483,7 @@ export default function Home() {
 // 감사이력 버튼 — TopBar로 이전(StageDevBar에서 분리).
 function AuditButton() {
   const openAudit = usePipelineStore((s) => s.openAudit);
+  const language = usePipelineStore((s) => s.language);
   return (
     <button
       onClick={openAudit}
@@ -436,7 +498,7 @@ function AuditButton() {
         transition: 'all var(--transition-fast)',
       }}
     >
-      History
+      {language === 'ko' ? '이력' : 'History'}
     </button>
   );
 }

@@ -1,5 +1,7 @@
 'use client';
 
+import { usePipelineStore } from '../../store/pipeline';
+
 // ErdDiffViewer의 mode 타입과 동일 (lift-up된 상태를 props로 공유)
 export type DiffMode = 'side-by-side' | 'overlay';
 
@@ -20,11 +22,11 @@ interface DiffControlsProps {
 // hop 선택지 — 2단계(기본)와 3단계. 더 넓히면 부분집합 의미가 옅어진다.
 const HOP_OPTIONS = [2, 3];
 
-// diff 3색 범례 (색 의미 불변)
+// diff 3색 범례 (색 의미 불변). 라벨은 영어 source-of-truth + 한국어 보조.
 const LEGEND = [
-  { color: 'var(--color-success)', label: 'Added' },
-  { color: 'var(--color-error)', label: 'Removed' },
-  { color: 'var(--color-warning)', label: 'Modified' },
+  { color: 'var(--color-success)', label: 'Added', labelKo: '추가' },
+  { color: 'var(--color-error)', label: 'Removed', labelKo: '삭제' },
+  { color: 'var(--color-warning)', label: 'Modified', labelKo: '변경' },
 ];
 
 // 뷰 토글 라벨 — git diff 표준 용어(Split/Unified). mode 값은 내부 식별자라 유지.
@@ -46,6 +48,8 @@ export default function DiffControls({
   onHopsChange,
   onShowAllChange,
 }: DiffControlsProps) {
+  const language = usePipelineStore((s) => s.language);
+  const ko = language === 'ko';
   // 부분집합 컨트롤은 카운터 정보가 들어왔고 전체보다 적게 보일 수 있을 때만 노출.
   const hasSubset = shownCount !== undefined && totalCount !== undefined && totalCount > 0;
   // active=중립색(ERD 영역이라 accent·diff색 금지) — 기존 모드토글 규칙과 동일.
@@ -85,7 +89,7 @@ export default function DiffControls({
           color: 'var(--text-secondary)',
         }}
       >
-        {LEGEND.map(({ color, label }) => (
+        {LEGEND.map(({ color, label, labelKo }) => (
           <span key={label} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
             <span
               style={{
@@ -96,7 +100,7 @@ export default function DiffControls({
                 display: 'inline-block',
               }}
             />
-            {label}
+            {ko ? labelKo : label}
           </span>
         ))}
       </div>
@@ -124,8 +128,12 @@ export default function DiffControls({
             {/* "Showing X of Y tables (N-hop)" 카운터 — 좁힘이 의도된 축약임을 알린다 */}
             <span style={{ fontSize: 11, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
               {showAll
-                ? `All ${totalCount} tables`
-                : `Showing ${shownCount} of ${totalCount} (${hops}-hop)`}
+                ? ko
+                  ? `전체 ${totalCount}개 테이블`
+                  : `All ${totalCount} tables`
+                : ko
+                  ? `${totalCount}개 중 ${shownCount}개 표시 (${hops}홉)`
+                  : `Showing ${shownCount} of ${totalCount} (${hops}-hop)`}
             </span>
             {/* hop 토글 — 부분집합 모드(showAll=false)에서만 */}
             {!showAll && (
@@ -135,9 +143,13 @@ export default function DiffControls({
                     key={h}
                     onClick={() => onHopsChange?.(h)}
                     style={neutralBtn(hops === h)}
-                    title={`Show tables within ${h} FK hops of the change`}
+                    title={
+                      ko
+                        ? `변경 지점에서 FK ${h}홉 이내 테이블 표시`
+                        : `Show tables within ${h} FK hops of the change`
+                    }
                   >
-                    {h}-hop
+                    {ko ? `${h}홉` : `${h}-hop`}
                   </button>
                 ))}
               </div>
@@ -146,9 +158,17 @@ export default function DiffControls({
             <button
               onClick={() => onShowAllChange?.(!showAll)}
               style={neutralBtn(showAll)}
-              title={showAll ? 'Show only the changed neighborhood' : 'Show the full schema'}
+              title={
+                showAll
+                  ? ko
+                    ? '변경된 주변만 표시'
+                    : 'Show only the changed neighborhood'
+                  : ko
+                    ? '전체 스키마 표시'
+                    : 'Show the full schema'
+              }
             >
-              {showAll ? 'Show subset' : 'Show all'}
+              {showAll ? (ko ? '부분집합 보기' : 'Show subset') : ko ? '전체 보기' : 'Show all'}
             </button>
           </div>
         </>
