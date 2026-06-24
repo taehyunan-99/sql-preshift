@@ -356,6 +356,7 @@ export default function DiagnosticsPanel({
               risks={analyzeResult.risks}
               dataSim={analyzeResult.dataSim}
               language={language}
+              onLocate={onLocate}
             />
           )}
 
@@ -690,6 +691,7 @@ type RiskRow = {
   rule: string;
   message: string;
   messageKo?: string;
+  tables?: string[];
   llmNote?: string;
   llmNoteKo?: string;
 };
@@ -711,10 +713,12 @@ function RiskList({
   risks,
   dataSim,
   language,
+  onLocate,
 }: {
   risks: RiskRow[];
   dataSim: DataSim;
   language: Language;
+  onLocate?: (table: string) => void;
 }) {
   const ko = language === 'ko';
   // 위반 행수 칩 — constraintViolations가 점검된 경우만(null=비대상). 0=안전(중립), N>0=경고.
@@ -808,6 +812,31 @@ function RiskList({
             <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)', lineHeight: 1.5 }}>
               {msg}
             </p>
+            {/* 영향 테이블 칩 — 클릭 시 ERD에서 해당 노드 강조(진단의 Locate in ERD와 동일 UX) */}
+            {r.tables && r.tables.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 2 }}>
+                {r.tables.map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => onLocate?.(t)}
+                    title={ko ? 'ERD에서 찾기' : 'Locate in ERD'}
+                    style={{
+                      fontSize: 'var(--font-size-xs)',
+                      fontFamily: 'var(--font-mono)',
+                      padding: '1px 7px',
+                      borderRadius: 'var(--radius-pill)',
+                      border: '1px solid var(--border-strong)',
+                      background: 'var(--bg-secondary)',
+                      color: 'var(--text-secondary)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            )}
             {note && (
               <p style={{ margin: 0, fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)', lineHeight: 1.5 }}>
                 {note}
