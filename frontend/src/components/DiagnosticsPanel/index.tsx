@@ -96,11 +96,21 @@ export default function DiagnosticsPanel({
 
   // SQL 탭 상태(기존 Draft에서 이관). 표시 언어는 전역 store(language)가 제어.
   const [explainOpen, setExplainOpen] = useState(false);
+  // SQL 탭의 Up/Down 토글 — Up=적용될 SQL, Down=롤백 SQL(자동 생성).
+  const [sqlDir, setSqlDir] = useState<'up' | 'down'>('up');
   const showLoading = isAnalyzing || stage === 'analyzing';
   const explanationKo = analyzeResult?.explanationKo ?? '';
   const explanationEn = analyzeResult?.explanation ?? '';
   const explainText = language === 'ko' ? explanationKo || explanationEn : explanationEn;
   const hasExplanation = Boolean(explanationEn || explanationKo);
+
+  // 롤백 스크립트 — 빈 문자열 또는 전부 주석(ROLLBACK UNSUPPORTED/원본 정보 없음)이면 자동 롤백 불가.
+  const downScript = analyzeResult?.downScript ?? '';
+  const downHasExec = downScript
+    .split('\n')
+    .some((l) => l.trim() && !l.trim().startsWith('--'));
+  const upSql = analyzeResult?.sql ?? '';
+  const monacoValue = sqlDir === 'down' ? downScript : upSql;
 
   return (
     <div
@@ -267,6 +277,57 @@ export default function DiagnosticsPanel({
               {language === 'ko' ? '생성된 SQL이 여기에 표시됩니다.' : 'The generated SQL will appear here.'}
             </div>
           )}
+          {/* Up/Down 토글 — Up=적용 SQL, Down=롤백 SQL. 변경을 적용하기 전에 되돌릴 SQL을 미리 확인. */}
+          {!showLoading && analyzeResult && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '8px var(--space-md)',
+                borderBottom: '1px solid var(--border)',
+                flexShrink: 0,
+              }}
+            >
+              {(['up', 'down'] as const).map((dir) => {
+                const active = sqlDir === dir;
+                const label =
+                  dir === 'up'
+                    ? language === 'ko'
+                      ? '적용'
+                      : 'Up'
+                    : language === 'ko'
+                      ? '롤백'
+                      : 'Down';
+                return (
+                  <button
+                    key={dir}
+                    type="button"
+                    onClick={() => setSqlDir(dir)}
+                    style={{
+                      padding: '3px 12px',
+                      fontSize: 'var(--font-size-xs)',
+                      fontWeight: 700,
+                      letterSpacing: '0.04em',
+                      borderRadius: 'var(--radius-pill)',
+                      border: `1px solid ${active ? 'var(--color-accent-border)' : 'var(--border)'}`,
+                      background: active ? 'var(--color-accent-10)' : 'transparent',
+                      color: active ? 'var(--color-accent)' : 'var(--text-secondary)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+              <span style={{ flex: 1 }} />
+              {sqlDir === 'down' && !downHasExec && (
+                <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)' }}>
+                  {language === 'ko' ? '자동 롤백 불가' : 'No automatic rollback'}
+                </span>
+              )}
+            </div>
+          )}
           {/* Monaco는 항상 마운트(display:none과 무관하게 SQL 탭일 때만 block). */}
           <div
             style={{ flex: 1, minHeight: 0, display: !showLoading && analyzeResult ? 'block' : 'none' }}
@@ -274,7 +335,7 @@ export default function DiagnosticsPanel({
             <MonacoEditor
               height="100%"
               language="sql"
-              value={analyzeResult?.sql ?? ''}
+              value={monacoValue}
               theme="vs-dark"
               options={{
                 minimap: { enabled: false },
@@ -289,6 +350,15 @@ export default function DiagnosticsPanel({
               }}
             />
           </div>
+          {/* 위험 리스트 — critical/warning/info 전부 텍스트로 설명(모달은 critical만). A-5/A-3. */}
+          {!showLoading && analyzeResult && (analyzeResult.risks.length > 0 || analyzeResult.dataSim?.constraintHint) && (
+            <RiskList
+              risks={analyzeResult.risks}
+              dataSim={analyzeResult.dataSim}
+              language={language}
+            />
+          )}
+
           {/* explanation 아코디언 (기존 이관) */}
           {!showLoading && analyzeResult && hasExplanation && (
             <div style={{ borderTop: '1px solid var(--border)', background: 'var(--bg-input)', flexShrink: 0 }}>
@@ -610,6 +680,142 @@ function DiagnosticsTab({
           );
         })}
       </div>
+    </div>
+  );
+}
+
+// ── 위험 리스트 (SQL 탭) — critical/warning/info를 색·텍스트로 모두 설명 ──
+type RiskRow = {
+  level: 'critical' | 'warning' | 'info';
+  rule: string;
+  message: string;
+  messageKo?: string;
+  llmNote?: string;
+  llmNoteKo?: string;
+};
+type DataSim = {
+  affectedRows: number;
+  estimatedRows: number;
+  constraintViolations?: number | null;
+  constraintHint?: string | null;
+  constraintHintKo?: string | null;
+} | null;
+
+const RISK_STYLE: Record<RiskRow['level'], { color: string; bg: string; border: string }> = {
+  critical: { color: 'var(--color-error)', bg: 'var(--color-error-bg)', border: 'var(--color-error-border)' },
+  warning: { color: 'var(--color-warning)', bg: 'var(--color-warning-bg)', border: 'var(--color-warning)' },
+  info: { color: 'var(--text-secondary)', bg: 'transparent', border: 'var(--border-strong)' },
+};
+
+function RiskList({
+  risks,
+  dataSim,
+  language,
+}: {
+  risks: RiskRow[];
+  dataSim: DataSim;
+  language: Language;
+}) {
+  const ko = language === 'ko';
+  // 위반 행수 칩 — constraintViolations가 점검된 경우만(null=비대상). 0=안전(중립), N>0=경고.
+  const cv = dataSim?.constraintViolations;
+  const hasCv = cv !== null && cv !== undefined;
+  const cvHint = ko ? dataSim?.constraintHintKo || dataSim?.constraintHint : dataSim?.constraintHint;
+
+  return (
+    <div
+      style={{
+        borderTop: '1px solid var(--border)',
+        background: 'var(--bg-input)',
+        flexShrink: 0,
+        maxHeight: '38%',
+        overflowY: 'auto',
+        padding: 'var(--space-sm) var(--space-md)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 6,
+      }}
+    >
+      {hasCv && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '6px 10px',
+            borderRadius: 'var(--radius-sm)',
+            border: `1px solid ${cv! > 0 ? 'var(--color-warning)' : 'var(--border-strong)'}`,
+            background: cv! > 0 ? 'var(--color-warning-bg)' : 'transparent',
+          }}
+        >
+          <strong
+            style={{
+              fontSize: 'var(--font-size-sm)',
+              color: cv! > 0 ? 'var(--color-warning)' : 'var(--text-secondary)',
+              fontFamily: 'var(--font-mono)',
+            }}
+          >
+            {cv!.toLocaleString()}
+          </strong>
+          <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+            {cvHint}
+          </span>
+        </div>
+      )}
+      {risks.map((r, i) => {
+        const st = RISK_STYLE[r.level];
+        const msg = ko ? r.messageKo || r.message : r.message;
+        const note = ko ? r.llmNoteKo || r.llmNote : r.llmNote;
+        return (
+          <div
+            key={`${r.rule}-${i}`}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 3,
+              padding: '6px 10px',
+              borderRadius: 'var(--radius-sm)',
+              borderLeft: `3px solid ${st.color}`,
+              background: st.bg,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span
+                style={{
+                  fontSize: 9,
+                  fontWeight: 700,
+                  letterSpacing: '0.06em',
+                  textTransform: 'uppercase',
+                  color: st.color,
+                  border: `1px solid ${st.border}`,
+                  borderRadius: 'var(--radius-pill)',
+                  padding: '1px 6px',
+                }}
+              >
+                {r.level}
+              </span>
+              <span
+                style={{
+                  fontSize: 'var(--font-size-xs)',
+                  fontWeight: 600,
+                  color: 'var(--text-secondary)',
+                  fontFamily: 'var(--font-mono)',
+                }}
+              >
+                {r.rule}
+              </span>
+            </div>
+            <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)', lineHeight: 1.5 }}>
+              {msg}
+            </p>
+            {note && (
+              <p style={{ margin: 0, fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                {note}
+              </p>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

@@ -25,7 +25,13 @@ export interface AnalyzeResult {
   explanation: string;
   explanationKo?: string;
   schemaDiff: SchemaDiff;
-  dataSim: { affectedRows: number; estimatedRows: number } | null;
+  dataSim: {
+    affectedRows: number;
+    estimatedRows: number;
+    constraintViolations?: number | null;
+    constraintHint?: string | null;
+    constraintHintKo?: string | null;
+  } | null;
   risks: RiskItem[];
   downScript: string;
   token: string;
