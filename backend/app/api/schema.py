@@ -34,8 +34,8 @@ async def reindex_schema() -> ReindexResponse:
         raise HTTPException(status_code=503, detail="Database not connected.")
     try:
         count = await _reindex(engine)
-        return ReindexResponse(indexed=count, message=f"{count}개 청크 재색인 완료")
+        return ReindexResponse(indexed=count, message=f"Reindexed {count} chunks.")
     except OllamaError as e:
-        raise HTTPException(status_code=503, detail=f"Ollama 연결 실패: {e}")
+        raise HTTPException(status_code=503, detail=f"Ollama connection failed: {e}")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"재색인 오류: {e}")
+        raise HTTPException(status_code=500, detail=f"Reindex failed: {e}")

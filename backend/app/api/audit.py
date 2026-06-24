@@ -61,4 +61,4 @@ async def api_rollback(
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         session.rollback()
-        raise HTTPException(status_code=500, detail=f"롤백 중 오류: {e}")
+        raise HTTPException(status_code=500, detail=f"Rollback failed: {e}")

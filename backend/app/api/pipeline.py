@@ -105,7 +105,7 @@ async def analyze(req: AnalyzeRequest, session: Session = Depends(get_meta_sessi
             try:
                 baseline = fold_baseline(req.priorSqls, base)  # 직전 누적 기준(Split before·down_script)
             except ValidationError as e:
-                raise HTTPException(status_code=422, detail=f"누적 baseline 오류: {e}")
+                raise HTTPException(status_code=422, detail=f"Cumulative baseline error: {e}")
             before_tables = {n.id: n for n in baseline.nodes}
             try:
                 schema_diff = simulate_schema(ast, baseline)  # 직전 1개 diff
@@ -114,7 +114,7 @@ async def analyze(req: AnalyzeRequest, session: Session = Depends(get_meta_sessi
                     update={"cumulative_after": cumulative.after}
                 )
             except ValidationError as e:
-                raise HTTPException(status_code=422, detail=f"누적 시뮬레이션 오류: {e}")
+                raise HTTPException(status_code=422, detail=f"Cumulative simulation error: {e}")
             except Exception:
                 schema_diff = None
         else:
@@ -182,7 +182,7 @@ def _ollama_unavailable_response(mode: InputMode, confidence: float, detail: str
         status_code=503,
         detail={
             "error": "OLLAMA_UNAVAILABLE",
-            "message": "자연어 처리에 Ollama가 필요하지만 연결할 수 없습니다. SQL 직접 입력 모드를 사용하거나 Ollama를 기동하세요.",
+            "message": "Natural-language processing requires Ollama, but it is unreachable. Use the direct SQL input mode, or start Ollama.",
             "detail": detail,
         },
     )
