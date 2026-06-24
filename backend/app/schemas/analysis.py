@@ -33,6 +33,12 @@ class Risk(BaseModel):
     tables: list[str] = Field(default_factory=list)
     llm_note: Optional[str] = Field(default=None, serialization_alias="llmNote")
     llm_note_ko: Optional[str] = Field(default=None, serialization_alias="llmNoteKo")
+    # golden path — "차단"이 아니라 "대신 이렇게 하라"는 actionable 안전 대안(현업 정석 패턴).
+    # 단일 statement AST만 보는 도구의 정직한 포지션: 위험을 알리되 안전한 경로를 제시한다.
+    suggestion: Optional[str] = Field(default=None)  # 영어 (UI 기본)
+    suggestion_ko: Optional[str] = Field(
+        default=None, serialization_alias="suggestionKo"
+    )
 
 
 class SchemaSimResult(BaseModel):

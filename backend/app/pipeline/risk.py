@@ -289,7 +289,18 @@ def deterministic_rules(
         if str(create.args.get("kind", "")).upper() != "INDEX":
             continue
         if create.args.get("concurrently"):
-            continue  # CONCURRENTLY는 쓰기 차단 없음 — 안전
+            # CONCURRENTLY는 쓰기 차단은 없으나, 트랜잭션 블록 안에서 실행 불가.
+            # 우리 apply/apply_all은 단일 TX(engine.begin())로 감싸므로 런타임에 폭발한다.
+            risks.append(
+                Risk(
+                    level="warning",
+                    rule="CONCURRENTLY_IN_TRANSACTION",
+                    message="CREATE INDEX CONCURRENTLY cannot run inside a transaction block, but Apply/Apply All wraps changes in one transaction — it will fail at runtime. Run it separately in autocommit.",
+                    message_ko="CREATE INDEX CONCURRENTLY는 트랜잭션 블록 안에서 실행할 수 없는데 Apply/Apply All은 단일 트랜잭션으로 감쌉니다 — 런타임에 실패합니다. autocommit으로 따로 실행하세요.",
+                    tables=_table_names(create),
+                )
+            )
+            continue  # 쓰기 차단 룰은 비대상(CONCURRENTLY는 락 안 잡음)
         risks.append(
             Risk(
                 level="warning",
@@ -297,6 +308,22 @@ def deterministic_rules(
                 message="CREATE INDEX without CONCURRENTLY — blocks writes on the table while the index builds.",
                 message_ko="CONCURRENTLY 없는 CREATE INDEX — 인덱스 생성 동안 테이블 쓰기를 차단합니다.",
                 tables=_table_names(create),
+            )
+        )
+
+    # DROP INDEX CONCURRENTLY도 동일하게 트랜잭션 블록 불가.
+    for drop in ast.find_all(exp.Drop):
+        if str(drop.args.get("kind", "")).upper() != "INDEX":
+            continue
+        if not drop.args.get("concurrently"):
+            continue  # 일반 DROP INDEX는 트랜잭션 가능 — 별도 위험 없음
+        risks.append(
+            Risk(
+                level="warning",
+                rule="CONCURRENTLY_IN_TRANSACTION",
+                message="DROP INDEX CONCURRENTLY cannot run inside a transaction block, but Apply/Apply All wraps changes in one transaction — it will fail at runtime. Run it separately in autocommit.",
+                message_ko="DROP INDEX CONCURRENTLY는 트랜잭션 블록 안에서 실행할 수 없는데 Apply/Apply All은 단일 트랜잭션으로 감쌉니다 — 런타임에 실패합니다. autocommit으로 따로 실행하세요.",
+                tables=_table_names(drop),
             )
         )
 
@@ -342,7 +369,84 @@ def deterministic_rules(
             )
         )
 
+    # golden path 주입 — 각 룰에 "차단" 대신 "대신 이렇게 하라"는 안전 대안을 붙인다.
+    # 현업 정석 패턴(strong_migrations/GitLab/PG16 검증 기반). 단일 statement AST만 보는
+    # 도구의 정직한 포지션: 위험을 알리되 안전 경로를 제시한다.
+    for r in risks:
+        sug = _GOLDEN_PATHS.get(r.rule)
+        if sug:
+            r.suggestion, r.suggestion_ko = sug
+
     return risks
+
+
+# 룰 ID → (영어 suggestion, 한국어 suggestion). 위험 룰의 actionable 안전 대안.
+_GOLDEN_PATHS: dict[str, tuple[str, str]] = {
+    "ADD_FK_VALIDATING": (
+        "Split into two statements: ADD CONSTRAINT ... FOREIGN KEY ... NOT VALID (no scan, near-instant), then VALIDATE CONSTRAINT (takes only SHARE UPDATE EXCLUSIVE — concurrent reads/writes proceed).",
+        "두 구문으로 분리하세요: ADD CONSTRAINT ... FOREIGN KEY ... NOT VALID(스캔 없음, 거의 즉시) 후 VALIDATE CONSTRAINT(SHARE UPDATE EXCLUSIVE만 잡아 동시 읽기/쓰기 허용).",
+    ),
+    "ADD_CHECK_VALIDATING": (
+        "Split into ADD CONSTRAINT ... CHECK (...) NOT VALID (commits immediately, no existing-row scan) then VALIDATE CONSTRAINT in a separate statement (SHARE UPDATE EXCLUSIVE — does not block concurrent reads/writes).",
+        "ADD CONSTRAINT ... CHECK (...) NOT VALID(즉시 커밋, 기존 행 스캔 없음) 후 별도 구문으로 VALIDATE CONSTRAINT(SHARE UPDATE EXCLUSIVE — 동시 읽기/쓰기 차단 안 함)로 분리하세요.",
+    ),
+    "SET_NOT_NULL": (
+        "On large/high-traffic tables avoid the long ACCESS EXCLUSIVE lock: ADD CONSTRAINT ... CHECK (col IS NOT NULL) NOT VALID, then VALIDATE CONSTRAINT, then SET NOT NULL (PG12+ skips the full scan when a valid CHECK proves no NULLs).",
+        "크거나 트래픽 많은 테이블은 긴 ACCESS EXCLUSIVE 락을 피하세요: ADD CONSTRAINT ... CHECK (col IS NOT NULL) NOT VALID → VALIDATE CONSTRAINT → SET NOT NULL(PG12+는 유효 CHECK가 NULL 없음을 증명하면 전체 스캔을 건너뜀).",
+    ),
+    "ADD_NOT_NULL_NO_DEFAULT": (
+        "Add the column nullable (a constant DEFAULT is rewrite-free on PG11+), backfill in batches, then enforce NOT NULL via a NOT VALID CHECK + VALIDATE + SET NOT NULL.",
+        "컬럼을 nullable로 추가(PG11+는 상수 DEFAULT가 재작성 없음)하고 배치로 백필한 뒤, NOT VALID CHECK + VALIDATE + SET NOT NULL로 NOT NULL을 강제하세요.",
+    ),
+    "ADD_COLUMN_VOLATILE_DEFAULT": (
+        "Add the column nullable without the default, backfill the value in batches, then SET DEFAULT — avoids the full-table rewrite a volatile default forces.",
+        "기본값 없이 nullable로 컬럼을 추가하고 값을 배치로 백필한 뒤 SET DEFAULT 하세요 — volatile DEFAULT가 강제하는 전체 재작성을 피합니다.",
+    ),
+    "ALTER_COLUMN_TYPE": (
+        "If this rewrites the table (type narrowing or scale change), use expand-contract: add a new-typed column, sync via trigger, backfill in batches, switch the app, then drop the old column in a later release. Widening (e.g. varchar(50)→text) is rewrite-free on PG16.",
+        "재작성이 일어나는 변경(타입 축소·scale 변경)이면 expand-contract를 쓰세요: 새 타입 컬럼 추가 → 트리거로 동기화 → 배치 백필 → 앱 전환 → 다음 릴리스에서 옛 컬럼 제거. 확대(예: varchar(50)→text)는 PG16에서 재작성이 없습니다.",
+    ),
+    "CREATE_INDEX_BLOCKING": (
+        "Use CREATE INDEX CONCURRENTLY to avoid blocking writes — but run it outside any transaction (autocommit), separately from Apply/Apply All.",
+        "쓰기 차단을 피하려면 CREATE INDEX CONCURRENTLY를 쓰되, 트랜잭션 밖(autocommit)에서 Apply/Apply All과 별도로 실행하세요.",
+    ),
+    "CONCURRENTLY_IN_TRANSACTION": (
+        "Run this single statement on its own in autocommit (not via Apply All). If a CONCURRENTLY build fails midway it can leave an INVALID index — clean it up with DROP INDEX CONCURRENTLY before retrying.",
+        "이 구문은 autocommit으로 단독 실행하세요(Apply All 경유 금지). CONCURRENTLY 빌드가 중간에 실패하면 INVALID 인덱스가 남을 수 있으니 재시도 전 DROP INDEX CONCURRENTLY로 정리하세요.",
+    ),
+    "ADD_PK_OR_UNIQUE": (
+        "Build the index concurrently first: CREATE UNIQUE INDEX CONCURRENTLY (outside a transaction), then ADD CONSTRAINT ... UNIQUE/PRIMARY KEY USING INDEX <idx> (fast metadata-only promotion).",
+        "먼저 인덱스를 동시 빌드하세요: CREATE UNIQUE INDEX CONCURRENTLY(트랜잭션 밖) 후 ADD CONSTRAINT ... UNIQUE/PRIMARY KEY USING INDEX <idx>(빠른 메타데이터 전환).",
+    ),
+    "DROP_COLUMN": (
+        "Ship app code that stops referencing the column first (so cached plans / SELECT * don't break), then DROP it in the next release (expand-contract). Beware connection pools (PgBouncer) holding old plans.",
+        "먼저 컬럼 참조를 멈춘 앱 코드를 배포(캐시된 plan/SELECT * 가 안 깨지도록)한 뒤 다음 릴리스에서 DROP 하세요(expand-contract). 옛 plan을 든 커넥션 풀(PgBouncer)에 주의하세요.",
+    ),
+    "DROP_TABLE": (
+        "DROP is fast but breaks any app still referencing the table. Stop using it in app code and ship that first, then DROP in a later release.",
+        "DROP은 빠르지만 그 테이블을 참조하는 앱을 깨뜨립니다. 앱 코드에서 사용을 멈추고 먼저 배포한 뒤, 다음 릴리스에서 DROP 하세요.",
+    ),
+    "RENAME_COLUMN_OR_TABLE": (
+        "The real risk is an app-compatibility race during rolling deploys, not locking. Prefer expand-contract: add a new column, sync both via a trigger, backfill, switch the app, then drop the old one later.",
+        "진짜 위험은 락이 아니라 rolling deploy 중 앱 호환성 레이스입니다. expand-contract를 권합니다: 새 컬럼 추가 → 트리거로 양쪽 동기화 → 백필 → 앱 전환 → 나중에 옛 컬럼 제거.",
+    ),
+    "DELETE_WITHOUT_WHERE": (
+        "If you meant to affect every row, scope it explicitly. For large deletes use a keyset batch loop (id > :last ORDER BY id LIMIT 10000), each batch in its own committed transaction — keeps locks brief and avoids pinning the xmin horizon.",
+        "전체 행이 의도였다면 명시적으로 범위를 지정하세요. 대량 삭제는 keyset 배치 루프(id > :last ORDER BY id LIMIT 10000)로, 각 배치를 개별 커밋하세요 — 락을 짧게 유지하고 xmin horizon 고정을 피합니다.",
+    ),
+    "UPDATE_WITHOUT_WHERE": (
+        "If you meant to affect every row, scope it explicitly. For large updates use a keyset batch loop (id > :last ORDER BY id LIMIT 10000), each batch in its own committed transaction — keeps locks brief and avoids pinning the xmin horizon.",
+        "전체 행이 의도였다면 명시적으로 범위를 지정하세요. 대량 변경은 keyset 배치 루프(id > :last ORDER BY id LIMIT 10000)로, 각 배치를 개별 커밋하세요 — 락을 짧게 유지하고 xmin horizon 고정을 피합니다.",
+    ),
+    "CASCADE": (
+        "CASCADE silently drops dependent objects (views, FKs, grants), possibly across schemas, without listing them. Run the same statement with RESTRICT first — it fails and names every dependent object so you can confirm the blast radius.",
+        "CASCADE는 의존 객체(view, FK, 권한)를 다른 스키마까지 나열 없이 조용히 드롭합니다. 같은 구문을 RESTRICT로 먼저 실행하세요 — 실패하면서 의존 객체를 이름까지 알려줘 영향 범위를 확인할 수 있습니다.",
+    ),
+    "TABLE_REWRITE_FULL": (
+        "VACUUM FULL rewrites the whole table under ACCESS EXCLUSIVE — a full outage proportional to table size. Use pg_repack for online repacking, or schedule a maintenance window.",
+        "VACUUM FULL은 ACCESS EXCLUSIVE 락으로 테이블 전체를 재작성합니다 — 크기에 비례한 전면 중단입니다. 온라인 재정리는 pg_repack을 쓰거나 점검 창을 잡으세요.",
+    ),
+}
 
 
 def _fallback_risk_note(risks: list[Risk]) -> tuple[str, str]:

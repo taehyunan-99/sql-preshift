@@ -188,6 +188,43 @@ class TestMigrationSafetyRules:
         assert "ADD_COLUMN_VOLATILE_DEFAULT" not in ids, f"risks={risks}"
         assert "ADD_NOT_NULL_NO_DEFAULT" not in ids, f"risks={risks}"
 
+    def test_create_index_concurrently_flags_in_transaction(self):
+        """CREATE INDEX CONCURRENTLY → CIC-in-TX 경고(우리 apply가 단일 TX라 런타임 실패)."""
+        risks = _rules("CREATE INDEX CONCURRENTLY idx ON products (name)")
+        ids = _rule_ids(risks)
+        assert "CONCURRENTLY_IN_TRANSACTION" in ids, f"risks={risks}"
+        # CONCURRENTLY는 쓰기 차단 안 함 → BLOCKING 룰은 비대상
+        assert "CREATE_INDEX_BLOCKING" not in ids, f"risks={risks}"
+
+    def test_drop_index_concurrently_flags_in_transaction(self):
+        """DROP INDEX CONCURRENTLY → CIC-in-TX 경고."""
+        risks = _rules("DROP INDEX CONCURRENTLY idx")
+        assert "CONCURRENTLY_IN_TRANSACTION" in _rule_ids(risks), f"risks={risks}"
+
+    def test_plain_drop_index_is_safe(self):
+        """일반 DROP INDEX → 위험 없음(트랜잭션 가능)."""
+        risks = _rules("DROP INDEX idx")
+        assert "CONCURRENTLY_IN_TRANSACTION" not in _rule_ids(risks), f"risks={risks}"
+
+
+class TestGoldenPaths:
+    """golden path — 위험 룰에 actionable 안전 대안(suggestion)이 붙는지."""
+
+    def test_fk_validating_has_suggestion(self):
+        """critical FK 룰에 NOT VALID 분해 권고가 붙는다."""
+        risks = _rules(
+            "ALTER TABLE order_items ADD CONSTRAINT fk FOREIGN KEY (product_id) REFERENCES products(id)"
+        )
+        fk = next(r for r in risks if r.rule == "ADD_FK_VALIDATING")
+        assert fk.suggestion and "NOT VALID" in fk.suggestion, f"suggestion={fk.suggestion}"
+        assert fk.suggestion_ko and "NOT VALID" in fk.suggestion_ko, f"ko={fk.suggestion_ko}"
+
+    def test_create_index_blocking_has_concurrently_suggestion(self):
+        """CREATE INDEX 차단 룰에 CONCURRENTLY 대안이 붙는다."""
+        risks = _rules("CREATE INDEX idx ON products (name)")
+        idx = next(r for r in risks if r.rule == "CREATE_INDEX_BLOCKING")
+        assert idx.suggestion and "CONCURRENTLY" in idx.suggestion, f"suggestion={idx.suggestion}"
+
 
 class TestDownScriptRollback:
     """build_down_script 역연산 — A-4."""
