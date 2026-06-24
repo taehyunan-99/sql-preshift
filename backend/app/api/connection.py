@@ -12,7 +12,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, BackgroundTasks, HTTPException
 
 from app.config import settings
 from app.db import (
@@ -82,7 +82,7 @@ async def connection_test(req: ConnectionRequest) -> ConnectionTestResult:
 
 
 @router.post("", response_model=ConnectionStatus)
-async def connect(req: ConnectionRequest) -> ConnectionStatus:
+async def connect(req: ConnectionRequest, background_tasks: BackgroundTasks) -> ConnectionStatus:
     """검증 후 target engine을 교체한다. 교체 시 분석 토큰 캐시는 자동 무효화된다."""
     try:
         url = validate_url(build_url(req.host, req.port, req.user, req.password, req.dbname))
@@ -91,12 +91,15 @@ async def connect(req: ConnectionRequest) -> ConnectionStatus:
         raise HTTPException(status_code=422, detail=e.message)
 
     set_target_engine(url)
-    await _reindex_quietly()
+    # RAG 재색인은 응답을 막지 않는다 — NL→SQL에서만 쓰이고 연결 직후 ERD엔 불필요(첫인상 대기 제거).
+    background_tasks.add_task(_reindex_quietly)
     return _current_status()
 
 
 @router.post("/sample", response_model=ConnectionStatus)
-async def connect_sample(req: SampleRequest | None = None) -> ConnectionStatus:
+async def connect_sample(
+    background_tasks: BackgroundTasks, req: SampleRequest | None = None
+) -> ConnectionStatus:
     """기본 docker DB에 샘플을 시드한 뒤 연결한다(클릭 한 번 체험용).
 
     kind: ecommerce(9테이블, 기본) / erp(92테이블). body 미전송 시 ecommerce(기존 호환).
@@ -131,7 +134,8 @@ async def connect_sample(req: SampleRequest | None = None) -> ConnectionStatus:
         raise HTTPException(status_code=500, detail=f"Failed to seed sample database: {e}")
 
     set_target_engine(validated)
-    await _reindex_quietly()
+    # 재색인은 백그라운드 — 시드 직후 ERD가 즉시 뜨고 색인은 뒤에서 끝난다.
+    background_tasks.add_task(_reindex_quietly)
     return _current_status()
 
 

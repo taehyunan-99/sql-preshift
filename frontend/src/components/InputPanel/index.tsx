@@ -16,6 +16,7 @@ export default function InputPanel() {
     analyzeResult,
     stage,
     dryRunStack,
+    resultCache,
     language,
     setInputText,
     setStage,
@@ -25,6 +26,7 @@ export default function InputPanel() {
     pushDryRun,
     popDryRun,
     clearDryRun,
+    setAppliedToast,
     reset,
   } = usePipelineStore();
 
@@ -111,8 +113,9 @@ export default function InputPanel() {
         setAnalyzing(false);
         return;
       }
-      setAnalyzeResult(mapResult(res));
-      pushDryRun(res.sql); // 정규화된 SQL을 스택에 쌓음(NL도 생성 SQL이 쌓임)
+      const mapped = mapResult(res);
+      setAnalyzeResult(mapped);
+      pushDryRun(res.sql, mapped); // 정규화된 SQL + 그 시점 분석 결과를 함께 캐시(Undo 즉시 복원용)
       setInputText(''); // 다음 누적 입력을 위해 비움
     } catch (e) {
       setAnalyzeError(e instanceof Error ? e.message : (language === 'ko' ? '분석에 실패했습니다' : 'Analysis failed'));
@@ -120,25 +123,22 @@ export default function InputPanel() {
     }
   };
 
-  // Undo: 스택 끝에서만 pop(LIFO) 후, 짧아진 스택으로 마지막 SQL을 재시뮬레이션해 diff 재계산.
-  const handleUndo = async () => {
-    const next = dryRunStack.slice(0, -1);
+  // Undo: 스택 끝에서만 pop(LIFO). 직전 단계 결과를 캐시에서 즉시 복원 — 서버·LLM 재호출 없음.
+  const handleUndo = () => {
+    const nextLen = dryRunStack.length - 1;
     popDryRun();
-    if (next.length === 0) {
+    if (nextLen <= 0) {
       reset(); // 빈 스택 → idle(실DB single graph)
       return;
     }
-    const last = next[next.length - 1];
-    const prior = next.slice(0, -1);
-    setStage('analyzing'); // dim 오버레이
-    setActionError(null);
-    try {
-      // 이미 정규화된 SQL이라 그대로 재분석. pushDryRun은 호출하지 않는다(스택 불변).
-      const res = await analyzeInput({ input: last, priorSqls: prior });
-      setAnalyzeResult(mapResult(res));
-    } catch (e) {
-      setActionError(e instanceof Error ? e.message : (language === 'ko' ? 'Undo에 실패했습니다' : 'Undo failed'));
-      setStage('preview');
+    // resultCache는 dryRunStack과 1:1 — pop 후 마지막 캐시가 복원 대상.
+    const restored = resultCache[nextLen - 1];
+    if (restored) {
+      setActionError(null);
+      setAnalyzeResult(restored); // stage='preview'로 즉시 전환(setAnalyzeResult 내부)
+    } else {
+      // 캐시 미스(있어선 안 됨) — 안전망으로 idle 복귀.
+      reset();
     }
   };
 
@@ -158,9 +158,11 @@ export default function InputPanel() {
     setStage('applying');
     setActionError(null);
     try {
+      const appliedCount = dryRunStack.length; // clearDryRun 전 캡처
       await applyAll(dryRunStack, hasCritical); // critical이면 확인을 거쳤으므로 confirmCritical 전송
       clearDryRun();
       setStage('applied'); // page.tsx가 현재 DB 그래프 재로드
+      setAppliedToast(appliedCount); // 적용 완료 토스트(C-2 클라이맥스)
     } catch (e) {
       setActionError(e instanceof Error ? e.message : 'Apply failed');
       setStage('preview');

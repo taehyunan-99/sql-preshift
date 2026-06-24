@@ -53,6 +53,12 @@ interface PipelineState {
 
   /* 누적 dry-run 스택 — append-only, Undo는 끝에서만 pop. 매 analyze에 priorSqls로 동봉. */
   dryRunStack: string[];
+  /* dryRunStack과 1:1 대응하는 분석 결과 캐시 — Undo 시 서버·LLM 재호출 없이 즉시 복원. */
+  resultCache: AnalyzeResult[];
+
+  /* 적용 완료 토스트 — applyAll 성공 시 적용 건수(N). 0/null=숨김. C-2 클라이맥스 연출. */
+  appliedToast: number | null;
+  setAppliedToast: (count: number | null) => void;
 
   /* 런타임 DB 연결 상태 — 온보딩 게이트가 사용. epoch는 DB 교체 순번. */
   connected: boolean;
@@ -72,7 +78,7 @@ interface PipelineState {
   setAnalyzing: (v: boolean) => void;
   setAnalyzeError: (err: string | null) => void;
 
-  pushDryRun: (sql: string) => void;
+  pushDryRun: (sql: string, result: AnalyzeResult) => void;
   popDryRun: () => void;
   clearDryRun: () => void;
 
@@ -94,6 +100,8 @@ export const usePipelineStore = create<PipelineState>((set) => ({
   isAnalyzing: false,
   analyzeError: null,
   dryRunStack: [],
+  resultCache: [],
+  appliedToast: null,
 
   connected: false,
   connectedHost: null,
@@ -115,18 +123,30 @@ export const usePipelineStore = create<PipelineState>((set) => ({
       analyzeError: null,
       isAnalyzing: false,
       dryRunStack: [],
+      resultCache: [],
+      appliedToast: null,
     }),
   openAudit: () => set({ auditOpen: true }),
   closeAudit: () => set({ auditOpen: false }),
   setLanguage: (language) => set({ language }),
 
+  setAppliedToast: (appliedToast) => set({ appliedToast }),
+
   setInputText: (text) => set({ inputText: text }),
   setAnalyzing: (v) => set({ isAnalyzing: v }),
   setAnalyzeError: (err) => set({ analyzeError: err }),
 
-  pushDryRun: (sql) => set((s) => ({ dryRunStack: [...s.dryRunStack, sql] })),
-  popDryRun: () => set((s) => ({ dryRunStack: s.dryRunStack.slice(0, -1) })),
-  clearDryRun: () => set({ dryRunStack: [] }),
+  pushDryRun: (sql, result) =>
+    set((s) => ({
+      dryRunStack: [...s.dryRunStack, sql],
+      resultCache: [...s.resultCache, result],
+    })),
+  popDryRun: () =>
+    set((s) => ({
+      dryRunStack: s.dryRunStack.slice(0, -1),
+      resultCache: s.resultCache.slice(0, -1),
+    })),
+  clearDryRun: () => set({ dryRunStack: [], resultCache: [] }),
 
   setConnection: (status) =>
     set((s) => {
@@ -140,6 +160,7 @@ export const usePipelineStore = create<PipelineState>((set) => ({
         ...(dbChanged
           ? {
               dryRunStack: [],
+              resultCache: [],
               analyzeResult: null,
               analyzeError: null,
               stage: 'idle' as PipelineStage,

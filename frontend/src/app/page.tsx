@@ -14,8 +14,10 @@ import InputPanel from '../components/InputPanel';
 import DiagnosticsPanel from '../components/DiagnosticsPanel';
 import ErdDiffViewer from '../components/erd/ErdDiffViewer';
 import CompletedBar from '../components/CompletedBar';
+import AppliedToast from '../components/AppliedToast';
 import AuditDrawer from '../components/AuditDrawer';
 import StageBadge from '../components/StageBadge';
+import StageProgress from '../components/StageProgress';
 import LanguageToggle from '../components/LanguageToggle';
 import DiffControls, { type DiffMode } from '../components/DiffControls';
 import DatabaseConnect from '../components/DatabaseConnect';
@@ -147,7 +149,6 @@ export default function Home() {
 
   // analyzing/applying dim 오버레이.
   const showDim = stage === 'analyzing' || stage === 'applying';
-  const dimLabel = stage === 'applying' ? 'Applying…' : 'Analyzing…';
 
   // 연결 상태 조회 전엔 빈 화면(게이트/메인 깜빡임 방지).
   if (!statusChecked) {
@@ -224,29 +225,10 @@ export default function Home() {
           transition: 'opacity var(--transition-base)',
         }}
       >
-        <span
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 'var(--space-2)',
-            fontSize: 'var(--font-size-md)',
-            color: 'var(--text-primary)',
-            fontWeight: 600,
-          }}
-        >
-          <span
-            style={{
-              display: 'inline-block',
-              width: 16,
-              height: 16,
-              border: '2px solid var(--color-accent)',
-              borderTopColor: 'transparent',
-              borderRadius: '50%',
-              animation: 'spin 0.8s linear infinite',
-            }}
-          />
-          {dimLabel}
-        </span>
+        <StageProgress
+          active={showDim}
+          variant={stage === 'applying' ? 'applying' : 'analyzing'}
+        />
       </div>
 
       {/* Layer1: TopBar */}
@@ -456,6 +438,9 @@ export default function Home() {
       {/* 누적 dry-run 액션(pending·Undo·Cancel·Apply All)은 InputPanel 하단에 통합됨.
           CompletedBar는 자체 stage 가드 + self-position. 항상 마운트. */}
       <CompletedBar />
+
+      {/* 적용 완료 토스트 — applyAll 직후 클라이맥스 연출(C-2) */}
+      <AppliedToast />
 
       {/* Layer7: AuditDrawer */}
       <AuditDrawer />
