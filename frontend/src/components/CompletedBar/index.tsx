@@ -29,13 +29,26 @@ export default function CompletedBar() {
     >
       <span
         style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 6,
           fontSize: 12,
           fontWeight: 600,
           color: 'var(--color-success)',
           marginRight: 4,
         }}
       >
-        {language === 'ko' ? '✓ 적용됨' : '✓ Applied'}
+        {/* 이모지 대신 StageBadge와 동일한 success dot (UI 이모지 금지 규칙) */}
+        <span
+          style={{
+            width: 7,
+            height: 7,
+            borderRadius: '50%',
+            background: 'var(--color-success)',
+            display: 'inline-block',
+          }}
+        />
+        {language === 'ko' ? '적용됨' : 'Applied'}
       </span>
 
       {/* 롤백 — AuditDrawer를 열어 최근 적용 항목 롤백 */}

@@ -4,22 +4,6 @@ import { useEffect, useState } from 'react';
 import { usePipelineStore } from '../../store/pipeline';
 import { fetchAuditLog, rollbackAudit, type AuditEntry } from '../../lib/api';
 
-// mock 데이터 — 백엔드 미연결 시 폴백
-const MOCK_AUDIT: AuditEntry[] = [
-  {
-    id: 'mock-1',
-    sql: 'ALTER TABLE users ADD COLUMN age integer',
-    appliedAt: '2026-06-21T10:30:00Z',
-    rolledBack: false,
-  },
-  {
-    id: 'mock-2',
-    sql: 'CREATE INDEX idx_users_email ON users(email)',
-    appliedAt: '2026-06-21T09:15:00Z',
-    rolledBack: true,
-  },
-];
-
 function formatDate(iso: string): string {
   const d = new Date(iso);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
@@ -39,11 +23,12 @@ export default function AuditDrawer() {
     fetchAuditLog()
       .then(setEntries)
       .catch(() => {
-        // 백엔드 미연결 시 mock 사용
-        setEntries(MOCK_AUDIT);
+        // 가짜 이력으로 은폐하지 않음 — 실패를 명시(안전 게이트 신뢰도)
+        setEntries([]);
+        setError(language === 'ko' ? '이력을 불러오지 못했습니다.' : 'Failed to load history.');
       })
       .finally(() => setLoading(false));
-  }, [auditOpen]);
+  }, [auditOpen, language]);
 
   const handleRollback = async (id: string) => {
     setRollingBack(id);
