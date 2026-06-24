@@ -694,6 +694,8 @@ type RiskRow = {
   tables?: string[];
   llmNote?: string;
   llmNoteKo?: string;
+  suggestion?: string;
+  suggestionKo?: string;
 };
 type DataSim = {
   affectedRows: number;
@@ -770,6 +772,7 @@ function RiskList({
         const st = RISK_STYLE[r.level];
         const msg = ko ? r.messageKo || r.message : r.message;
         const note = ko ? r.llmNoteKo || r.llmNote : r.llmNote;
+        const sug = ko ? r.suggestionKo || r.suggestion : r.suggestion;
         return (
           <div
             key={`${r.rule}-${i}`}
@@ -840,6 +843,13 @@ function RiskList({
             {note && (
               <p style={{ margin: 0, fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)', lineHeight: 1.5 }}>
                 {note}
+              </p>
+            )}
+            {/* golden path — "대신 이렇게 하라" 안전 대안(accent 색으로 구분) */}
+            {sug && (
+              <p style={{ margin: '2px 0 0', fontSize: 'var(--font-size-xs)', color: 'var(--color-accent)', lineHeight: 1.5 }}>
+                <span style={{ fontWeight: 700 }}>{ko ? '권장 ' : 'Suggested '}</span>
+                {sug}
               </p>
             )}
           </div>

@@ -16,6 +16,8 @@ export interface RiskItem {
   tables: string[]; // 이 위험이 영향을 주는 테이블명 — ERD 노드 강조용
   llmNote?: string;
   llmNoteKo?: string;
+  suggestion?: string; // golden path — "대신 이렇게 하라" 안전 대안 (영어)
+  suggestionKo?: string; // 한국어 (토글용)
 }
 
 export interface AnalyzeResult {

@@ -566,6 +566,16 @@ export default function InputPanel() {
                       </p>
                     ) : null;
                   })()}
+                  {(() => {
+                    // golden path — "대신 이렇게 하라" 안전 대안. accent 색 + 라벨로 구분.
+                    const sug = language === 'ko' ? (r.suggestionKo || r.suggestion) : (r.suggestion || r.suggestionKo);
+                    return sug ? (
+                      <p style={{ margin: '8px 0 0', fontSize: 'var(--font-size-xs)', color: 'var(--color-accent)', lineHeight: 1.5 }}>
+                        <span style={{ fontWeight: 700 }}>{language === 'ko' ? '권장 ' : 'Suggested '}</span>
+                        {sug}
+                      </p>
+                    ) : null;
+                  })()}
                 </div>
                 );
               })}
