@@ -39,6 +39,12 @@ class Risk(BaseModel):
     suggestion_ko: Optional[str] = Field(
         default=None, serialization_alias="suggestionKo"
     )
+    # size-aware — target DB의 reltuples/size를 read-only 조회해 추상적 위험을 구체화.
+    # "Rewrites ~12M rows / 4 GB" 처럼 영향 규모를 숫자로 보여준다(락 보유 시간의 크기 의존성).
+    size_note: Optional[str] = Field(default=None, serialization_alias="sizeNote")  # 영어
+    size_note_ko: Optional[str] = Field(
+        default=None, serialization_alias="sizeNoteKo"
+    )
 
 
 class SchemaSimResult(BaseModel):

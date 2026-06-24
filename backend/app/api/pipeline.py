@@ -162,6 +162,15 @@ async def analyze(req: AnalyzeRequest, session: Session = Depends(get_meta_sessi
             r.model_copy(update={"llm_note": risk_note_en, "llm_note_ko": risk_note_ko}) if i == 0 else r
             for i, r in enumerate(risks)
         ]
+        # size-aware 주입(read-only) — 대상 룰에 target DB의 추정 행 수/크기를 붙여 위험을 구체화.
+        # llm_note model_copy 이후의 새 리스트에 in-place 주입(engine은 위 블록에서 확보됨).
+        if valid and ast is not None:
+            from app.pipeline.risk import annotate_size
+            from app.pipeline.simulation import estimate_table_size
+
+            target_engine = get_target_engine()
+            if target_engine is not None:
+                annotate_size(risks, lambda t: estimate_table_size(target_engine, t))
 
     # 7. LLM 자연어 설명 (explain_sql — 영/한 동시 생성, Ollama 미기동 시 폴백)
     explanation, explanation_ko = await explain_sql(sql)

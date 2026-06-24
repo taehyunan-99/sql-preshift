@@ -393,5 +393,31 @@ def simulate_constraint_violation(ast: exp.Expression, engine: Engine):
     return n, en, ko
 
 
+def estimate_table_size(engine: Engine, table: str):
+    """테이블의 추정 행 수(reltuples)와 전체 크기를 read-only로 조회한다.
+
+    반환: (est_rows:int, size_pretty:str) 또는 None(테이블 부재/조회 실패).
+    - pg_class.reltuples는 ANALYZE가 갱신하는 추정치 — 전체 스캔 없이 즉시(대형 테이블 안전).
+    - 식별자는 바인드 파라미터로 전달(인젝션 방지), 쓰기 없음(target_engine 전용).
+    """
+    query = text(
+        """
+        SELECT GREATEST(c.reltuples, 0)::bigint AS est_rows,
+               pg_size_pretty(pg_total_relation_size(c.oid)) AS size_pretty
+        FROM pg_class c
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = 'public' AND c.relname = :t AND c.relkind = 'r'
+        """
+    )
+    try:
+        with engine.connect() as conn:
+            row = conn.execute(query, {"t": table}).fetchone()
+    except Exception:
+        return None
+    if row is None:
+        return None
+    return int(row[0]), str(row[1])
+
+
 class _RollbackSignal(Exception):
     """simulate_data 전용 내부 rollback 트리거 — 절대 외부로 전파되지 않는다."""

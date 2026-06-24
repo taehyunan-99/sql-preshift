@@ -226,6 +226,49 @@ class TestGoldenPaths:
         assert idx.suggestion and "CONCURRENTLY" in idx.suggestion, f"suggestion={idx.suggestion}"
 
 
+class TestSizeAware:
+    """size-aware — 핵심 룰에 target DB 추정 행 수/크기 주입(annotate_size)."""
+
+    @staticmethod
+    def _fake_lookup(_table):
+        return (12_000_000, "4 GB")  # 항상 동일 추정치 반환
+
+    def test_alter_type_gets_size_note(self):
+        """ALTER TYPE → 'Rewrites ~N rows' size_note 주입."""
+        from app.pipeline.risk import annotate_size
+        risks = _rules("ALTER TABLE products ALTER COLUMN price TYPE BIGINT")
+        annotate_size(risks, self._fake_lookup)
+        r = next(x for x in risks if x.rule == "ALTER_COLUMN_TYPE")
+        assert r.size_note and "Rewrites" in r.size_note and "12,000,000" in r.size_note
+        assert r.size_note_ko and "12,000,000" in r.size_note_ko
+
+    def test_fk_validating_gets_validates_note(self):
+        """FK validating → 'Validates ~N rows' 동사 분기."""
+        from app.pipeline.risk import annotate_size
+        risks = _rules(
+            "ALTER TABLE order_items ADD CONSTRAINT fk FOREIGN KEY (product_id) REFERENCES products(id)"
+        )
+        annotate_size(risks, self._fake_lookup)
+        r = next(x for x in risks if x.rule == "ADD_FK_VALIDATING")
+        assert r.size_note and "Validates" in r.size_note
+
+    def test_non_size_aware_rule_skipped(self):
+        """size 비대상 룰(DROP_TABLE)엔 size_note 미주입."""
+        from app.pipeline.risk import annotate_size
+        risks = _rules("DROP TABLE orders")
+        annotate_size(risks, self._fake_lookup)
+        r = next(x for x in risks if x.rule == "DROP_TABLE")
+        assert r.size_note is None
+
+    def test_lookup_returning_none_is_safe(self):
+        """size_lookup이 None(테이블 부재) 반환 시 조용히 건너뜀."""
+        from app.pipeline.risk import annotate_size
+        risks = _rules("VACUUM FULL products")
+        annotate_size(risks, lambda _t: None)
+        r = next(x for x in risks if x.rule == "TABLE_REWRITE_FULL")
+        assert r.size_note is None
+
+
 class TestDownScriptRollback:
     """build_down_script 역연산 — A-4."""
 

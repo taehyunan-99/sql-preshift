@@ -449,6 +449,35 @@ _GOLDEN_PATHS: dict[str, tuple[str, str]] = {
 }
 
 
+# size-aware 대상 룰 → (영어 동사구, 한국어 동사구). 크기가 곧 락 보유 시간/다운타임인 룰만.
+# 메시지: "{verb} ~{rows} rows ({size})". rows는 reltuples 추정치.
+_SIZE_AWARE_RULES: dict[str, tuple[str, str]] = {
+    "ALTER_COLUMN_TYPE": ("Rewrites", "재작성"),
+    "TABLE_REWRITE_FULL": ("Rewrites", "재작성"),
+    "ADD_FK_VALIDATING": ("Validates", "검증"),
+    "CREATE_INDEX_BLOCKING": ("Indexes", "인덱싱"),
+}
+
+
+def annotate_size(risks: list[Risk], size_lookup) -> None:
+    """size-aware 대상 룰에 target DB의 추정 행 수/크기를 in-place 주입한다.
+
+    size_lookup(table) -> (rows:int, size:str) | None  — pipeline이 engine을 캡처해 넘김.
+    risk.tables[0](주 영향 테이블)을 조회해 risk.size_note/size_note_ko에 채운다.
+    """
+    for r in risks:
+        verbs = _SIZE_AWARE_RULES.get(r.rule)
+        if not verbs or not r.tables:
+            continue
+        info = size_lookup(r.tables[0])
+        if info is None:
+            continue
+        rows, size = info
+        verb_en, verb_ko = verbs
+        r.size_note = f"{verb_en} ~{rows:,} rows ({size}) on \"{r.tables[0]}\"."
+        r.size_note_ko = f'"{r.tables[0]}" 약 {rows:,}행({size}) {verb_ko}.'
+
+
 def _fallback_risk_note(risks: list[Risk]) -> tuple[str, str]:
     """Ollama 미기동 시 위험 목록 기반 간단 폴백 해설. (en, ko) 튜플."""
     n_crit = sum(1 for r in risks if r.level == "critical")
