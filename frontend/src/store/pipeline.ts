@@ -60,6 +60,10 @@ interface PipelineState {
   appliedToast: number | null;
   setAppliedToast: (count: number | null) => void;
 
+  /* 방금 Apply한 변경들의 audit ID(적용 순서). Applied 바의 Rollback이 역순 롤백에 사용. */
+  lastAppliedAuditIds: string[];
+  setLastAppliedAuditIds: (ids: string[]) => void;
+
   /* 런타임 DB 연결 상태 — 온보딩 게이트가 사용. epoch는 DB 교체 순번. */
   connected: boolean;
   connectedHost: string | null;
@@ -102,6 +106,7 @@ export const usePipelineStore = create<PipelineState>((set) => ({
   dryRunStack: [],
   resultCache: [],
   appliedToast: null,
+  lastAppliedAuditIds: [],
 
   connected: false,
   connectedHost: null,
@@ -125,12 +130,14 @@ export const usePipelineStore = create<PipelineState>((set) => ({
       dryRunStack: [],
       resultCache: [],
       appliedToast: null,
+      lastAppliedAuditIds: [],
     }),
   openAudit: () => set({ auditOpen: true }),
   closeAudit: () => set({ auditOpen: false }),
   setLanguage: (language) => set({ language }),
 
   setAppliedToast: (appliedToast) => set({ appliedToast }),
+  setLastAppliedAuditIds: (lastAppliedAuditIds) => set({ lastAppliedAuditIds }),
 
   setInputText: (text) => set({ inputText: text }),
   setAnalyzing: (v) => set({ isAnalyzing: v }),
@@ -163,6 +170,7 @@ export const usePipelineStore = create<PipelineState>((set) => ({
               resultCache: [],
               analyzeResult: null,
               analyzeError: null,
+              lastAppliedAuditIds: [],
               stage: 'idle' as PipelineStage,
             }
           : {}),

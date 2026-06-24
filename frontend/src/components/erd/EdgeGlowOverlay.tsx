@@ -43,6 +43,8 @@ function nodeSignal(n: NodeDef): SignalKey | null {
 }
 
 const NODE_WIDTH = 240; // erd-layout NODE_WIDTH와 동일(중심 보정용 근사)
+// 화면 가장자리에서 안쪽으로 이만큼 들어온 띠를 "가장자리 근처"로 본다 — 부분 가시 노드도 글로우 대상.
+const EDGE_MARGIN = 120;
 
 export default function EdgeGlowOverlay() {
   const nodes = useNodes();
@@ -75,15 +77,19 @@ export default function EdgeGlowOverlay() {
       const cx = (node.position.x + nodeW / 2) * zoom + vx;
       const cy = (node.position.y + nodeH / 2) * zoom + vy;
 
-      // 화면 안이면 글로우 불필요(노드가 이미 보임).
-      const inside = cx >= 0 && cx <= width && cy >= 0 && cy <= height;
-      if (inside) continue;
+      // EDGE_MARGIN 안쪽(가장자리 근처) 또는 완전 화면 밖이면 글로우 대상.
+      // 부분 가시(중심은 들어왔지만 가장자리에 붙은) 노드도 "저 방향에 있다"를 알려준다.
+      const nearLeft = cx < EDGE_MARGIN;
+      const nearRight = cx > width - EDGE_MARGIN;
+      const nearTop = cy < EDGE_MARGIN;
+      const nearBottom = cy > height - EDGE_MARGIN;
+      if (!nearLeft && !nearRight && !nearTop && !nearBottom) continue; // 화면 중앙부 — 이미 잘 보임
 
-      // 화면 밖 — 어느 변 쪽으로 벗어났는지(가장 많이 벗어난 축). 모서리는 두 변 다 칠함.
-      if (cx < 0) consider('left', sig);
-      else if (cx > width) consider('right', sig);
-      if (cy < 0) consider('top', sig);
-      else if (cy > height) consider('bottom', sig);
+      // 가장자리/밖 — 어느 변 쪽인지. 모서리는 두 변 다 칠함.
+      if (nearLeft) consider('left', sig);
+      else if (nearRight) consider('right', sig);
+      if (nearTop) consider('top', sig);
+      else if (nearBottom) consider('bottom', sig);
     }
     return acc;
   }, [nodes, vx, vy, zoom, width, height]);
@@ -94,8 +100,8 @@ export default function EdgeGlowOverlay() {
     if (!sig) return 'transparent';
     const rgb = SIGNAL_RGB[sig];
     const dir = { top: 'to bottom', bottom: 'to top', left: 'to right', right: 'to left' }[side];
-    // alpha 0.22 — 은은하게(과하면 캔버스 가독성 해침). 안쪽으로 빠르게 사라짐.
-    return `linear-gradient(${dir}, rgba(${rgb},0.22), transparent 28%)`;
+    // alpha 0.40 — 또렷하게 방향이 인지되도록(과하지 않게). 안쪽으로 38%에서 사라짐.
+    return `linear-gradient(${dir}, rgba(${rgb},0.40), transparent 38%)`;
   };
 
   // 4변을 각각 얇은 absolute 띠로(겹치는 모서리는 두 띠가 합성 → 모서리 강조 자연 발생).
@@ -107,7 +113,7 @@ export default function EdgeGlowOverlay() {
       opacity: sides[side] ? 1 : 0,
       transition: 'opacity var(--transition-base), background var(--transition-base)',
     };
-    const THICK = 64; // 띠 두께(px)
+    const THICK = 96; // 띠 두께(px) — 방향 신호가 충분히 보이도록
     if (side === 'top') return { ...base, top: 0, left: 0, right: 0, height: THICK };
     if (side === 'bottom') return { ...base, bottom: 0, left: 0, right: 0, height: THICK };
     if (side === 'left') return { ...base, top: 0, bottom: 0, left: 0, width: THICK };

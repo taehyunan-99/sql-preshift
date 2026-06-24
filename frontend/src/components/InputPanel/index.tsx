@@ -27,6 +27,7 @@ export default function InputPanel() {
     popDryRun,
     clearDryRun,
     setAppliedToast,
+    setLastAppliedAuditIds,
     reset,
   } = usePipelineStore();
 
@@ -34,8 +35,8 @@ export default function InputPanel() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
-  // critical 경고 모달 — 같은 분석 결과(token)에 한 번만 자동으로 띄운다.
-  // 모달을 확인(ack)하면 그 token에 한해 Apply All이 허용된다(별도 강행 버튼 없음).
+  // 위험 경고 모달 — critical/warning 모두 같은 분석 결과(token)에 한 번만 자동으로 띄운다.
+  // critical이면 확인(ack)해야 Apply All이 허용되고, warning은 정보성(ack는 받되 Apply 차단 없음).
   const [criticalOpen, setCriticalOpen] = useState(false);
   const [ackedToken, setAckedToken] = useState<string | null>(null);
   // 모달은 createPortal로 document.body에 렌더(부모의 transform이 fixed를 가두는 문제 회피).
@@ -64,18 +65,30 @@ export default function InputPanel() {
   // preview이고 스택이 쌓여 있으면 누적 액션 행 노출.
   const showActions = stage === 'preview' && count > 0;
   const hasCritical = analyzeResult?.hasCritical ?? false;
-  const criticalRisks = (analyzeResult?.risks ?? []).filter((r) => r.level === 'critical');
+  const allRisks = analyzeResult?.risks ?? [];
+  // 모달에 표시할 위험 — critical+warning 모두(info는 정보성이라 제외). critical을 위로 정렬.
+  const alertRisks = allRisks
+    .filter((r) => r.level === 'critical' || r.level === 'warning')
+    .sort((a, b) => (a.level === 'critical' ? -1 : 0) - (b.level === 'critical' ? -1 : 0));
+  const hasWarning = allRisks.some((r) => r.level === 'warning');
+  // 모달의 대표 수준 — critical 우선, 없으면 warning. 색/문구 분기 기준.
+  const alertLevel: 'critical' | 'warning' | null = hasCritical
+    ? 'critical'
+    : hasWarning
+      ? 'warning'
+      : null;
 
-  // critical이 감지되면(새 결과) 즉시 경고 모달 — 사용자가 확인한 결과(token)는 다시 안 띄움.
+  // critical/warning이 감지되면(새 결과) 즉시 경고 모달 — 확인한 결과(token)는 다시 안 띄움.
   // 새 분석(token 변경)마다 확인은 리셋(스택이 바뀌면 다시 확인받아야 함).
   useEffect(() => {
     const token = analyzeResult?.token ?? null;
-    if (stage === 'preview' && hasCritical && token && token !== ackedToken) {
+    if (stage === 'preview' && alertLevel && token && token !== ackedToken) {
       setCriticalOpen(true);
     }
-  }, [stage, hasCritical, analyzeResult?.token, ackedToken]);
+  }, [stage, alertLevel, analyzeResult?.token, ackedToken]);
 
   // 현재 분석 결과의 critical을 사용자가 확인했는가 → Apply All 허용 + confirmCritical 전송 기준.
+  // (warning은 Apply를 막지 않으므로 critical만 게이트.)
   const criticalAcked = !hasCritical || ackedToken === (analyzeResult?.token ?? null);
 
   const acknowledgeCritical = () => {
@@ -159,8 +172,9 @@ export default function InputPanel() {
     setActionError(null);
     try {
       const appliedCount = dryRunStack.length; // clearDryRun 전 캡처
-      await applyAll(dryRunStack, hasCritical); // critical이면 확인을 거쳤으므로 confirmCritical 전송
+      const res = await applyAll(dryRunStack, hasCritical); // critical이면 확인을 거쳤으므로 confirmCritical 전송
       clearDryRun();
+      setLastAppliedAuditIds(res.auditIds); // Applied 바의 Rollback이 역순 롤백에 사용
       setStage('applied'); // page.tsx가 현재 DB 그래프 재로드
       setAppliedToast(appliedCount); // 적용 완료 토스트(C-2 클라이맥스)
     } catch (e) {
@@ -336,20 +350,20 @@ export default function InputPanel() {
             >
               {language === 'ko' ? `대기 ${count}건` : `${count} pending`}
             </span>
-            {hasCritical && (
+            {alertLevel && (
               <span
                 style={{
                   fontSize: 11,
                   padding: '2px 8px',
                   borderRadius: 4,
-                  background: 'var(--color-error-bg)',
-                  color: 'var(--color-error)',
-                  border: '1px solid var(--color-error)',
+                  background: alertLevel === 'critical' ? 'var(--color-error-bg)' : 'var(--color-warning-bg)',
+                  color: alertLevel === 'critical' ? 'var(--color-error)' : 'var(--color-warning)',
+                  border: `1px solid ${alertLevel === 'critical' ? 'var(--color-error)' : 'var(--color-warning)'}`,
                   fontWeight: 600,
                   letterSpacing: '0.05em',
                 }}
               >
-                CRITICAL
+                {alertLevel === 'critical' ? 'CRITICAL' : 'WARNING'}
               </span>
             )}
             <button
@@ -464,8 +478,8 @@ export default function InputPanel() {
         )}
       </div>
 
-      {/* critical 경고 모달 — 프리뷰에서 critical 감지 시 자동 표시. 확인 후 Apply All로 적용 가능. */}
-      {mounted && criticalOpen && createPortal(
+      {/* 위험 경고 모달 — 프리뷰에서 critical/warning 감지 시 자동 표시. critical은 확인 후 Apply 가능. */}
+      {mounted && criticalOpen && alertLevel && createPortal(
         <div
           style={{
             position: 'fixed',
@@ -481,7 +495,7 @@ export default function InputPanel() {
           <div
             style={{
               background: 'var(--bg-secondary)',
-              border: '1px solid var(--color-error)',
+              border: `1px solid ${alertLevel === 'critical' ? 'var(--color-error)' : 'var(--color-warning)'}`,
               borderRadius: 'var(--radius-md)',
               padding: 24,
               maxWidth: 440,
@@ -491,33 +505,48 @@ export default function InputPanel() {
             onClick={(e) => e.stopPropagation()}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 8px' }}>
-              <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--color-error)' }}>
-                {language === 'ko' ? '심각한 위험 감지됨' : 'Critical risk detected'}
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: 15,
+                  fontWeight: 700,
+                  color: alertLevel === 'critical' ? 'var(--color-error)' : 'var(--color-warning)',
+                }}
+              >
+                {alertLevel === 'critical'
+                  ? language === 'ko' ? '심각한 위험 감지됨' : 'Critical risk detected'
+                  : language === 'ko' ? '위험 경고' : 'Risk warning'}
               </p>
               <span style={{ flex: 1 }} />
             </div>
             <p style={{ margin: '0 0 12px', fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-              {language === 'ko'
-                ? '이 변경에는 심각한 위험이 있습니다. Undo로 제거하거나, 의도한 변경이라면 이 창을 닫고 Apply All을 눌러 진행하세요.'
-                : 'This change carries a critical risk. Remove it with Undo, or — if this is intended — dismiss this dialog and press Apply All to proceed.'}
+              {alertLevel === 'critical'
+                ? language === 'ko'
+                  ? '이 변경에는 심각한 위험이 있습니다. Undo로 제거하거나, 의도한 변경이라면 이 창을 닫고 Apply All을 눌러 진행하세요.'
+                  : 'This change carries a critical risk. Remove it with Undo, or — if this is intended — dismiss this dialog and press Apply All to proceed.'
+                : language === 'ko'
+                  ? '이 변경에는 운영 중 락·다운타임을 유발할 수 있는 위험이 있습니다. 의도를 확인한 뒤 진행하세요.'
+                  : 'This change may cause locking or downtime in production. Review the warnings before proceeding.'}
             </p>
-            {/* 감지된 critical 위험 목록 */}
+            {/* 감지된 위험 목록 — critical(빨강) + warning(노랑) */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
-              {criticalRisks.map((r, i) => (
+              {alertRisks.map((r, i) => {
+                const isCrit = r.level === 'critical';
+                return (
                 <div
                   key={i}
                   style={{
                     padding: '8px 12px',
                     borderRadius: 'var(--radius-sm)',
-                    background: 'var(--color-error-bg)',
-                    border: '1px solid var(--color-error-border)',
+                    background: isCrit ? 'var(--color-error-bg)' : 'var(--color-warning-bg)',
+                    border: `1px solid ${isCrit ? 'var(--color-error-border)' : 'var(--color-warning)'}`,
                   }}
                 >
                   <div
                     style={{
                       fontSize: 'var(--font-size-xs)',
                       fontWeight: 700,
-                      color: 'var(--color-error)',
+                      color: isCrit ? 'var(--color-error)' : 'var(--color-warning)',
                       letterSpacing: '0.05em',
                       fontFamily: 'var(--font-mono)',
                       marginBottom: 3,
@@ -538,7 +567,8 @@ export default function InputPanel() {
                     ) : null;
                   })()}
                 </div>
-              ))}
+                );
+              })}
             </div>
             {/* 확인(인지)만 받는다 — 적용 여부는 사용자가 Apply All로 결정. 강행 버튼 없음. */}
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
