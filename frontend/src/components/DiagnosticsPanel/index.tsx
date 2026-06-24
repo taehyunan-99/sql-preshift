@@ -696,6 +696,8 @@ type RiskRow = {
   llmNoteKo?: string;
   suggestion?: string;
   suggestionKo?: string;
+  sizeNote?: string;
+  sizeNoteKo?: string;
 };
 type DataSim = {
   affectedRows: number;
@@ -773,6 +775,7 @@ function RiskList({
         const msg = ko ? r.messageKo || r.message : r.message;
         const note = ko ? r.llmNoteKo || r.llmNote : r.llmNote;
         const sug = ko ? r.suggestionKo || r.suggestion : r.suggestion;
+        const sizeNote = ko ? r.sizeNoteKo || r.sizeNote : r.sizeNote;
         return (
           <div
             key={`${r.rule}-${i}`}
@@ -815,6 +818,12 @@ function RiskList({
             <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)', lineHeight: 1.5 }}>
               {msg}
             </p>
+            {/* size-aware — 영향 규모를 위험 레벨 색 + mono로 구체화("~N rows") */}
+            {sizeNote && (
+              <p style={{ margin: '2px 0 0', fontSize: 'var(--font-size-xs)', color: st.color, fontFamily: 'var(--font-mono)', lineHeight: 1.4 }}>
+                {sizeNote}
+              </p>
+            )}
             {/* 영향 테이블 칩 — 클릭 시 ERD에서 해당 노드 강조(진단의 Locate in ERD와 동일 UX) */}
             {r.tables && r.tables.length > 0 && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 2 }}>

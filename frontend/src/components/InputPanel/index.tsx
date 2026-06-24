@@ -558,6 +558,15 @@ export default function InputPanel() {
                     {language === 'ko' ? (r.messageKo || r.message) : r.message}
                   </p>
                   {(() => {
+                    // size-aware — 영향 규모를 위험 레벨 색 + mono로 구체화.
+                    const sn = language === 'ko' ? (r.sizeNoteKo || r.sizeNote) : (r.sizeNote || r.sizeNoteKo);
+                    return sn ? (
+                      <p style={{ margin: '4px 0 0', fontSize: 'var(--font-size-xs)', fontFamily: 'var(--font-mono)', color: isCrit ? 'var(--color-error)' : 'var(--color-warning)', lineHeight: 1.4 }}>
+                        {sn}
+                      </p>
+                    ) : null;
+                  })()}
+                  {(() => {
                     // 선택 언어 우선, 없으면 반대 언어로 폴백.
                     const note = language === 'ko' ? (r.llmNoteKo || r.llmNote) : (r.llmNote || r.llmNoteKo);
                     return note ? (

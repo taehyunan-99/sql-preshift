@@ -18,6 +18,8 @@ export interface RiskItem {
   llmNoteKo?: string;
   suggestion?: string; // golden path — "대신 이렇게 하라" 안전 대안 (영어)
   suggestionKo?: string; // 한국어 (토글용)
+  sizeNote?: string; // size-aware — "Rewrites ~N rows (M)" 영향 규모 (영어)
+  sizeNoteKo?: string; // 한국어 (토글용)
 }
 
 export interface AnalyzeResult {
