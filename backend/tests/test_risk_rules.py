@@ -118,12 +118,75 @@ class TestLockingDdlRules:
         risks = _rules("ALTER TABLE users ADD PRIMARY KEY (id)")
         assert "ADD_PK_OR_UNIQUE" in _rule_ids(risks), f"risks={risks}"
 
-    def test_add_foreign_key_is_not_locking_warning(self):
-        """ADD FOREIGN KEY → 락 규칙 비대상(NOT VALID로 회피 가능, 약한 락)."""
+    def test_add_foreign_key_is_not_pk_unique_rule(self):
+        """ADD FOREIGN KEY → ADD_PK_OR_UNIQUE 비대상(별도 FK 룰로 분류)."""
         risks = _rules(
             "ALTER TABLE a ADD CONSTRAINT fk FOREIGN KEY (b) REFERENCES c(id)"
         )
         assert "ADD_PK_OR_UNIQUE" not in _rule_ids(risks), f"risks={risks}"
+
+
+class TestMigrationSafetyRules:
+    """현업 마이그레이션 안전 룰(재조사 추가분) — FK/CHECK/RENAME/VACUUM/volatile DEFAULT."""
+
+    def test_add_fk_validating_is_critical(self):
+        """NOT VALID 없는 FK 추가 → critical(양 테이블 락 + 검증 스캔)."""
+        risks = _rules(
+            "ALTER TABLE order_items ADD CONSTRAINT fk FOREIGN KEY (product_id) REFERENCES products(id)"
+        )
+        ids = _rule_ids(risks)
+        assert "ADD_FK_VALIDATING" in ids, f"risks={risks}"
+        assert any(r.level == "critical" and r.rule == "ADD_FK_VALIDATING" for r in risks)
+
+    def test_add_fk_not_valid_is_safe(self):
+        """NOT VALID FK 추가 → 위험 없음(검증 스캔 건너뜀)."""
+        risks = _rules(
+            "ALTER TABLE order_items ADD CONSTRAINT fk FOREIGN KEY (product_id) REFERENCES products(id) NOT VALID"
+        )
+        assert "ADD_FK_VALIDATING" not in _rule_ids(risks), f"risks={risks}"
+
+    def test_add_check_validating_is_warning(self):
+        """NOT VALID 없는 CHECK 추가 → warning(전체 스캔 + 락)."""
+        risks = _rules("ALTER TABLE products ADD CONSTRAINT c CHECK (price > 0)")
+        assert "ADD_CHECK_VALIDATING" in _rule_ids(risks), f"risks={risks}"
+
+    def test_add_check_not_valid_is_safe(self):
+        """NOT VALID CHECK 추가 → 위험 없음."""
+        risks = _rules("ALTER TABLE products ADD CONSTRAINT c CHECK (price > 0) NOT VALID")
+        assert "ADD_CHECK_VALIDATING" not in _rule_ids(risks), f"risks={risks}"
+
+    def test_rename_column_is_warning(self):
+        """RENAME COLUMN → warning(앱 코드 깨짐)."""
+        risks = _rules("ALTER TABLE products RENAME COLUMN price TO unit_price")
+        assert "RENAME_COLUMN_OR_TABLE" in _rule_ids(risks), f"risks={risks}"
+
+    def test_rename_table_is_warning(self):
+        """RENAME TABLE → warning."""
+        risks = _rules("ALTER TABLE orders RENAME TO orders_v2")
+        assert "RENAME_COLUMN_OR_TABLE" in _rule_ids(risks), f"risks={risks}"
+
+    def test_vacuum_full_is_critical(self):
+        """VACUUM FULL → critical(전체 재작성 + ACCESS EXCLUSIVE)."""
+        risks = _rules("VACUUM FULL products")
+        assert "TABLE_REWRITE_FULL" in _rule_ids(risks), f"risks={risks}"
+        assert any(r.level == "critical" for r in risks)
+
+    def test_plain_vacuum_is_safe(self):
+        """일반 VACUUM → 위험 없음(락 없음)."""
+        risks = _rules("VACUUM products")
+        assert "TABLE_REWRITE_FULL" not in _rule_ids(risks), f"risks={risks}"
+
+    def test_volatile_default_is_warning(self):
+        """volatile DEFAULT 컬럼 추가 → warning(전체 재작성)."""
+        risks = _rules("ALTER TABLE products ADD COLUMN uid uuid DEFAULT gen_random_uuid()")
+        assert "ADD_COLUMN_VOLATILE_DEFAULT" in _rule_ids(risks), f"risks={risks}"
+
+    def test_constant_default_is_safe(self):
+        """상수 DEFAULT 컬럼 추가 → 위험 없음(PG11+ 메타데이터 변경)."""
+        risks = _rules("ALTER TABLE products ADD COLUMN flag boolean NOT NULL DEFAULT false")
+        ids = _rule_ids(risks)
+        assert "ADD_COLUMN_VOLATILE_DEFAULT" not in ids, f"risks={risks}"
+        assert "ADD_NOT_NULL_NO_DEFAULT" not in ids, f"risks={risks}"
 
 
 class TestDownScriptRollback:

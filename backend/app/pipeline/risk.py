@@ -70,10 +70,15 @@ def deterministic_rules(
     - DROP TABLE → critical
     - DROP COLUMN → critical
     - TRUNCATE → critical
+    - ADD FOREIGN KEY(NOT VALID 아님) → critical (양 테이블 락 + 전체 검증 스캔)
+    - VACUUM FULL → critical (테이블 전체 재작성 + ACCESS EXCLUSIVE 락)
     - CASCADE 절 포함 → warning
     - NOT NULL 컬럼 추가(DEFAULT 없음) → warning
+    - volatile DEFAULT 컬럼 추가 → warning (전체 재작성)
     - ALTER COLUMN TYPE → warning (테이블 재작성 + ACCESS EXCLUSIVE 락)
     - ALTER COLUMN SET NOT NULL → warning (전체 스캔 + 락)
+    - RENAME COLUMN/TABLE → warning (앱 코드 깨짐)
+    - ADD CHECK(NOT VALID 아님) → warning (전체 스캔 + 락)
     - CREATE INDEX(비 CONCURRENTLY) → warning (쓰기 차단)
     - ADD UNIQUE/PRIMARY KEY → warning (인덱스 빌드 락)
     """
@@ -174,6 +179,30 @@ def deterministic_rules(
                             tables=alter_tables,
                         )
                     )
+                # volatile DEFAULT(함수 호출 등 비상수) — PG11+ 상수 DEFAULT는 메타데이터 변경(빠름)이지만,
+                # now()/gen_random_uuid() 같은 비상수는 전체 테이블 재작성을 강제한다.
+                elif has_default:
+                    default_const = next(
+                        (
+                            c.args.get("kind")
+                            for c in constraints
+                            if isinstance(c, exp.ColumnConstraint)
+                            and isinstance(c.args.get("kind"), exp.DefaultColumnConstraint)
+                        ),
+                        None,
+                    )
+                    default_val = default_const.args.get("this") if default_const else None
+                    # 상수(Literal/불리언/NULL)가 아니라 함수/익명 표현이면 volatile로 본다.
+                    if default_val is not None and default_val.find(exp.Func, exp.Anonymous):
+                        risks.append(
+                            Risk(
+                                level="warning",
+                                rule="ADD_COLUMN_VOLATILE_DEFAULT",
+                                message="ADD COLUMN with a volatile DEFAULT forces a full table rewrite under lock — backfill in batches instead.",
+                                message_ko="volatile DEFAULT가 있는 컬럼 추가 — 락 상태로 테이블 전체를 재작성합니다. 배치로 백필하세요.",
+                                tables=alter_tables,
+                            )
+                        )
 
             # ALTER COLUMN — 락 유발 변경(운영 중 다운타임 위험)
             elif isinstance(action, exp.AlterColumn):
@@ -200,10 +229,27 @@ def deterministic_rules(
                         )
                     )
 
-            # ADD CONSTRAINT — UNIQUE/PRIMARY KEY는 인덱스 빌드 중 쓰기 차단
+            # 컬럼/테이블 RENAME — DDL 자체는 즉시·안전하나, 옛 이름을 참조하는 앱 코드가 즉시 깨진다.
+            # sqlglot: 컬럼=RenameColumn, 테이블=AlterRename.
+            elif isinstance(action, (exp.RenameColumn, exp.AlterRename)):
+                risks.append(
+                    Risk(
+                        level="warning",
+                        rule="RENAME_COLUMN_OR_TABLE",
+                        message="RENAME breaks application code referencing the old name — coordinate with a deploy that no longer uses it.",
+                        message_ko="RENAME은 옛 이름을 참조하는 애플리케이션 코드를 즉시 깨뜨립니다 — 옛 이름을 더 이상 쓰지 않는 배포와 함께 진행하세요.",
+                        tables=alter_tables,
+                    )
+                )
+
+            # ADD CONSTRAINT — PK/UNIQUE(인덱스 빌드 락) / FK·CHECK(검증 스캔 + 양 테이블 락)
             elif isinstance(action, (exp.AddConstraint, exp.PrimaryKey)):
                 is_pk = isinstance(action, exp.PrimaryKey) or action.find(exp.PrimaryKey) is not None
                 is_unique = action.find(exp.UniqueColumnConstraint) is not None
+                is_fk = action.find(exp.ForeignKey) is not None
+                is_check = action.find(exp.Check) is not None or action.find(exp.CheckColumnConstraint) is not None
+                # NOT VALID는 Alter 노드의 플래그 — 있으면 기존 행 검증을 건너뛰어 락/스캔이 짧다.
+                not_valid = bool(alter.args.get("not_valid"))
                 if is_pk or is_unique:
                     kind_label = "PRIMARY KEY" if is_pk else "UNIQUE"
                     risks.append(
@@ -212,6 +258,28 @@ def deterministic_rules(
                             rule="ADD_PK_OR_UNIQUE",
                             message=f"ADD {kind_label} — builds an index that blocks writes on the table until complete.",
                             message_ko=f"ADD {kind_label} — 완료될 때까지 테이블 쓰기를 차단하는 인덱스를 생성합니다.",
+                            tables=alter_tables,
+                        )
+                    )
+                # FK 검증형(NOT VALID 아님) — 참조/피참조 양 테이블에 ACCESS EXCLUSIVE + 전체 행 검증.
+                elif is_fk and not not_valid:
+                    risks.append(
+                        Risk(
+                            level="critical",
+                            rule="ADD_FK_VALIDATING",
+                            message="ADD FOREIGN KEY without NOT VALID — locks both tables and scans all rows to validate; use NOT VALID then VALIDATE CONSTRAINT.",
+                            message_ko="NOT VALID 없는 FK 추가 — 양 테이블을 잠그고 전체 행을 검증 스캔합니다. NOT VALID로 추가 후 VALIDATE CONSTRAINT를 쓰세요.",
+                            tables=alter_tables,
+                        )
+                    )
+                # CHECK 검증형(NOT VALID 아님) — 테이블 전체를 ACCESS EXCLUSIVE 락으로 스캔.
+                elif is_check and not not_valid:
+                    risks.append(
+                        Risk(
+                            level="warning",
+                            rule="ADD_CHECK_VALIDATING",
+                            message="ADD CHECK without NOT VALID — scans the whole table under an ACCESS EXCLUSIVE lock; use NOT VALID then VALIDATE CONSTRAINT.",
+                            message_ko="NOT VALID 없는 CHECK 추가 — ACCESS EXCLUSIVE 락으로 테이블 전체를 스캔합니다. NOT VALID로 추가 후 VALIDATE CONSTRAINT를 쓰세요.",
                             tables=alter_tables,
                         )
                     )
@@ -229,6 +297,28 @@ def deterministic_rules(
                 message="CREATE INDEX without CONCURRENTLY — blocks writes on the table while the index builds.",
                 message_ko="CONCURRENTLY 없는 CREATE INDEX — 인덱스 생성 동안 테이블 쓰기를 차단합니다.",
                 tables=_table_names(create),
+            )
+        )
+
+    # VACUUM FULL — 테이블 전체를 ACCESS EXCLUSIVE 락으로 재작성(읽기/쓰기 전면 차단).
+    # sqlglot은 VACUUM을 Command(this='VACUUM', expression='FULL <table>')로 파싱한다.
+    # (CLUSTER는 parse 단계에서 ValidationError로 이미 거부되므로 여기 도달 안 함.)
+    for cmd in ast.find_all(exp.Command):
+        if str(cmd.args.get("this", "")).upper() != "VACUUM":
+            continue
+        expr = str(cmd.args.get("expression", "")).strip().strip("'").strip('"')
+        if not expr.upper().startswith("FULL"):
+            continue  # 일반 VACUUM은 락 없음 — 안전
+        # expression 잔여("FULL products")에서 테이블명 추출(마지막 토큰).
+        rest = expr[len("FULL"):].strip()
+        vacuum_tables = [rest.split()[-1]] if rest else []
+        risks.append(
+            Risk(
+                level="critical",
+                rule="TABLE_REWRITE_FULL",
+                message="VACUUM FULL rewrites the entire table under an ACCESS EXCLUSIVE lock — full read/write outage; never run online.",
+                message_ko="VACUUM FULL — ACCESS EXCLUSIVE 락으로 테이블 전체를 재작성합니다. 읽기/쓰기가 전면 중단되므로 운영 중 실행하지 마세요.",
+                tables=vacuum_tables,
             )
         )
 
