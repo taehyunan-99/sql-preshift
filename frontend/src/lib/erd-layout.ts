@@ -21,7 +21,9 @@ export function computeUnionPositions(
 ): PositionMap {
   const g = new dagre.graphlib.Graph();
   g.setDefaultEdgeLabel(() => ({}));
-  g.setGraph({ rankdir: 'LR', nodesep: 60, ranksep: 80 });
+  // 간격은 넉넉히 — 좁으면 카드 그림자/halo가 이웃과 겹쳐 보인다(캔버스 공간은 충분).
+  // nodesep=같은 rank 내 세로 간격, ranksep=rank 간 가로 간격(LR이라 가로가 엣지 곡선 여유).
+  g.setGraph({ rankdir: 'LR', nodesep: 110, ranksep: 160 });
 
   // 노드 union — id 중복 시 컬럼 수가 더 많은 쪽 높이를 채택(after에 added 컬럼 포함 케이스).
   const heights: Record<string, number> = {};
@@ -65,7 +67,8 @@ export function applyDagreLayout(
 ): { nodes: Node[]; edges: Edge[] } {
   const g = new dagre.graphlib.Graph();
   g.setDefaultEdgeLabel(() => ({}));
-  g.setGraph({ rankdir: 'LR', nodesep: 60, ranksep: 80 });
+  // computeUnionPositions와 동일 간격 — 단일/Split 뷰가 같은 밀도로 보이게.
+  g.setGraph({ rankdir: 'LR', nodesep: 110, ranksep: 160 });
 
   for (const node of nodes) {
     const h = calcNodeHeight(columnCounts[node.id] ?? 0);

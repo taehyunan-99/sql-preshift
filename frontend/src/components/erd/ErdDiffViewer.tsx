@@ -12,6 +12,7 @@ import {
 import '@xyflow/react/dist/style.css';
 import TableNode from './TableNode';
 import ErdRelationEdge from './ErdRelationEdge';
+import EdgeGlowOverlay from './EdgeGlowOverlay';
 import { useErdLayout } from './useErdLayout';
 import {
   computeUnionPositions,
@@ -118,6 +119,39 @@ function useChangedNodesFitView(
   }, [graph, sqlSheetOpen, riskSheetOpen, fitView]);
 }
 
+// Diagnostics "Locate in ERD" — highlightTable이 바뀌면 그 노드로 카메라 이동(fitView).
+// 화면 밖 테이블도 찾아가도록. 강조 ring은 applyHighlight가 별도로 그린다(여기선 카메라만).
+// table명 → node id 매핑은 graph로(node.data.table 매칭). nodes를 의존에 넣지 않는 건
+// 매 레이아웃마다 fitView가 튀는 걸 막기 위함 — highlightTable 변경 때만 이동.
+function useLocateOnHighlight(graph: SchemaGraph, highlightTable: string | null | undefined) {
+  const { fitView } = useReactFlow();
+  useEffect(() => {
+    if (!highlightTable) return;
+    const node = graph.nodes.find((n) => n.table === highlightTable);
+    if (!node) return;
+    fitView({
+      nodes: [{ id: node.id }],
+      duration: 500,
+      minZoom: 0.6,
+      maxZoom: MAX_ZOOM,
+      padding: 0.35,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [highlightTable, fitView]);
+}
+
+// fitView는 hook이라 ReactFlow 자식 컴포넌트로 호출해야 한다(Provider 컨텍스트 안). 렌더는 없음.
+function PanelLocator({
+  graph,
+  highlightTable,
+}: {
+  graph: SchemaGraph;
+  highlightTable: string | null | undefined;
+}) {
+  useLocateOnHighlight(graph, highlightTable);
+  return null;
+}
+
 // 위험 강조는 TableNode가 Context(useRiskMap)로 기존 diff 시각언어(ringByVariant)를 써서 그린다.
 // node.style 직접 주입(사각 border)은 카드 디자인과 따로 놀아 제거했다.
 
@@ -151,6 +185,8 @@ interface PanelProps {
   onViewportChange?: (vp: Viewport) => void;
   // Split뷰 공유 좌표(union 레이아웃) — before/after가 같은 테이블을 동일 위치에 그린다.
   positions?: PositionMap;
+  // Locate 카메라 이동 담당 패널인지(Split은 after만 — fitView가 onViewportChange로 before에 전파).
+  locate?: boolean;
 }
 
 function ErdPanel({
@@ -161,6 +197,7 @@ function ErdPanel({
   viewport,
   onViewportChange,
   positions,
+  locate = false,
 }: PanelProps) {
   const { nodes: rawNodes, edges } = useErdLayout(graph, positions);
   // 노드 hover → 연결 엣지 강조(ErdRelationEdge가 store.hoveredNode 구독). 핸들러는 안정 참조.
@@ -193,6 +230,7 @@ function ErdPanel({
         {/* 각 패널을 독립 Provider로 — Side-by-side 두 ReactFlow가 store를 공유하면
             한쪽(After) 노드가 양쪽에 그려지는 충돌 발생. Provider 분리로 Before/After 격리. */}
         <ReactFlowProvider>
+          {locate && <PanelLocator graph={graph} highlightTable={highlightTable} />}
           <ReactFlow
             nodes={nodes}
             edges={edges}
@@ -210,6 +248,7 @@ function ErdPanel({
             style={{ background: 'var(--bg-primary)' }}
           >
             <Background color="var(--border-subtle)" gap={20} />
+            <EdgeGlowOverlay />
           </ReactFlow>
         </ReactFlowProvider>
       </div>
@@ -240,21 +279,26 @@ function SideBySideView({
   const [viewport, setViewport] = useState<Viewport | undefined>(undefined);
   // n홉 부분집합 — before/after/cumulativeAfter의 변경 노드를 "합친 seed"로 동일 부분집합을
   // 양 패널에 적용한다. 좌표 괴리를 막으려면 양쪽이 반드시 같은 id 집합이어야 한다.
-  const { beforeGraph, afterGraph } = useMemo(() => {
+  // useMemo는 순수 계산만(렌더 중 부모 setState 금지 — onSubset은 아래 useEffect에서).
+  const { beforeGraph, afterGraph, subsetInfo } = useMemo(() => {
     const seedGraphs = [diff.before, diff.after, ...(diff.cumulativeAfter ? [diff.cumulativeAfter] : [])];
     const info = computeSubset(seedGraphs, diff.after, hops);
     const seedEmpty = seedGraphs.flatMap(changedNodeIds).length === 0;
     if (showAll || seedEmpty) {
-      onSubset?.({ ids: new Set(), shownCount: info.totalCount, totalCount: info.totalCount });
-      return { beforeGraph: diff.before, afterGraph: diff.after };
+      // 전체 표시 — 카운터는 전체 수, ids는 빈 집합(필터 안 함).
+      const fullInfo: SubsetInfo = { ids: new Set(), shownCount: info.totalCount, totalCount: info.totalCount };
+      return { beforeGraph: diff.before, afterGraph: diff.after, subsetInfo: fullInfo };
     }
-    onSubset?.(info);
     return {
       beforeGraph: filterGraphByIds(diff.before, info.ids),
       afterGraph: filterGraphByIds(diff.after, info.ids),
+      subsetInfo: info,
     };
-    // onSubset은 부모가 안정 참조(useCallback)로 넘기므로 deps에 넣어도 안전.
-  }, [diff.before, diff.after, diff.cumulativeAfter, hops, showAll, onSubset]);
+  }, [diff.before, diff.after, diff.cumulativeAfter, hops, showAll]);
+  // 카운터 lift-up은 effect에서(OverlayView와 동일 패턴) — 렌더 중 부모 업데이트 경고 방지.
+  useEffect(() => {
+    onSubset?.(subsetInfo);
+  }, [subsetInfo, onSubset]);
   // before/after 합집합으로 좌표를 한 번 계산해 두 패널이 공유 → 같은 테이블 동일 위치.
   // 필터된 부분집합으로 재계산해야 한쪽에만 있는 좌표 참조 괴리가 안 생긴다.
   const positions = useMemo(
@@ -282,6 +326,7 @@ function SideBySideView({
         viewport={viewport}
         onViewportChange={setViewport}
         positions={positions}
+        locate
       />
     </div>
   );
@@ -333,6 +378,7 @@ function OverlayView({
   useChangedNodesFitView(overlayGraph, sqlSheetOpen, riskSheetOpen);
   return (
     <div style={{ flex: 1, position: 'relative', minHeight: 0 }}>
+      <PanelLocator graph={overlayGraph} highlightTable={highlightTable} />
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -347,6 +393,7 @@ function OverlayView({
         style={{ background: 'var(--bg-primary)' }}
       >
         <Background color="var(--border-subtle)" gap={20} />
+        <EdgeGlowOverlay />
       </ReactFlow>
     </div>
   );
@@ -370,6 +417,7 @@ function SingleGraphView({
   );
   return (
     <div style={{ flex: 1, position: 'relative', minHeight: 0 }}>
+      <PanelLocator graph={graph} highlightTable={highlightTable} />
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -384,6 +432,7 @@ function SingleGraphView({
         style={{ background: 'var(--bg-primary)' }}
       >
         <Background color="var(--border-subtle)" gap={20} />
+        <EdgeGlowOverlay />
       </ReactFlow>
     </div>
   );

@@ -199,18 +199,36 @@ function ColumnRow({ column }: Props) {
             <BrokenIcon />
           </span>
         )}
-        {/* soft-delete 부모 참조 — informational gray 점(경고색 금지, 논리적 broken/물리 행 존재) */}
+        {/* soft-delete 부모 참조 — informational 중립 배지(경고색 금지, 논리적 broken/물리 행 존재).
+            기존 5px 점은 너무 작아 안 읽혔다 → 외곽선 있는 텍스트 칩으로 가시성↑(broken 삼각과 형태 구별). */}
         {isSoftRef && (
           <span
             style={{
-              width: 5,
-              height: 5,
-              borderRadius: '50%',
-              background: 'var(--text-tertiary)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 3,
               flexShrink: 0,
+              fontSize: 9,
+              fontWeight: 700,
+              lineHeight: 1,
+              letterSpacing: '0.04em',
+              color: 'var(--text-tertiary)',
+              border: '1px solid var(--border-strong)',
+              borderRadius: 3,
+              padding: '2px 4px',
             }}
             title="References a soft-deleted parent row (logically broken, physically intact)"
-          />
+          >
+            <span
+              style={{
+                width: 5,
+                height: 5,
+                borderRadius: '50%',
+                background: 'var(--text-tertiary)',
+              }}
+            />
+            soft-del
+          </span>
         )}
       </span>
 
