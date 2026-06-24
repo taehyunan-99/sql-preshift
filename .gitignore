@@ -16,6 +16,8 @@ venv/
 # 환경 변수 / 시크릿
 .env
 .env.*
+# 단, 비밀값 없는 예시 파일은 추적(clone 후 cp .env.example .env 안내가 동작하도록)
+!.env.example
 
 # 로컬 DB / 데이터
 *.db
