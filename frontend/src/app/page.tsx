@@ -185,8 +185,18 @@ export default function Home() {
         color: 'var(--text-primary)',
       }}
     >
-      {/* Layer0: ERD 캔버스 — 풀블리드 */}
-      <div style={{ position: 'absolute', inset: 0 }}>
+      {/* Layer0: ERD 캔버스 — 풀블리드.
+          전체 스키마 보기 토글 시 ERD가 즉시 pop 하면 입력창 drop(settle)과 맞물려 어색하다.
+          idle 전체보기에서만 입력창이 먼저 내려간 뒤(180ms delay) ERD가 천천히 떠오르도록
+          지연 페이드인. preview/applied 등 다른 stage에선 항상 떠 있어야 하므로 opacity 1 고정. */}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          opacity: stage === 'idle' && !showIdleSchema ? 0 : 1,
+          transition: 'opacity 420ms ease 180ms',
+        }}
+      >
         <ErdDiffViewer
           diff={erdDiff}
           graph={erdGraph}

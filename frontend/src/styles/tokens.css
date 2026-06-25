@@ -180,20 +180,6 @@ body {
   }
 }
 
-/* 연결 화면 ambient 배경 — 어두운 캔버스에 청록 그라데이션이 아주 느리게 흐름(생기).
-   background-position만 움직여 비합성 repaint 최소화. 20s 루프로 거의 인지 안 될 만큼 잔잔. */
-@keyframes ambient-drift {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
-}
-
 /* Test Connection 진행 중 버튼 shimmer — accent 하이라이트가 좌→우로 한 번씩 스윕. */
 @keyframes btn-shimmer {
   0% {
