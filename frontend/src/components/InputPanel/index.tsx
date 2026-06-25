@@ -25,13 +25,15 @@ export default function InputPanel() {
     setAnalyzeResult,
     pushDryRun,
     popDryRun,
-    clearDryRun,
+    prepareApply,
     setAppliedToast,
     setLastAppliedAuditIds,
     reset,
   } = usePipelineStore();
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // 입력창 포커스 여부 — 셸 전체에 teal ring glow를 주기 위한 상태(B+F 조합).
+  const [focused, setFocused] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -171,9 +173,9 @@ export default function InputPanel() {
     setStage('applying');
     setActionError(null);
     try {
-      const appliedCount = dryRunStack.length; // clearDryRun 전 캡처
+      const appliedCount = dryRunStack.length; // prepareApply 전 캡처
       const res = await applyAll(dryRunStack, hasCritical); // critical이면 확인을 거쳤으므로 confirmCritical 전송
-      clearDryRun();
+      prepareApply(); // 스택을 백업+비움 — Rollback이 백업에서 프리뷰를 복원
       setLastAppliedAuditIds(res.auditIds); // Applied 바의 Rollback이 역순 롤백에 사용
       setStage('applied'); // page.tsx가 현재 DB 그래프 재로드
       setAppliedToast(appliedCount); // 적용 완료 토스트(C-2 클라이맥스)
@@ -241,6 +243,7 @@ export default function InputPanel() {
 
   return (
     <div
+      className="glass-trim"
       style={{
         width: 'min(720px, calc(100vw - 48px))',
         display: 'flex',
@@ -248,9 +251,13 @@ export default function InputPanel() {
         gap: 'var(--space-2)',
         padding: 'var(--space-3)',
         background: 'var(--bg-secondary)',
-        border: '1px solid var(--border)',
+        // focus 시 셸 전체가 teal로 점등(B+F 조합) — 입력칸 자체엔 테두리 없이 한 면처럼.
+        border: `1px solid ${focused ? 'var(--color-accent-border)' : 'var(--border)'}`,
         borderRadius: 'var(--radius-lg)',
-        boxShadow: 'var(--shadow-float)',
+        boxShadow: focused
+          ? '0 0 0 4px var(--color-accent-10), 0 0 30px -4px var(--color-accent), var(--shadow-float)'
+          : 'var(--shadow-float)',
+        transition: 'border-color var(--transition-base), box-shadow var(--transition-base)',
       }}
     >
       {/* 상단: 자동감지 배지 (모드 토글·힌트 제거 — 항상 auto, Enter 제출) */}
@@ -291,11 +298,13 @@ export default function InputPanel() {
         }
         style={{
           resize: 'none',
-          background: 'var(--bg-input)',
+          // seamless — 입력칸은 셸과 한 면(별도 테두리/배경 없음). focus 강조는 셸 전체가 담당.
+          background: 'transparent',
           color: 'var(--text-primary)',
-          border: `1px solid ${analyzeError ? 'var(--color-error-border)' : 'var(--border)'}`,
+          // error만 입력칸에 빨강 테두리로 직접 표시(에러 피드백은 입력 위치에 붙어야 명확).
+          border: `1px solid ${analyzeError ? 'var(--color-error-border)' : 'transparent'}`,
           borderRadius: 'var(--radius-md)',
-          padding: 'var(--space-3)',
+          padding: 'var(--space-2)',
           fontFamily: 'var(--font-mono)',
           fontSize: 'var(--font-size-md)',
           lineHeight: 1.6,
@@ -303,16 +312,8 @@ export default function InputPanel() {
           transition: 'border-color var(--transition-fast)', // height는 auto-resize가 직접 제어(애니메이션 X)
           minHeight: 0,
         }}
-        onFocus={(e) => {
-          if (!analyzeError) {
-            e.currentTarget.style.borderColor = 'var(--border-focus)';
-            e.currentTarget.style.boxShadow = 'var(--shadow-focus)';
-          }
-        }}
-        onBlur={(e) => {
-          e.currentTarget.style.borderColor = analyzeError ? 'var(--color-error-border)' : 'var(--border)';
-          e.currentTarget.style.boxShadow = 'none';
-        }}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
       />
 
       {/* 에러 메시지 (분석 에러 또는 누적 액션 에러) */}
@@ -333,39 +334,23 @@ export default function InputPanel() {
 
       {/* 하단 액션 행 — 좌측: 누적 상태(pending·Undo·Cancel), 우측: Add to preview·Apply All */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-        {/* 좌측 누적 컨트롤 (preview·스택≥1에서만) */}
+        {/* 좌측 누적 컨트롤 (preview·스택≥1에서만) — D(요약형): 칩 2개 대신 한 줄 상태 텍스트.
+            "N changes staged · K critical/warning"로 요약하고, Undo·Cancel은 보조 ghost로 둔다. */}
         {showActions && (
           <>
-            <span
-              style={{
-                fontSize: 11,
-                padding: '2px 8px',
-                borderRadius: 'var(--radius-pill)',
-                background: 'var(--bg-tertiary)',
-                color: 'var(--text-secondary)',
-                border: '1px solid var(--border)',
-                fontWeight: 600,
-                letterSpacing: '0.03em',
-              }}
-            >
-              {language === 'ko' ? `대기 ${count}건` : `${count} pending`}
+            <span style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 600, whiteSpace: 'nowrap' }}>
+              {language === 'ko' ? `${count}건 준비됨` : `${count} change${count === 1 ? '' : 's'} staged`}
+              {alertLevel && (
+                <>
+                  {' · '}
+                  <span style={{ color: alertLevel === 'critical' ? 'var(--color-error)' : 'var(--color-warning)' }}>
+                    {alertLevel === 'critical'
+                      ? language === 'ko' ? '심각 1건' : '1 critical'
+                      : language === 'ko' ? '경고 1건' : '1 warning'}
+                  </span>
+                </>
+              )}
             </span>
-            {alertLevel && (
-              <span
-                style={{
-                  fontSize: 11,
-                  padding: '2px 8px',
-                  borderRadius: 4,
-                  background: alertLevel === 'critical' ? 'var(--color-error-bg)' : 'var(--color-warning-bg)',
-                  color: alertLevel === 'critical' ? 'var(--color-error)' : 'var(--color-warning)',
-                  border: `1px solid ${alertLevel === 'critical' ? 'var(--color-error)' : 'var(--color-warning)'}`,
-                  fontWeight: 600,
-                  letterSpacing: '0.05em',
-                }}
-              >
-                {alertLevel === 'critical' ? 'CRITICAL' : 'WARNING'}
-              </span>
-            )}
             <button
               onClick={handleUndo}
               disabled={isDisabled}
@@ -456,12 +441,13 @@ export default function InputPanel() {
                     : `Apply all ${count} change${count === 1 ? '' : 's'} in a single transaction.`
             }
             style={{
-              padding: '6px 16px',
+              padding: '6px 18px',
               fontSize: 'var(--font-size-sm)',
               borderRadius: 'var(--radius-pill)',
-              border: '1px solid var(--color-accent-border)',
-              background: applyDisabled ? 'var(--color-accent-10)' : 'var(--color-accent-20)',
-              color: 'var(--color-accent)',
+              // D — 주 행동이므로 솔리드 accent(활성)로 부각. 비활성은 soft로 낮춤.
+              border: `1px solid ${applyDisabled ? 'var(--color-accent-border)' : 'var(--color-accent)'}`,
+              background: applyDisabled ? 'var(--color-accent-10)' : 'var(--color-accent)',
+              color: applyDisabled ? 'var(--color-accent)' : 'var(--text-inverse)',
               cursor: applyDisabled ? 'not-allowed' : 'pointer',
               fontWeight: 700,
               opacity: applyDisabled ? 0.5 : 1,
@@ -496,6 +482,8 @@ export default function InputPanel() {
             style={{
               background: 'var(--bg-secondary)',
               border: `1px solid ${alertLevel === 'critical' ? 'var(--color-error)' : 'var(--color-warning)'}`,
+              // 상단 굵은 색 밴드 — warning 주황도 "경고"로 즉시 인식되도록 시각 강도 강화.
+              borderTop: `4px solid ${alertLevel === 'critical' ? 'var(--color-error)' : 'var(--color-warning)'}`,
               borderRadius: 'var(--radius-md)',
               padding: 24,
               maxWidth: 440,
@@ -505,6 +493,21 @@ export default function InputPanel() {
             onClick={(e) => e.stopPropagation()}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 8px' }}>
+              {/* 명시 레벨 배지 — 색만으로 경고 수준을 전달하지 않도록 텍스트 라벨 병기. */}
+              <span
+                style={{
+                  fontSize: 10,
+                  fontWeight: 800,
+                  letterSpacing: '0.08em',
+                  padding: '2px 7px',
+                  borderRadius: 'var(--radius-sm)',
+                  color: alertLevel === 'critical' ? 'var(--color-error)' : 'var(--color-warning)',
+                  background: alertLevel === 'critical' ? 'var(--color-error-bg)' : 'var(--color-warning-bg)',
+                  border: `1px solid ${alertLevel === 'critical' ? 'var(--color-error)' : 'var(--color-warning)'}`,
+                }}
+              >
+                {alertLevel === 'critical' ? 'CRITICAL' : 'WARNING'}
+              </span>
               <p
                 style={{
                   margin: 0,
@@ -644,7 +647,7 @@ export default function InputPanel() {
             <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
               {language === 'ko' ? (
                 <>
-                  미리본 {count}건의 변경이 단일 트랜잭션으로 데이터베이스에 적용됩니다.
+                  미리 본 {count}건의 변경이 단일 트랜잭션으로 데이터베이스에 적용됩니다.
                   <br />
                   하나라도 실패하면 전부 적용되지 않습니다.
                 </>

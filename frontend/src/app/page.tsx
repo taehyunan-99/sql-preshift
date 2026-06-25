@@ -21,6 +21,7 @@ import StageProgress from '../components/StageProgress';
 import LanguageToggle from '../components/LanguageToggle';
 import DiffControls, { type DiffMode } from '../components/DiffControls';
 import DatabaseConnect from '../components/DatabaseConnect';
+import AppBackdrop from '../components/AppBackdrop';
 import { DEFAULT_HOPS, type SubsetInfo } from '../components/erd/ErdDiffViewer';
 
 // 전체 스키마를 그대로 그리면 무거울 수 있는 임계 테이블 수 — 넘으면 경고 후 진행.
@@ -49,8 +50,11 @@ export default function Home() {
   const [mode, setMode] = useState<DiffMode>('side-by-side');
   // 진단 사이드시트 열림 상태(좌측, fitView padding 보정용).
   const [panelOpen, setPanelOpen] = useState(false);
-  // Diagnostics "Locate in ERD" → 해당 테이블 ring 강조 + 카메라 이동.
+  // Diagnostics "Locate in ERD" → 해당 테이블로 카메라 이동.
   const [highlightTable, setHighlightTable] = useState<string | null>(null);
+  // locate 발화 카운터 — 같은 테이블 재클릭에도 매번 fitView가 돌도록 nonce를 증가시킨다.
+  // (highlightTable 값만으론 동일 테이블 재클릭 시 effect가 안 깨움.)
+  const [locateNonce, setLocateNonce] = useState(0);
   // idle/applied SingleGraphView용 현재 스키마 그래프.
   const [graph, setGraph] = useState<SchemaGraph | undefined>(undefined);
   // 최초 연결 상태 조회 완료 여부 — 조회 전엔 게이트/메인 둘 다 안 띄움(깜빡임 방지).
@@ -139,12 +143,18 @@ export default function Home() {
   // preview/applying=schemaDiff.before(원본 실DB), idle/applied=현재 graph.
   const diagnosticsGraph = isDiffStage ? analyzeResult?.schemaDiff?.before : graph;
 
-  // "Locate in ERD" — 진단 패널에서 테이블 선택 시 ERD에서 강조(+카메라 이동은 ErdDiffViewer가
-  // highlightTable 변경을 감지해 fitView). 같은 테이블 재클릭도 재강조되도록 null 경유 토글.
-  const onLocate = (table: string) => {
+  // 새 분석(새 token)마다 Locate 잔재를 비운다 — 안 비우면 직전 "ERD에서 찾기"로 찍어둔
+  // highlightTable로 카메라가 다시 튀어, 변경 테이블이 아닌 엉뚱한 곳으로 이동한다.
+  // (분석 후엔 useChangedNodesFitView가 변경 테이블로 이동하는 게 맞다.)
+  useEffect(() => {
     setHighlightTable(null);
-    // 다음 틱에 set — 동일 값 연속 set은 effect를 안 깨우므로 null→table로 강제 변화.
-    requestAnimationFrame(() => setHighlightTable(table));
+  }, [analyzeResult?.token]);
+
+  // "Locate in ERD" — 진단 패널에서 테이블 선택 시 ERD에서 강조(+카메라 이동은 ErdDiffViewer가
+  // Locate 클릭 — 테이블 set + nonce 증가(같은 테이블 재클릭도 매번 fitView 발화).
+  const onLocate = (table: string) => {
+    setHighlightTable(table);
+    setLocateNonce((n) => n + 1);
   };
 
   // analyzing/applying dim 오버레이.
@@ -186,28 +196,19 @@ export default function Home() {
           riskSheetOpen={false}
           riskMap={isResultStage ? riskMap : {}}
           highlightTable={highlightTable}
+          locateNonce={locateNonce}
           hops={hops}
           showAll={showAll}
           onSubset={setSubset}
         />
       </div>
 
-      {/* idle 배경 placeholder — 입력 전 빈 캔버스에 은은한 그라데이션만(정교한 모션은 꾸미기 단계).
-          Safari 안전: will-change/translateZ 없이 정적 배경 + opacity 전이만. */}
-      <div
-        aria-hidden
-        style={{
-          position: 'absolute',
-          inset: 0,
-          zIndex: 5,
-          pointerEvents: 'none',
-          background:
-            'radial-gradient(120% 80% at 50% 38%, var(--color-accent-10) 0%, transparent 55%)',
-          opacity: isIdleBlank ? 1 : 0,
-          visibility: isIdleBlank ? 'visible' : 'hidden',
-          transition: 'opacity var(--transition-base)',
-        }}
-      />
+      {/* 공통 배경 — 연결 화면과 동일한 후광. idle 빈 화면에선 후광이 주역(lobby),
+          ERD가 그려지는 작업중엔 배경이 물러나 diff 색광(Diff Bloom)에 무대를 양보(work).
+          ERD 캔버스(Layer0) 위, 콘텐츠 아래에 깔리도록 zIndex 5 래퍼로 감싼다. */}
+      <div style={{ position: 'absolute', inset: 0, zIndex: 5, pointerEvents: 'none' }}>
+        <AppBackdrop stage={isIdleBlank ? 'lobby' : 'work'} />
+      </div>
 
       {/* analyzing/applying dim 오버레이 + 중앙 라벨 */}
       <div

@@ -6,13 +6,34 @@ import { usePipelineStore, type Language } from '../../store/pipeline';
 import {
   collectDiagnostics,
   summarizeDiagnostics,
-  DIAGNOSTIC_ORDER,
   type DiagnosticItem,
   type DiagnosticKind,
 } from '../../lib/diagnostics';
 import type { SchemaGraph } from '../../lib/api';
 
 const MonacoEditor = dynamic(() => import('@monaco-editor/react'), { ssr: false });
+
+// 셰브론 아이콘 — 글리프 문자(▾, ‹) 대신 SVG로 통일(폰트 의존·화살표 글리프 금지 규칙).
+// dir로 방향 지정. open prop이 있으면 down↔up 회전(펼침/접힘 표시).
+function Chevron({ dir = 'down', open, size = 12 }: { dir?: 'down' | 'left'; open?: boolean; size?: number }) {
+  const rotate = dir === 'left' ? 90 : open ? 180 : 0;
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      style={{ transform: `rotate(${rotate}deg)`, transition: 'transform var(--transition-fast)' }}
+    >
+      <path d="M6 9l6 6 6-6" />
+    </svg>
+  );
+}
 
 const DEFAULT_WIDTH = 380;
 const MIN_WIDTH = 300;
@@ -207,22 +228,22 @@ export default function DiagnosticsPanel({
             aria-label="Collapse panel"
             style={{
               marginLeft: 'auto',
+              display: 'flex',
+              alignItems: 'center',
               background: 'transparent',
               border: 'none',
               color: 'var(--text-tertiary)',
               cursor: 'pointer',
-              fontSize: 16,
-              lineHeight: 1,
               padding: 0,
             }}
           >
-            ‹
+            <Chevron dir="left" size={14} />
           </button>
         </div>
 
         {/* ── Diagnostics 탭 ── */}
         {tab === 'diagnostics' && (
-          <DiagnosticsTab items={items} counts={counts} onLocate={onLocate} language={language} />
+          <DiagnosticsTab items={items} onLocate={onLocate} language={language} />
         )}
 
         {/* ── SQL 탭 (기존 Draft 이관, 항상 마운트하되 visibility로 토글 — Monaco 재초기화 회피) ── */}
@@ -396,15 +417,8 @@ export default function DiagnosticsPanel({
                   >
                     {language === 'ko' ? '설명' : 'Explanation'}
                   </span>
-                  <span
-                    style={{
-                      fontSize: 11,
-                      color: 'var(--text-tertiary)',
-                      transition: 'transform var(--transition-fast)',
-                      transform: explainOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-                    }}
-                  >
-                    ▾
+                  <span style={{ display: 'flex', alignItems: 'center', color: 'var(--text-tertiary)' }}>
+                    <Chevron open={explainOpen} />
                   </span>
                 </button>
                 <span style={{ flex: 1 }} />
@@ -505,17 +519,108 @@ export default function DiagnosticsPanel({
 // ── Diagnostics 탭 본문 ──
 function DiagnosticsTab({
   items,
-  counts,
   onLocate,
   language,
 }: {
   items: DiagnosticItem[];
-  counts: Record<DiagnosticKind, number>;
   onLocate?: (table: string) => void;
   language: Language;
 }) {
   // 펼친 항목 id(단일 클릭 = 펼침/접힘). 이동은 펼친 안 버튼으로만(의도치 않은 카메라 이동 방지).
   const [expanded, setExpanded] = useState<string | null>(null);
+
+  // B+D — 심각도 분리: warn(주의 필요, broken류) / info(정보성). 요약 헤더 + 섹션에 사용.
+  const warnItems = items.filter((it) => KIND_MARK[it.kind].warn);
+  const infoItems = items.filter((it) => !KIND_MARK[it.kind].warn);
+  const warnCount = warnItems.length;
+  const infoCount = infoItems.length;
+  const total = items.length;
+
+  // 단일 항목 렌더 — 펼침/접힘. warn/info 섹션 양쪽에서 재사용.
+  const renderItem = (it: DiagnosticItem) => {
+    const isExp = expanded === it.id;
+    const mark = KIND_MARK[it.kind];
+    return (
+      <div key={it.id} style={{ borderBottom: '1px solid var(--border)' }}>
+        <button
+          type="button"
+          onClick={() => setExpanded((cur) => (cur === it.id ? null : it.id))}
+          aria-expanded={isExp}
+          style={{
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 'var(--space-sm)',
+            padding: '10px var(--space-md)',
+            background: isExp ? 'var(--bg-tertiary)' : 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            textAlign: 'left',
+          }}
+        >
+          <span
+            style={{
+              width: 7,
+              height: 7,
+              borderRadius: '50%',
+              flexShrink: 0,
+              background: mark.warn ? 'var(--color-error)' : 'var(--text-tertiary)',
+            }}
+          />
+          <span style={{ flex: 1, minWidth: 0 }}>
+            <span
+              style={{
+                display: 'block',
+                fontSize: 'var(--font-size-sm)',
+                fontWeight: 600,
+                color: 'var(--text-primary)',
+                fontFamily: 'var(--font-mono)',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {it.target}
+            </span>
+            <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
+              {it.title}
+            </span>
+          </span>
+          <span style={{ display: 'flex', alignItems: 'center', color: 'var(--text-tertiary)', flexShrink: 0 }}>
+            <Chevron open={isExp} />
+          </span>
+        </button>
+
+        {isExp && (
+          <div style={{ padding: '0 var(--space-md) var(--space-md)', display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
+            <Field label={language === 'ko' ? '원인' : 'Why'} text={it.why} />
+            <Field label={language === 'ko' ? '권장 조치' : 'Suggested fix'} text={it.fix} />
+            <button
+              type="button"
+              onClick={() => onLocate?.(it.table)}
+              style={{
+                alignSelf: 'flex-start',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                marginTop: 2,
+                padding: '5px 12px',
+                fontSize: 'var(--font-size-xs)',
+                fontWeight: 600,
+                borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--border-strong)',
+                background: 'var(--bg-secondary)',
+                color: 'var(--text-primary)',
+                cursor: 'pointer',
+              }}
+            >
+              {language === 'ko' ? 'ERD에서 찾기' : 'Locate in ERD'}
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   if (items.length === 0) {
     return (
@@ -546,141 +651,69 @@ function DiagnosticsTab({
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-      {/* 요약 카운트 칩 — kind별 개수(0 제외). broken만 경고색. */}
-      <div
-        style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: 6,
-          padding: 'var(--space-sm) var(--space-md)',
-          borderBottom: '1px solid var(--border)',
-          flexShrink: 0,
-        }}
-      >
-        {DIAGNOSTIC_ORDER.filter((k) => counts[k] > 0).map((k) => {
-          const mark = KIND_MARK[k];
-          return (
-            <span
-              key={k}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 5,
-                fontSize: 'var(--font-size-xs)',
-                fontWeight: 600,
-                padding: '2px 8px',
-                borderRadius: 'var(--radius-pill)',
-                border: `1px solid ${mark.warn ? 'var(--color-error-border)' : 'var(--border-strong)'}`,
-                color: mark.warn ? 'var(--color-error)' : 'var(--text-secondary)',
-                background: mark.warn ? 'var(--color-error-bg)' : 'transparent',
-              }}
-            >
-              <strong>{counts[k]}</strong>
-              {language === 'ko' ? mark.labelKo : mark.label}
+      {/* D — 요약 헤더: 총 findings 수 + 심각도 분포 바(warn/info). 규모를 한눈에. */}
+      <div style={{ padding: 'var(--space-md)', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+          <span style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1 }}>{total}</span>
+          <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
+            {language === 'ko' ? '건의 무결성 점검 항목' : `integrity finding${total === 1 ? '' : 's'}`}
+          </span>
+        </div>
+        {/* 분포 바 — warn(경고색) / info(중립). 0인 쪽은 그리지 않음. */}
+        <div style={{ display: 'flex', height: 6, borderRadius: 3, overflow: 'hidden', marginTop: 10, gap: 2 }}>
+          {warnCount > 0 && <span style={{ flex: warnCount, background: 'var(--color-error)', borderRadius: 2 }} />}
+          {infoCount > 0 && <span style={{ flex: infoCount, background: 'var(--text-tertiary)', borderRadius: 2 }} />}
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 10, color: 'var(--text-tertiary)' }}>
+          {warnCount > 0 && (
+            <span style={{ color: 'var(--color-error)' }}>
+              {warnCount} {language === 'ko' ? '주의 필요' : warnCount === 1 ? 'needs attention' : 'need attention'}
             </span>
-          );
-        })}
+          )}
+          {infoCount > 0 && <span>{infoCount} {language === 'ko' ? '정보성' : 'informational'}</span>}
+        </div>
       </div>
 
-      {/* 항목 리스트 — 스크롤 */}
+      {/* B — 심각도 그룹 섹션: 주의 필요(warn) 먼저, 그다음 정보성(info). */}
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
-        {items.map((it) => {
-          const isExp = expanded === it.id;
-          const mark = KIND_MARK[it.kind];
-          return (
-            <div key={it.id} style={{ borderBottom: '1px solid var(--border)' }}>
-              {/* 항목 헤더 — 단일 클릭 = 펼침/접힘 */}
-              <button
-                type="button"
-                onClick={() => setExpanded((cur) => (cur === it.id ? null : it.id))}
-                aria-expanded={isExp}
-                style={{
-                  width: '100%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 'var(--space-sm)',
-                  padding: '10px var(--space-md)',
-                  background: isExp ? 'var(--bg-tertiary)' : 'transparent',
-                  border: 'none',
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                }}
-              >
-                {/* severity 마커 — warn=경고삼각색 dot / info=중립 dot */}
-                <span
-                  style={{
-                    width: 7,
-                    height: 7,
-                    borderRadius: '50%',
-                    flexShrink: 0,
-                    background: mark.warn ? 'var(--color-error)' : 'var(--text-tertiary)',
-                  }}
-                />
-                <span style={{ flex: 1, minWidth: 0 }}>
-                  <span
-                    style={{
-                      display: 'block',
-                      fontSize: 'var(--font-size-sm)',
-                      fontWeight: 600,
-                      color: 'var(--text-primary)',
-                      fontFamily: 'var(--font-mono)',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {it.target}
-                  </span>
-                  <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
-                    {it.title}
-                  </span>
-                </span>
-                <span
-                  style={{
-                    fontSize: 11,
-                    color: 'var(--text-tertiary)',
-                    transition: 'transform var(--transition-fast)',
-                    transform: isExp ? 'rotate(180deg)' : 'rotate(0deg)',
-                    flexShrink: 0,
-                  }}
-                >
-                  ▾
-                </span>
-              </button>
-
-              {/* 펼친 본문 — Why / Fix + Locate in ERD 버튼 */}
-              {isExp && (
-                <div style={{ padding: '0 var(--space-md) var(--space-md)', display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
-                  <Field label={language === 'ko' ? '원인' : 'Why'} text={it.why} />
-                  <Field label={language === 'ko' ? '권장 조치' : 'Suggested fix'} text={it.fix} />
-                  <button
-                    type="button"
-                    onClick={() => onLocate?.(it.table)}
-                    style={{
-                      alignSelf: 'flex-start',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      marginTop: 2,
-                      padding: '5px 12px',
-                      fontSize: 'var(--font-size-xs)',
-                      fontWeight: 600,
-                      borderRadius: 'var(--radius-sm)',
-                      border: '1px solid var(--border-strong)',
-                      background: 'var(--bg-secondary)',
-                      color: 'var(--text-primary)',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {language === 'ko' ? 'ERD에서 찾기' : 'Locate in ERD'}
-                    <span aria-hidden>→</span>
-                  </button>
-                </div>
-              )}
-            </div>
-          );
-        })}
+        {warnCount > 0 && (
+          <>
+            <SectionHeader
+              warn
+              label={language === 'ko' ? `주의 필요 · ${warnCount}` : `Needs attention · ${warnCount}`}
+            />
+            {warnItems.map(renderItem)}
+          </>
+        )}
+        {infoCount > 0 && (
+          <>
+            <SectionHeader
+              label={language === 'ko' ? `정보성 · ${infoCount}` : `Informational · ${infoCount}`}
+            />
+            {infoItems.map(renderItem)}
+          </>
+        )}
       </div>
+    </div>
+  );
+}
+
+// 진단 섹션 헤더(B) — 심각도 그룹 구분선. warn=경고색.
+function SectionHeader({ label, warn = false }: { label: string; warn?: boolean }) {
+  return (
+    <div
+      style={{
+        padding: '7px var(--space-md)',
+        fontSize: 10,
+        fontWeight: 700,
+        letterSpacing: '0.06em',
+        textTransform: 'uppercase',
+        color: warn ? 'var(--color-error)' : 'var(--text-tertiary)',
+        background: 'var(--bg-input)',
+        borderBottom: '1px solid var(--border)',
+      }}
+    >
+      {label}
     </div>
   );
 }

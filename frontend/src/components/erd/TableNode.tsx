@@ -69,7 +69,7 @@ const DIFF_GLOW_STRONG: Record<string, string> = {
 // React.memo — xyflow가 nodes 배열을 갱신할 때마다 모든 노드를 리렌더하는 비용을 차단한다.
 // 대형 그래프(전체보기) 드래그 시 프레임 드롭 방지(설계 메모: 100노드 10→60 FPS).
 // node.data(NodeDef)는 useErdLayout이 useMemo로 안정 참조를 주므로 기본 shallow 비교로 충분.
-function TableNode({ data }: NodeProps) {
+function TableNode({ data, positionAbsoluteX, positionAbsoluteY }: NodeProps) {
   const node = data as unknown as NodeDef;
   const badge = DIFF_BADGE[node.diff] ?? DIFF_BADGE.unchanged;
   const isChanged = node.diff !== 'unchanged';
@@ -105,7 +105,9 @@ function TableNode({ data }: NodeProps) {
   // diff 색광(투과 발광) 값.
   const rgb = DIFF_RGB[node.diff] ?? DIFF_RGB.unchanged;
   const glowStrong = DIFF_GLOW_STRONG[node.diff] ?? DIFF_GLOW_STRONG.unchanged;
-  const peakAlpha = isRemoved ? 0.3 : 0.26; // removed(빨강)만 약간 강
+  // 은은한 글래스 발광(F) — 색광이 내용을 방해하지 않게 peak를 낮춰 '차광유리' 분위기만 남긴다.
+  // 색 식별은 헤더 틴트(C)가 책임지므로 발광은 톤만. removed(빨강)만 살짝 강.
+  const peakAlpha = isRemoved ? 0.2 : 0.16;
 
   // 유리 그림자 합성 — 변경 노드는 diff 링/halo를 앞에(우선), 유리 다층을 뒤에.
   // 가장자리는 전부 box-shadow ring으로 그림(border 없음) → radius 정합, 좌상단 어긋남 해소.
@@ -128,8 +130,9 @@ function TableNode({ data }: NodeProps) {
     ? `${ringByVariant[emphasis]}, ${GLASS_SHADOW}`
     : GLASS_SHADOW;
 
-  // 헤더 동색 틴트 alpha — 발광 부재(solid/subtle) 보강용. solid가 가장 진함.
-  const headerTintAlpha: Record<DiffEmphasis, number> = { glow: 0.12, solid: 0.16, subtle: 0.07 };
+  // 헤더 동색 틴트 alpha — 변경 노드 헤더를 의미색으로 물들여 멀리서도 added/removed가 읽히게(C).
+  // glow는 은은한 발광(F)으로 톤을 낮춘 대신, 색 식별은 헤더 틴트가 책임진다 → 0.22로 강화.
+  const headerTintAlpha: Record<DiffEmphasis, number> = { glow: 0.22, solid: 0.16, subtle: 0.07 };
   const headerTint = `rgba(${rgb}, ${headerTintAlpha[emphasis]})`;
 
   // removed 빗금 간격 — subtle만 더 성기게(과포화 방지).
@@ -138,15 +141,23 @@ function TableNode({ data }: NodeProps) {
       ? '8px, transparent 8px, transparent 16px'
       : '6px, transparent 6px, transparent 12px';
 
+  // Diff Bloom stagger — 변경 노드가 좌상단부터 대각선 읽기 순서로 '차례로' 피어오른다.
+  // 이게 SQLPreShift의 시그니처 모먼트: 입력 → ERD 위로 의미색이 순차 발광 = "변경을
+  // 배포 전에 색으로 미리 보기" 그 자체. 동시 발화를 분산해 Safari 합성 부하도 완화한다.
+  // 맨해튼 거리(좌상단 원점) 기반: 280px마다 한 스텝, 스텝당 60ms, 최대 0.42s로 클램프.
+  const bloomStep = Math.floor((positionAbsoluteX + positionAbsoluteY) / 280);
+  const bloomDelay = Math.min(bloomStep * 0.06, 0.42);
+
   // 색광 레이어 등장 애니 — opacity/scale/filter만(box-shadow 애니 회피, GPU 컴포지터).
   // hover variant 없음 — 노드 hover 효과는 전부 제거(연결 엣지 빛으로만 강조).
   const glowVariants = {
-    hidden: { opacity: 0, scale: 0.985, filter: 'blur(14px)' },
+    hidden: { opacity: 0, scale: 0.985, filter: 'blur(18px)' },
     visible: {
       opacity: peakAlpha,
       scale: 1,
-      filter: 'blur(6px)',
-      transition: { duration: 0.55, ease: [0.16, 1, 0.3, 1] as const },
+      // blur를 키워(10px) 색광에 형체를 없앤다 — 차광유리 너머 번지는 분위기만.
+      filter: 'blur(10px)',
+      transition: { duration: 0.55, ease: [0.16, 1, 0.3, 1] as const, delay: bloomDelay },
     },
   };
 
@@ -180,13 +191,15 @@ function TableNode({ data }: NodeProps) {
           initial={reduceMotion ? false : 'hidden'}
           animate={reduceMotion ? false : 'visible'}
           style={{
-            ...(reduceMotion ? { opacity: peakAlpha, filter: 'blur(6px)' } : null),
+            ...(reduceMotion ? { opacity: peakAlpha, filter: 'blur(10px)' } : null),
+            // 4면 radial bleed — 차광유리 분위기로 톤 다운(가장자리에서 안으로 부드럽게 스며만).
             background:
-              `radial-gradient(120% 70% at 50% -10%, rgba(${rgb},0.9), transparent 60%),` +
-              `radial-gradient(120% 70% at 50% 110%, rgba(${rgb},0.7), transparent 60%),` +
-              `radial-gradient(60% 120% at -10% 50%, rgba(${rgb},0.5), transparent 55%),` +
-              `radial-gradient(60% 120% at 110% 50%, rgba(${rgb},0.5), transparent 55%)`,
-            boxShadow: `inset 0 0 12px 0 rgba(${rgb},0.45), inset 0 1px 0 0 rgba(${rgb},0.85)`,
+              `radial-gradient(120% 70% at 50% -10%, rgba(${rgb},0.65), transparent 62%),` +
+              `radial-gradient(120% 70% at 50% 110%, rgba(${rgb},0.5), transparent 62%),` +
+              `radial-gradient(60% 120% at -10% 50%, rgba(${rgb},0.35), transparent 58%),` +
+              `radial-gradient(60% 120% at 110% 50%, rgba(${rgb},0.35), transparent 58%)`,
+            // inner hairline 약화 — 형체를 만들지 않게(내용 방해 방지).
+            boxShadow: `inset 0 0 14px 0 rgba(${rgb},0.3)`,
           }}
         />
       )}

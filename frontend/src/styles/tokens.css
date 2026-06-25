@@ -115,7 +115,8 @@ body {
    repaint("멈칫")를 일으켰다. 실제 WebKit ablation으로 확정(이 ::before 비활성 시 hover
    repaint delta=0, 정적 래스터 2.3배↓). gradient는 transition 불가 속성이라 hover 효과를
    제거하고, 링은 radius를 따르는 box-shadow inset(비합성·저비용, ablation 확인)으로 대체. */
-.erd-card::before {
+.erd-card::before,
+.glass-trim::before {
   content: '';
   position: absolute;
   inset: 0;
@@ -132,7 +133,8 @@ body {
    ::after로 본문 위 얇은 그라데이션, 텍스트 대비엔 영향 없는 수준(상단 28%만).
    mix-blend-mode 제거 — Safari 26 회귀(블렌드 레이어가 hover repaint마다 재합성돼 흐림/
    끊김)의 트리거. 어두운 배경 위 흰빛은 normal 합성도 거의 동일(screen≈알파 오버레이). */
-.erd-card::after {
+.erd-card::after,
+.glass-trim::after {
   content: '';
   position: absolute;
   inset: 0;
@@ -145,6 +147,13 @@ body {
   );
   pointer-events: none;
   z-index: 3;
+}
+
+/* 공통 유리 가장자리 마감 — ERD 카드의 specular trim을 입력창/모달 등 다른 표면에도 공유해
+   "정밀하게 만들어졌다"는 표면 언어를 통일한다(모션 0, 정적 box-shadow + gradient만).
+   ::before/::after가 inset:0로 깔리므로 적용 요소엔 position·radius가 필요하다. */
+.glass-trim {
+  position: relative;
 }
 
 /* diff 색광 투과 레이어 — 본문(z1) 아래(z0)라 텍스트 절대 안 가림. 어두운 유리 위 '빛'.
@@ -163,6 +172,30 @@ body {
 @keyframes erd-edge-flow {
   to {
     stroke-dashoffset: -20;
+  }
+}
+
+/* 연결 화면 ambient 배경 — 어두운 캔버스에 청록 그라데이션이 아주 느리게 흐름(생기).
+   background-position만 움직여 비합성 repaint 최소화. 20s 루프로 거의 인지 안 될 만큼 잔잔. */
+@keyframes ambient-drift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Test Connection 진행 중 버튼 shimmer — accent 하이라이트가 좌→우로 한 번씩 스윕. */
+@keyframes btn-shimmer {
+  0% {
+    background-position: -150% 0;
+  }
+  100% {
+    background-position: 250% 0;
   }
 }
 
