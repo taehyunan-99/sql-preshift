@@ -38,7 +38,8 @@ function reveal(visible: boolean): React.CSSProperties {
     transform: visible ? 'translateY(0)' : 'translateY(8px)',
     visibility: visible ? 'visible' : 'hidden',
     pointerEvents: visible ? 'auto' : 'none',
-    transition: 'opacity var(--transition-base), transform var(--transition-base)',
+    // opacity는 페이드라 평이한 ease, 위치(transform)만 settle로 탄성 정착(D 일관 적용).
+    transition: 'opacity var(--transition-base), transform var(--transition-settle-sm)',
   };
 }
 
@@ -385,7 +386,9 @@ export default function Home() {
               pointerEvents: 'none',
               opacity: visible ? 1 : 0,
               visibility: visible ? 'visible' : 'hidden',
-              transition: 'opacity var(--transition-base), padding-bottom var(--transition-base)',
+              // 전체 스키마 보기 토글 시 입력창이 중앙↔하단으로 이동 — 큰 위치 이동이라 settle로
+              // 탄성 정착(Apple .snappy). opacity는 페이드라 ease 유지.
+              transition: 'opacity var(--transition-base), padding-bottom var(--transition-settle)',
             }}
           >
             <div style={{ pointerEvents: visible ? 'auto' : 'none' }}>

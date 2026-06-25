@@ -32,7 +32,8 @@ export default function AppliedToast() {
           initial={{ opacity: 0, y: -16 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -16 }}
-          transition={{ duration: 0.28, ease: 'easeOut' }}
+          // 위에서 떨어져 안착하는 위치 이동 — settle 곡선(.snappy)으로 D 일관 적용.
+          transition={{ duration: 0.42, ease: [0.34, 1.2, 0.64, 1] }}
           style={{
             position: 'absolute',
             top: 64,

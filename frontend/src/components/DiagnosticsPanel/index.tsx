@@ -158,7 +158,8 @@ export default function DiagnosticsPanel({
           borderRight: '1px solid var(--border)',
           boxShadow: 'var(--shadow-float)',
           transform: isOpen ? 'translateX(0)' : 'translateX(-100%)',
-          transition: dragging.current ? 'none' : 'transform var(--transition-slow)',
+          // 화면 밖에서 들어오는 큰 슬라이드 — settle로 탄성 정착(D 일관). 드래그 중엔 손가락에 즉시 붙도록 끔.
+          transition: dragging.current ? 'none' : 'transform var(--transition-settle)',
           pointerEvents: isOpen ? 'auto' : 'none',
           overflow: 'hidden',
           position: 'relative',
@@ -500,7 +501,8 @@ export default function DiagnosticsPanel({
           cursor: 'pointer',
           pointerEvents: 'auto',
           marginLeft: isOpen ? 0 : -width,
-          transition: dragging.current ? 'none' : 'margin-left var(--transition-slow)',
+          // 패널과 한 몸으로 따라 들어오는 핸들 — 동일 settle 곡선으로 둘이 어긋나지 않게.
+          transition: dragging.current ? 'none' : 'margin-left var(--transition-settle)',
           display: 'flex',
           alignItems: 'center',
           gap: 6,

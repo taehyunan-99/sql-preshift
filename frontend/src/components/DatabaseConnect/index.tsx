@@ -172,7 +172,7 @@ export default function DatabaseConnect({ onConnected, onCancel }: Props) {
           <motion.h1
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, ease: 'easeOut', delay: 0 }}
+            transition={{ duration: 0.4, ease: [0.34, 1.2, 0.64, 1], delay: 0 }}
             style={{ margin: 0, fontSize: 26, fontWeight: 800, letterSpacing: '-0.02em' }}
           >
             SQLPreShift
@@ -180,7 +180,7 @@ export default function DatabaseConnect({ onConnected, onCancel }: Props) {
           <motion.p
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, ease: 'easeOut', delay: 0.08 }}
+            transition={{ duration: 0.4, ease: [0.34, 1.2, 0.64, 1], delay: 0.08 }}
             style={{
               margin: '8px 0 0',
               fontSize: 'var(--font-size-md)',
@@ -201,7 +201,7 @@ export default function DatabaseConnect({ onConnected, onCancel }: Props) {
             key="lobby"
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, ease: 'easeOut', delay: 0.16 }}
+            transition={{ duration: 0.4, ease: [0.34, 1.2, 0.64, 1], delay: 0.16 }}
             style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}
           >
             {/* B+C 레이아웃 — 좌: 샘플 2장(compact 세로 묶음) / 우: 내 DB(강조). 각 카드 아이콘.
@@ -285,7 +285,7 @@ export default function DatabaseConnect({ onConnected, onCancel }: Props) {
             className="glass-trim"
             initial={{ opacity: 0, x: 12 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.32, ease: 'easeOut' }}
+            transition={{ duration: 0.32, ease: [0.34, 1.2, 0.64, 1] }}
             style={{
               background: 'var(--bg-secondary)',
               border: '1px solid var(--border)',

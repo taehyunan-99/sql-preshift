@@ -89,6 +89,11 @@
   --transition-fast: 120ms ease;
   --transition-base: 200ms ease;
   --transition-slow: 300ms ease;
+  /* settle(D) — 위치 이동/등장 전용 탄성 정착. Apple HIG .snappy 근사:
+     overshoot ~5%로 한 번만 살짝 넘었다 안착(전문 도구용 절제). 색/opacity·스피너엔 쓰지 않는다. */
+  --ease-settle: cubic-bezier(0.34, 1.2, 0.64, 1);
+  --transition-settle: 450ms var(--ease-settle); /* 큰 위치 이동(입력창 drop 등) */
+  --transition-settle-sm: 320ms var(--ease-settle); /* 작은 등장/슬라이드(reveal·hover lift) */
 }
 
 /* 베이스 리셋 */
