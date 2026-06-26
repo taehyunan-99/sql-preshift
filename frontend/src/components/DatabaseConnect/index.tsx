@@ -411,11 +411,12 @@ function EntryCard({
   primary?: boolean;
   onClick: () => void;
 }) {
-  // hover glow — 메인 입력창 포커스와 같은 언어(4px accent 링 + 색광 + shadow-float).
+  // hover — 테두리만 밝게(border-strong + 미세 1px ring). accent 글로우·lift는 쓰지 않아
+  // 모델 카드 hover와 동일 언어로 통일. accent는 '선택/주 카드'에만 남겨 위계를 또렷이.
+  // (포커스 글로우는 입력 필드 전용 — 카드 호버에는 과함.)
   const hoverGlow = {
-    borderColor: 'var(--color-accent-border)',
-    boxShadow: '0 0 0 4px var(--color-accent-10), 0 0 30px -4px var(--color-accent), var(--shadow-float)',
-    y: -2,
+    borderColor: 'var(--border-strong)',
+    boxShadow: '0 0 0 1px var(--border-strong), var(--shadow-float)',
   };
   return (
     <motion.button

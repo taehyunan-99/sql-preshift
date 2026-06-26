@@ -216,6 +216,7 @@ function NoneCard({ ko, selected, disabled, onClick }: { ko: boolean; selected: 
   return (
     <button
       type="button"
+      className="glass-trim"
       style={style}
       onClick={onClick}
       disabled={disabled}
@@ -433,7 +434,7 @@ function ModelCard({
 
   if (isDownloading) {
     return (
-      <div style={{ ...S.card, ...S.cardDl }}>
+      <div className="glass-trim" style={{ ...S.card, ...S.cardDl }}>
         <ProgressBlock ko={ko} tag={model.tag} tier={model.tier} progress={progress} onCancel={onCancel} />
       </div>
     );
@@ -446,6 +447,7 @@ function ModelCard({
 
   return (
     <div
+      className="glass-trim"
       style={style}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
@@ -604,10 +606,13 @@ const S = {
     gap: 'var(--space-3)',
   },
 
-  // 카드 — 넉넉한 패딩(텍스트가 면에 안 붙게 space-5), 본체는 어두운 표면.
+  // 카드 — 허브 카드(EntryCard)·DB 폼 셸과 동일한 유리 표면으로 통일:
+  // bg-secondary + .glass-trim(인라인 적용 불가 → 컴포넌트 className으로 부여) + shadow-card.
+  // 이전엔 bg-tertiary였는데 허브/DB 셸(bg-secondary+glass-trim)과 재질이 달라 빛이 떠 보였다.
   // border는 longhand로 — cardOn/cardHover/cardDl가 borderColor만 덮어쓰므로
   // shorthand `border`와 섞이면 React 경고(shorthand/non-shorthand 충돌).
   card: {
+    position: 'relative',
     display: 'flex',
     alignItems: 'flex-start',
     gap: 'var(--space-4)',
@@ -616,28 +621,31 @@ const S = {
     borderStyle: 'solid',
     borderColor: 'var(--border)',
     borderRadius: 'var(--radius-md)',
-    // 패널(bg-secondary) 위에서 카드가 떠 보이게 한 단계 밝은 표면.
+    // 셸(bg-secondary) 위에서 한 단계 떠 보이는 elevated 표면 — 가이드의 카드 패턴.
+    // glass-trim 광택을 함께 입혀 허브 카드/DB 셸과 '같은 유리 재질'을 공유한다
+    // (이전엔 glass-trim 없는 평면 tertiary라 밝기만 높아 떠 보였다).
     background: 'var(--bg-tertiary)',
+    boxShadow: 'var(--shadow-card)',
     textAlign: 'left',
     width: '100%',
     fontFamily: 'var(--font-sans)',
-    transition: 'border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease',
+    transition: 'border-color 0.18s ease, box-shadow 0.18s ease',
   },
+  // hover — 허브 카드와 동일(테두리만 밝게 + 미세 1px ring). accent 글로우 없음.
   cardHover: {
     borderColor: 'var(--border-strong)',
-    boxShadow: '0 0 0 1px var(--border-strong)',
+    boxShadow: '0 0 0 1px var(--border-strong), var(--shadow-card)',
   },
-  // 선택된 카드 — accent 테두리 + 은은한 teal glow(아이덴티티).
+  // 선택된 카드 — accent 테두리 + 은은한 teal glow(아이덴티티). 표면색은 유지하고
+  // accent-10은 ring으로만(배경을 칠하지 않아 glass-trim 광택이 살아 있게).
   cardOn: {
     borderColor: 'var(--color-accent-border)',
-    background: 'var(--color-accent-10)',
-    boxShadow: '0 0 0 3px var(--color-accent-10), 0 0 24px -8px var(--color-accent)',
+    boxShadow: '0 0 0 1px var(--color-accent-border), 0 0 18px -10px var(--color-accent), var(--shadow-card)',
   },
-  // 다운로드 중 — 더 강한 glow로 진행을 부각.
+  // 다운로드 중 — selected와 같은 언어, glow만 한 단계 더(진행 부각).
   cardDl: {
     borderColor: 'var(--color-accent-border)',
-    background: 'var(--color-accent-10)',
-    boxShadow: '0 0 0 3px var(--color-accent-10), 0 0 30px -6px var(--color-accent)',
+    boxShadow: '0 0 0 1px var(--color-accent-border), 0 0 22px -8px var(--color-accent), var(--shadow-card)',
   },
 
   cardMain: {
