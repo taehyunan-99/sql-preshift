@@ -10,6 +10,7 @@ import {
 import { usePipelineStore } from '../../store/pipeline';
 import LanguageToggle from '../LanguageToggle';
 import AppBackdrop from '../AppBackdrop';
+import ModelPicker from '../ModelSettings/ModelPicker';
 
 // 온보딩 전체화면 게이트 — target DB 미연결 시 메인 진입 전 노출.
 // 단일 경로: 사용자가 자기 PostgreSQL 연결 정보를 입력해 연결한다.
@@ -294,6 +295,49 @@ export default function DatabaseConnect({ onConnected, onCancel }: Props) {
             </button>
           </div>
         </motion.div>
+
+        {/* 모델 선택 보조 카드 — 최초 게이트에서만(교체 모달엔 TopBar Model이 따로 있음).
+            DB 연결이 주(主)이고 모델은 NL 전용 선택사항임을 위계로 드러낸다(작게, optional 라벨). */}
+        {!onCancel && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, ease: [0.34, 1.2, 0.64, 1], delay: 0.24 }}
+            style={{
+              marginTop: 'var(--space-4)',
+              background: 'var(--bg-secondary)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-lg)',
+              boxShadow: 'var(--shadow-card)',
+              padding: 'var(--space-5)',
+            }}
+          >
+            {/* 보조 카드 헤더 — "선택사항 · 자연어용"을 명확히 해 'DB만 연결해도 시작됨'을 전달. */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-1)' }}>
+              <span style={{ fontSize: 'var(--font-size-md)', fontWeight: 600, color: 'var(--text-primary)' }}>
+                {ko ? '자연어 모델' : 'Language model'}
+              </span>
+              <span
+                style={{
+                  fontSize: 'var(--font-size-xs)',
+                  fontWeight: 600,
+                  color: 'var(--text-tertiary)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: 'var(--radius-pill)',
+                  padding: '1px var(--space-2)',
+                }}
+              >
+                {ko ? '선택 . 자연어용' : 'Optional . for natural language'}
+              </span>
+            </div>
+            <p style={{ margin: '0 0 var(--space-3)', fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', lineHeight: 1.45 }}>
+              {ko
+                ? '자연어로 SQL을 작성하려면 모델을 하나 받으세요. SQL 직접 입력은 모델 없이도 됩니다.'
+                : 'Download a model to write SQL in natural language. Direct SQL input works without one.'}
+            </p>
+            <ModelPicker hideHeader />
+          </motion.div>
+        )}
 
         {/* 교체 모달 재사용 시 Cancel — 하단 중앙 */}
         {onCancel && (
