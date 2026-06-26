@@ -366,9 +366,14 @@ export default function InputPanel() {
             color: 'var(--text-secondary)',
           }}
         >
-          {language === 'ko'
-            ? 'Ollama가 감지되지 않아 자연어 입력은 비활성화됩니다. SQL을 직접 입력하세요.'
-            : 'Ollama not detected — natural-language input is disabled. Enter SQL directly.'}
+          {/* 미가용 사유 분기: Ollama 자체 부재 vs 도달했으나 모델 미선택(Model 설정 유도). */}
+          {llm?.reachable
+            ? language === 'ko'
+              ? '자연어 모델이 선택되지 않았습니다. 상단 Model에서 모델을 골라 자연어 입력을 켜세요. SQL 직접 입력은 바로 가능합니다.'
+              : 'No natural-language model selected. Pick one in Model (top bar) to enable it. Direct SQL input works right away.'
+            : language === 'ko'
+              ? 'Ollama가 감지되지 않아 자연어 입력은 비활성화됩니다. SQL을 직접 입력하세요.'
+              : 'Ollama not detected — natural-language input is disabled. Enter SQL directly.'}
         </div>
       )}
 

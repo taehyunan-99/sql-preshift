@@ -19,6 +19,7 @@ import AuditDrawer from '../components/AuditDrawer';
 import StageBadge from '../components/StageBadge';
 import StageProgress from '../components/StageProgress';
 import LanguageToggle from '../components/LanguageToggle';
+import ModelSettings from '../components/ModelSettings';
 import DiffControls, { type DiffMode } from '../components/DiffControls';
 import DatabaseConnect from '../components/DatabaseConnect';
 import AppBackdrop from '../components/AppBackdrop';
@@ -323,6 +324,7 @@ export default function Home() {
               {language === 'ko' ? '연결 해제' : 'Disconnect'}
             </button>
           </div>
+          <ModelSettings />
           <LanguageToggle />
           <StageBadge />
           <AuditButton />

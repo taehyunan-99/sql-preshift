@@ -229,6 +229,7 @@ export interface LlmStatus {
   embedModel: string;
   embedReady: boolean;
   ready: boolean;
+  available: string[]; // 설치된 모델 태그 — 설정 드롭다운 후보
 }
 
 export async function getLlmStatus(): Promise<LlmStatus> {
@@ -238,6 +239,28 @@ export async function getLlmStatus(): Promise<LlmStatus> {
     signal: AbortSignal.timeout(3000),
   });
   if (!res.ok) throw new Error(`llm status failed: ${res.status}`);
+  return res.json();
+}
+
+export interface LlmConfig {
+  chatModel: string;
+}
+
+export async function getLlmConfig(): Promise<LlmConfig> {
+  const res = await fetch(`${API_BASE}/api/llm/config`, {
+    signal: AbortSignal.timeout(3000),
+  });
+  if (!res.ok) throw new Error(`llm config failed: ${res.status}`);
+  return res.json();
+}
+
+export async function setLlmConfig(chatModel: string): Promise<LlmConfig> {
+  const res = await fetch(`${API_BASE}/api/llm/config`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chatModel }),
+  });
+  if (!res.ok) throw new Error(`set llm config failed: ${res.status}`);
   return res.json();
 }
 
