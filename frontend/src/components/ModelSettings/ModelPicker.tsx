@@ -622,10 +622,10 @@ const S = {
     borderStyle: 'solid',
     borderColor: 'var(--border)',
     borderRadius: 'var(--radius-md)',
-    // 셸(bg-secondary) 안의 콘텐츠 면 — DB 폼의 입력 필드(bg-input)와 같은 어두운 톤.
-    // tertiary는 셸보다 밝아 카드가 떠 보였다(DB 폼 대비 과하게 밝음). 셸보다 어둡게
-    // 가라앉히고, 유리 재질(glass-trim)만 공유해 같은 표면 언어를 유지한다.
-    background: 'var(--bg-input)',
+    // 셸(bg-secondary) 안의 아이템 행 — AuditDrawer 이력 행과 같은 관례(bg-primary).
+    // tertiary는 셸보다 밝아 떠 보이고, input은 입력 전용이라 너무 검다. primary는
+    // 셸보다 살짝 어두워 자연스레 가라앉으면서도 새까맣지 않은 중간 톤(가이드 카드 면).
+    background: 'var(--bg-primary)',
     boxShadow: 'var(--shadow-card)',
     textAlign: 'left',
     width: '100%',
