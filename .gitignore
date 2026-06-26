@@ -6,6 +6,8 @@ node_modules/
 dist/
 build/
 .next/
+# Next static export 산출물(설치형 빌드 입력) — 추적 안 함
+out/
 
 # Python / 백엔드
 __pycache__/
