@@ -604,12 +604,16 @@ const S = {
   },
 
   // 카드 — 넉넉한 패딩(텍스트가 면에 안 붙게 space-5), 본체는 어두운 표면.
+  // border는 longhand로 — cardOn/cardHover/cardDl가 borderColor만 덮어쓰므로
+  // shorthand `border`와 섞이면 React 경고(shorthand/non-shorthand 충돌).
   card: {
     display: 'flex',
     alignItems: 'flex-start',
     gap: 'var(--space-4)',
     padding: 'var(--space-5)',
-    border: '1px solid var(--border)',
+    borderWidth: 1,
+    borderStyle: 'solid',
+    borderColor: 'var(--border)',
     borderRadius: 'var(--radius-md)',
     background: 'var(--bg-secondary)',
     textAlign: 'left',
@@ -722,7 +726,10 @@ const S = {
     fontSize: 'var(--font-size-sm)',
     color: 'var(--text-primary)',
     background: 'var(--bg-input)',
-    border: '1px solid var(--border)',
+    // border longhand — inputFocus/Blur가 borderColor만 덮어쓰므로 shorthand와 안 섞이게.
+    borderWidth: 1,
+    borderStyle: 'solid',
+    borderColor: 'var(--border)',
     borderRadius: 'var(--radius-md)',
     padding: 'var(--space-2) var(--space-3)',
     outline: 'none',
