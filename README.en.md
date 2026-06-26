@@ -14,9 +14,9 @@ A **safety gate** for PostgreSQL schema migrations. Type natural language or SQL
 
 <br/><br/>
 
-<!-- TODO: capture → docs/assets/hero.gif (full pipeline loop, 8-10s, ERP sample) -->
+<!-- TODO: capture → assets/hero.gif (full pipeline loop, 8-10s, ERP sample) -->
 <p align="center">
-  <img src="docs/assets/placeholder.png" alt="SQLPreShift full pipeline demo" width="820" />
+  <img src="assets/placeholder.png" alt="SQLPreShift full pipeline demo" width="820" />
 </p>
 
 <br/><br/>
@@ -89,9 +89,9 @@ docker compose up -d
 
 The backend runs the meta-DB migration (`alembic upgrade head`) automatically on startup.
 
-<!-- TODO: capture → docs/assets/s1-connect-lobby.png (connection lobby + sample picker) -->
+<!-- TODO: capture → assets/s1-connect-lobby.png (connection lobby + sample picker) -->
 <p align="center">
-  <img src="docs/assets/placeholder.png" alt="Connection lobby — sample database picker" width="720" />
+  <img src="assets/placeholder.png" alt="Connection lobby — sample database picker" width="720" />
 </p>
 
 <br/><br/>

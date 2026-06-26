@@ -1,9 +1,5 @@
 # docs 폴더는 추적하지 않음 (아이디어/내부 문서)
 docs/
-# 단, README가 참조하는 공개 미디어(assets)는 추적
-!docs/
-docs/*
-!docs/assets/
 
 # Node / 프론트엔드
 node_modules/

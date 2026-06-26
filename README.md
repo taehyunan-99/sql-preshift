@@ -14,9 +14,9 @@ PostgreSQL 스키마 마이그레이션을 위한 **안전 게이트**. 자연�
 
 <br/><br/>
 
-<!-- TODO: capture → docs/assets/hero.gif (전체 파이프라인 한 바퀴, 8-10s, ERP 샘플) -->
+<!-- TODO: capture → assets/hero.gif (전체 파이프라인 한 바퀴, 8-10s, ERP 샘플) -->
 <p align="center">
-  <img src="docs/assets/placeholder.png" alt="SQLPreShift 전체 파이프라인 데모" width="820" />
+  <img src="assets/placeholder.png" alt="SQLPreShift 전체 파이프라인 데모" width="820" />
 </p>
 
 <br/><br/>
@@ -89,9 +89,9 @@ docker compose up -d
 
 backend는 기동 시 메타 DB 마이그레이션(`alembic upgrade head`)을 자동 실행한다.
 
-<!-- TODO: capture → docs/assets/s1-connect-lobby.png (연결 로비 + 샘플 선택) -->
+<!-- TODO: capture → assets/s1-connect-lobby.png (연결 로비 + 샘플 선택) -->
 <p align="center">
-  <img src="docs/assets/placeholder.png" alt="연결 로비 — 샘플 DB 선택" width="720" />
+  <img src="assets/placeholder.png" alt="연결 로비 — 샘플 DB 선택" width="720" />
 </p>
 
 <br/><br/>
