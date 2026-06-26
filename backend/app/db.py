@@ -28,7 +28,15 @@ def _try_initial_target_engine() -> None:
     """기동 시 config의 target_database_url이 있으면 연결을 시도(lazy-init).
 
     실패하거나 URL이 없으면 미연결 상태(None)로 둔다 — 부팅은 항상 성공.
+
+    설치형(frozen)은 자동 연결을 건너뛴다 — 첫 실행은 항상 온보딩 게이트에서
+    사용자가 자기 DB를 연결하는 흐름이어야 하기 때문. dev/웹의 기본 target 자동연결
+    편의는 그대로 보존한다(개발 환경에 Postgres가 떠 있으면 바로 메인 진입).
     """
+    from app.runtime_paths import is_frozen
+
+    if is_frozen():
+        return
     url = settings.target_database_url
     if not url:
         return
