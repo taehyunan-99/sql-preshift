@@ -113,7 +113,12 @@ export interface ApplyAllResponse {
   count: number;
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
+// 설치형(Electron): preload가 주입한 동적 sidecar 포트를 최우선으로 쓴다.
+// 웹/dev: 기존 env fallback 유지 — 한 코드로 두 환경 모두 동작.
+const API_BASE =
+  (typeof window !== 'undefined' && window.desktop?.apiBase) ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  'http://localhost:8000';
 
 export async function analyzeInput(req: AnalyzeRequest): Promise<AnalyzeResponse> {
   const res = await fetch(`${API_BASE}/api/analyze`, {
