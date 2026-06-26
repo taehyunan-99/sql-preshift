@@ -520,7 +520,9 @@ function EntryShell({
         zIndex: 1,
         width,
         maxWidth: '92vw',
-        background: 'var(--bg-secondary)',
+        // 셸은 카드를 담는 컨테이너 — ERD 캔버스처럼 어두운 bg-primary로 내리고,
+        // 그 안의 카드(모델 카드)는 bg-secondary로 올려 ERD 노드와 같은 elevation 위계.
+        background: 'var(--bg-primary)',
         border: '1px solid var(--border)',
         borderRadius: 'var(--radius-lg)',
         // 부유 패널이므로 shadow-float(메인 입력창과 동일 elevation). 모달 아님.

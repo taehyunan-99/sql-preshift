@@ -622,10 +622,10 @@ const S = {
     borderStyle: 'solid',
     borderColor: 'var(--border)',
     borderRadius: 'var(--radius-md)',
-    // 셸(bg-secondary) 안의 아이템 행 — AuditDrawer 이력 행과 같은 관례(bg-primary).
-    // tertiary는 셸보다 밝아 떠 보이고, input은 입력 전용이라 너무 검다. primary는
-    // 셸보다 살짝 어두워 자연스레 가라앉으면서도 새까맣지 않은 중간 톤(가이드 카드 면).
-    background: 'var(--bg-primary)',
+    // 모델 카드 = ERD 노드 카드와 같은 표면(bg-secondary, cardStyle.tsx CARD_SURFACE).
+    // 셸이 bg-primary(어두운 캔버스)로 내려갔으므로 카드는 한 단계 밝은 secondary로
+    // 떠오른다 — ERD와 동일한 elevation 위계. 어둡게 가라앉히던 이전 방향이 잘못이었다.
+    background: 'var(--bg-secondary)',
     boxShadow: 'var(--shadow-card)',
     textAlign: 'left',
     width: '100%',
