@@ -29,7 +29,7 @@ interface Props {
 
 const FIELD: React.CSSProperties = {
   width: '100%',
-  padding: '8px 10px',
+  padding: 'var(--space-2) var(--space-3)',
   background: 'var(--bg-input)',
   // border는 longhand로 — fieldStyle가 borderColor를 덮어쓰므로 shorthand와 섞이면 React 경고.
   borderWidth: 1,
@@ -46,7 +46,7 @@ const LABEL: React.CSSProperties = {
   display: 'block',
   fontSize: 'var(--font-size-xs)',
   color: 'var(--text-secondary)',
-  marginBottom: 4,
+  marginBottom: 6,
 };
 
 type View = 'hub' | 'db' | 'model';
@@ -95,9 +95,10 @@ export default function DatabaseConnect({ onConnected, onCancel }: Props) {
     const on = focused === key;
     return {
       ...FIELD,
-      borderColor: on ? 'var(--color-accent)' : 'var(--border)',
-      boxShadow: on ? '0 0 0 3px var(--color-accent-20)' : 'none',
-      transition: 'border-color var(--transition-fast), box-shadow var(--transition-fast)',
+      borderColor: on ? 'var(--color-accent-border)' : 'var(--border)',
+      // 포커스 글로우 — InputPanel과 동일 언어(4px accent-10 링 + 30px 색광 번짐).
+      boxShadow: on ? '0 0 0 4px var(--color-accent-10), 0 0 30px -4px var(--color-accent)' : 'none',
+      transition: 'border-color var(--transition-base), box-shadow var(--transition-base)',
     };
   };
   const focusProps = (key: string) => ({
@@ -193,11 +194,11 @@ export default function DatabaseConnect({ onConnected, onCancel }: Props) {
               <input style={fieldStyle('port')} {...focusProps('port')} value={port} onChange={(e) => setPort(e.target.value)} />
             </div>
           </div>
-          <div style={{ marginTop: 'var(--space-3)' }}>
+          <div style={{ marginTop: 'var(--space-4)' }}>
             <label style={LABEL}>Database</label>
             <input style={fieldStyle('dbname')} {...focusProps('dbname')} value={dbname} onChange={(e) => setDbname(e.target.value)} />
           </div>
-          <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-3)' }}>
+          <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
             <div style={{ flex: 1 }}>
               <label style={LABEL}>User</label>
               <input style={fieldStyle('user')} {...focusProps('user')} value={user} onChange={(e) => setUser(e.target.value)} />
@@ -226,7 +227,7 @@ export default function DatabaseConnect({ onConnected, onCancel }: Props) {
             <div
               style={{
                 marginTop: 'var(--space-3)',
-                padding: '8px 10px',
+                padding: 'var(--space-2) var(--space-3)',
                 background: 'var(--color-error-bg)',
                 border: '1px solid var(--color-error-border)',
                 borderRadius: 'var(--radius-md)',
@@ -238,7 +239,7 @@ export default function DatabaseConnect({ onConnected, onCancel }: Props) {
             </div>
           )}
 
-          <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
+          <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-6)' }}>
             {/* Secondary 버튼 — testing 중 accent shimmer 스윕(진행 피드백). */}
             <button
               onClick={handleTest}
@@ -342,8 +343,8 @@ function HubView({
 
   return (
     <div style={{ position: 'relative', zIndex: 1, width: 720, maxWidth: '94vw' }}>
-      {/* 브랜드 헤더 — 진입 stagger fade-up. */}
-      <div style={{ textAlign: 'center', marginBottom: 'var(--space-8)' }}>
+      {/* 브랜드 헤더 — 진입 stagger fade-up. 카드와는 넉넉히 떨어뜨려 메인 화면의 광활함을 잇는다. */}
+      <div style={{ textAlign: 'center', marginBottom: 'var(--space-12)' }}>
         <motion.h1
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -356,7 +357,7 @@ function HubView({
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, ease: [0.34, 1.2, 0.64, 1], delay: 0.08 }}
-          style={{ margin: '8px 0 0', fontSize: 'var(--font-size-md)', color: 'var(--text-secondary)', lineHeight: 1.5 }}
+          style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--font-size-md)', color: 'var(--text-secondary)', lineHeight: 1.5 }}
         >
           {ko
             ? '실제 PostgreSQL 데이터베이스에 대해 스키마 변경을 미리 확인하세요 — 배포 전에, 안전하게.'
@@ -410,30 +411,31 @@ function EntryCard({
   primary?: boolean;
   onClick: () => void;
 }) {
+  // hover glow — 메인 입력창 포커스와 같은 언어(4px accent 링 + 색광 + shadow-float).
   const hoverGlow = {
     borderColor: 'var(--color-accent-border)',
-    boxShadow: 'var(--shadow-card), 0 0 0 3px var(--color-accent-10), 0 0 30px -8px var(--color-accent)',
+    boxShadow: '0 0 0 4px var(--color-accent-10), 0 0 30px -4px var(--color-accent), var(--shadow-float)',
     y: -2,
   };
   return (
     <motion.button
       type="button"
       onClick={onClick}
-      initial={{ opacity: 0, y: 8 }}
+      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: [0.34, 1.2, 0.64, 1], delay }}
+      transition={{ opacity: { duration: 0.3, delay }, y: { duration: 0.42, ease: [0.34, 1.2, 0.64, 1], delay } }}
       whileHover={hoverGlow}
-      whileTap={{ scale: 0.99 }}
+      whileTap={{ scale: 0.995 }}
       className="glass-trim"
       style={{
         flex: 1,
         minWidth: 0,
         display: 'flex',
         flexDirection: 'column',
-        gap: 'var(--space-4)',
         textAlign: 'left',
-        padding: 'var(--space-6)',
-        minHeight: 200,
+        // 카드 내부 여유(space-7 없음 → 28px 직접). 메인 화면의 호흡감 이식.
+        padding: '28px',
+        minHeight: 224,
         background: 'var(--bg-secondary)',
         // border는 longhand로 분리 — whileHover가 borderColor를 애니메이트하므로
         // shorthand `border`와 섞이면 React가 경고(shorthand/non-shorthand 충돌).
@@ -441,38 +443,43 @@ function EntryCard({
         borderStyle: 'solid',
         borderColor: primary ? 'var(--color-accent-border)' : 'var(--border)',
         borderRadius: 'var(--radius-lg)',
-        boxShadow: 'var(--shadow-card)',
+        // 부유 카드 — shadow-float(메인 입력창과 동일 elevation).
+        boxShadow: 'var(--shadow-float)',
         cursor: 'pointer',
         fontFamily: 'var(--font-sans)',
       }}
     >
-      {/* eyebrow — 위계 라벨(필수/선택). */}
+      {/* eyebrow — 위계 라벨(필수/선택). eyebrow↔제목 간격은 본문 블록 margin으로 준다. */}
       <span
         style={{
           fontSize: 'var(--font-size-xs)',
           fontWeight: 600,
-          letterSpacing: '0.02em',
-          // 비-primary도 text-secondary로 — tertiary는 어두운 카드 위 대비 부족(WCAG 미달).
-          color: primary ? 'var(--color-accent-hover)' : 'var(--text-secondary)',
+          letterSpacing: '0.03em',
+          // eyebrow는 양쪽 모두 text-secondary로 절제 — primary 구분은 카드 테두리·action accent가 담당
+          // (가이드: 한 화면 accent 1~2곳). tertiary는 대비 부족이라 secondary.
+          color: 'var(--text-secondary)',
         }}
       >
         {eyebrow}
       </span>
 
-      {/* 제목 + 부제 — 본문은 위로 모으고 action은 카드 바닥에 고정. */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', flex: 1 }}>
+      {/* 제목 + 부제 — eyebrow와는 space-4(계층), 제목↔부제는 space-2(같은 묶음). flex:1로 위로 모음. */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', flex: 1, marginTop: 'var(--space-4)' }}>
         <span style={{ fontSize: 'var(--font-size-lg)', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
           {title}
         </span>
         {subtitle}
       </div>
 
-      {/* action — 카드 진입 신호. */}
+      {/* action — 카드 진입 신호. 본문과 space-6 떨어뜨려 카드 바닥에 둠.
+          accent는 주(primary) 카드에만 — 보조 카드는 text-secondary로 낮춰 색으로 위계를 준다
+          (가이드: 한 화면 accent 1~2곳 절제). */}
       <span
         style={{
+          marginTop: 'var(--space-6)',
           fontSize: 'var(--font-size-sm)',
           fontWeight: 600,
-          color: 'var(--color-accent)',
+          color: primary ? 'var(--color-accent)' : 'var(--text-secondary)',
         }}
       >
         {action}
@@ -502,9 +509,10 @@ function EntryShell({
 }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 8 }}
+      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.32, ease: [0.34, 1.2, 0.64, 1] }}
+      // opacity는 ease, 위치는 settle(메인 화면 진입 패턴과 동일한 곡선 분리).
+      transition={{ opacity: { duration: 0.28 }, y: { duration: 0.42, ease: [0.34, 1.2, 0.64, 1] } }}
       className="glass-trim"
       style={{
         position: 'relative',
@@ -514,28 +522,31 @@ function EntryShell({
         background: 'var(--bg-secondary)',
         border: '1px solid var(--border)',
         borderRadius: 'var(--radius-lg)',
-        boxShadow: 'var(--shadow-modal)',
+        // 부유 패널이므로 shadow-float(메인 입력창과 동일 elevation). 모달 아님.
+        boxShadow: 'var(--shadow-float)',
         // 카드가 길어 화면이 짧으면 내부 스크롤(하단이 잘리지 않게).
         maxHeight: '84vh',
         overflowY: 'auto',
-        // 헤더(좌상단 Back/제목)는 카드 안에 통합 — 패딩으로 본문과 면 사이 간격 확보.
+        // 패딩 넉넉히(space-7=28px 없음 → space-6). 헤더는 카드 안에 통합.
         padding: 'var(--space-6)',
         display: 'flex',
         flexDirection: 'column',
-        gap: 'var(--space-5)',
+        // 헤더 블록 ↔ 본문 블록은 독립 섹션 → space-6(가이드: 시각 분리 그룹).
+        gap: 'var(--space-6)',
       }}
     >
-      {/* 헤더 영역 — Back + 제목 + 설명 + 구분선. */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-        {onBack && <BackButton label={backLabel} onClick={onBack} />}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <h2 style={{ margin: 0, fontSize: 'var(--font-size-lg)', fontWeight: 700, letterSpacing: '-0.01em' }}>{title}</h2>
-          <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', lineHeight: 1.5 }}>{subtitle}</p>
-        </div>
+      {/* 헤더 영역 — Back + 제목 + 설명. Back↔제목은 space-4, 제목↔설명은 space-2(계층 차등). */}
+      <div style={{ display: 'flex', flexDirection: 'column' }}>
+        {onBack && (
+          <div style={{ marginBottom: 'var(--space-4)' }}>
+            <BackButton label={backLabel} onClick={onBack} />
+          </div>
+        )}
+        <h2 style={{ margin: 0, fontSize: 'var(--font-size-lg)', fontWeight: 700, letterSpacing: '-0.01em' }}>{title}</h2>
+        <p style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', lineHeight: 1.55 }}>
+          {subtitle}
+        </p>
       </div>
-
-      {/* 헤더와 본문 구분선 — v1 모달의 정돈감(헤더/본문이 한 카드 안에서 분절). */}
-      <div style={{ height: 1, background: 'var(--border)', margin: '0 calc(-1 * var(--space-6))' }} />
 
       {children}
     </motion.div>

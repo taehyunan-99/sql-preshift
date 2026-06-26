@@ -575,7 +575,8 @@ const S = {
   wrap: {
     display: 'flex',
     flexDirection: 'column',
-    gap: 'var(--space-5)',
+    // 섹션(info/cards/error/adv/foot) 간 간격 — 독립 블록이므로 space-6(섹션 표준).
+    gap: 'var(--space-6)',
     fontFamily: 'var(--font-sans)',
     color: 'var(--text-primary)',
   },
@@ -738,7 +739,8 @@ const S = {
   },
   inputFocus: {
     borderColor: 'var(--color-accent-border)',
-    boxShadow: '0 0 0 3px var(--color-accent-10)',
+    // 포커스 글로우 — DatabaseConnect/InputPanel과 동일 언어(4px 링 + 30px 색광)로 통일.
+    boxShadow: '0 0 0 4px var(--color-accent-10), 0 0 30px -4px var(--color-accent)',
   },
   inputBlur: {
     borderColor: 'var(--border)',
