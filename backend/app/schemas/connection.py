@@ -10,16 +10,16 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-# 샘플 시드 종류 — ecommerce(9테이블) / erp(92테이블). 로비에서 선택.
-SampleKind = Literal["ecommerce", "erp"]
+# 샘플 종류 — erp(92테이블, 분리 컨테이너에 런타임 시드) / pagila(공개 스키마, init 자동 적재). 로비에서 선택.
+SampleKind = Literal["erp", "pagila"]
 
 
 class SampleRequest(BaseModel):
-    """샘플 DB 연결 요청 — 어떤 시드를 깔지. 기본은 ecommerce(기존 동작 호환)."""
+    """샘플 DB 연결 요청 — 어떤 분리 컨테이너에 붙을지. 기본은 erp."""
 
     model_config = ConfigDict(populate_by_name=True)
 
-    kind: SampleKind = "ecommerce"
+    kind: SampleKind = "erp"
 
 
 class ConnectionRequest(BaseModel):

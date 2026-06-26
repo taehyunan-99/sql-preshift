@@ -194,7 +194,12 @@ export interface ConnectionTestResult {
 }
 
 export async function getConnectionStatus(): Promise<ConnectionStatus> {
-  const res = await fetch(`${API_BASE}/api/connection/status`);
+  // 타임아웃 필수 — backend가 재색인 등으로 잠시 hang해도 fetch가 무한 대기하면
+  // page가 status 응답을 못 받아 게이트도 메인도 안 그려진다(빈 화면). 5초 내 무응답이면
+  // reject → 호출부(.catch)가 미연결로 간주해 온보딩 게이트를 띄운다.
+  const res = await fetch(`${API_BASE}/api/connection/status`, {
+    signal: AbortSignal.timeout(5000),
+  });
   if (!res.ok) throw new Error(`connection status failed: ${res.status}`);
   return res.json();
 }
@@ -222,8 +227,8 @@ export async function connectDatabase(req: ConnectionRequest): Promise<Connectio
   return res.json();
 }
 
-// 샘플 시드 종류 — ecommerce(9테이블) / erp(92테이블). 로비 카드에서 선택.
-export type SampleKind = 'ecommerce' | 'erp';
+// 샘플 종류 — erp(92테이블, 분리 컨테이너 런타임 시드) / pagila(공개 스키마). 로비 카드에서 선택.
+export type SampleKind = 'erp' | 'pagila';
 
 export async function disconnectDatabase(): Promise<ConnectionStatus> {
   const res = await fetch(`${API_BASE}/api/connection`, { method: 'DELETE' });
@@ -231,7 +236,7 @@ export async function disconnectDatabase(): Promise<ConnectionStatus> {
   return res.json();
 }
 
-export async function connectSampleDatabase(kind: SampleKind = 'ecommerce'): Promise<ConnectionStatus> {
+export async function connectSampleDatabase(kind: SampleKind = 'erp'): Promise<ConnectionStatus> {
   const res = await fetch(`${API_BASE}/api/connection/sample`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

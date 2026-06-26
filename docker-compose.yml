@@ -15,6 +15,51 @@ services:
       timeout: 5s
       retries: 5
 
+  # ── target용 분리 DB 컨테이너 ──
+  # 샘플(ERP/Pagila)은 메타 DB(postgres:5432/sqlpreshift)가 아니라 여기에만 시드한다.
+  # 메타 DB에는 audit_log/migration_history/schema_embeddings가 살아 — 오염 금지(AGENTS.md 가드).
+  pg_erp:
+    # ERP 샘플 전용. 빈 컨테이너로 띄우고 런타임에 seed_erp.seed()로 채운다(결함주입 로직이 Python).
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: demo
+      POSTGRES_PASSWORD: demo
+      POSTGRES_DB: erp
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata_erp:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U demo -d erp"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  pg_pagila:
+    # Pagila 샘플 전용. init SQL을 첫 기동에 자동 적재(런타임 시드 불필요).
+    # 01-schema → 02-data 순으로 알파벳 실행. 빈 volume 첫 기동에만 실행됨(재적재 시 down -v 필요).
+    # USER=postgres — Pagila 덤프가 "OWNER TO postgres"를 전제하므로 user를 맞춰야 무수정 로드된다.
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: pagila
+    ports:
+      - "5434:5432"
+    volumes:
+      - pgdata_pagila:/var/lib/postgresql/data
+      - ./samples/pagila/01-schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./samples/pagila/02-data.sql:/docker-entrypoint-initdb.d/02-data.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d pagila"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+
   # Ollama 는 호스트에서 직접 구동(ollama serve) — Mac Metal GPU 가속 + 모델 공유.
   # 컨테이너는 host.docker.internal 로 호스트 Ollama 에 접속한다.
 
@@ -31,10 +76,17 @@ services:
       OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma4:latest}
       OLLAMA_EMBED_MODEL: ${OLLAMA_EMBED_MODEL:-bge-m3:latest}
       EMBEDDING_DIM: ${EMBEDDING_DIM:-1024}
+      # 샘플 전용 분리 컨테이너 URL — 메타 DB와 물리 분리(오염 방지). 서비스명:내부포트 기준.
+      SAMPLE_ERP_URL: ${SAMPLE_ERP_URL:-postgresql+psycopg://demo:demo@pg_erp:5432/erp}
+      SAMPLE_PAGILA_URL: ${SAMPLE_PAGILA_URL:-postgresql+psycopg://postgres:postgres@pg_pagila:5432/pagila}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
       postgres:
+        condition: service_healthy
+      pg_erp:
+        condition: service_healthy
+      pg_pagila:
         condition: service_healthy
     volumes:
       - ./backend:/app
@@ -58,3 +110,5 @@ services:
 
 volumes:
   postgres_data:
+  pgdata_erp:
+  pgdata_pagila:

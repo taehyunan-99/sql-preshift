@@ -125,17 +125,18 @@ export default function DiffControls({
         <>
           <span style={{ width: 1, alignSelf: 'stretch', background: 'var(--border)' }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {/* "Showing X of Y tables (N-hop)" 카운터 — 좁힘이 의도된 축약임을 알린다 */}
+            {/* "Showing X of Y (N levels deep)" 카운터 — "홉"은 일반 사용자에게 안 읽혀
+                "관계 깊이(levels)"로 표기. 변경 테이블 기준 N단계 이내 이웃을 보여준다. */}
             <span style={{ fontSize: 11, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
               {showAll
                 ? ko
                   ? `전체 ${totalCount}개 테이블`
                   : `All ${totalCount} tables`
                 : ko
-                  ? `${totalCount}개 중 ${shownCount}개 표시 (${hops}홉)`
-                  : `Showing ${shownCount} of ${totalCount} (${hops}-hop)`}
+                  ? `${totalCount}개 중 ${shownCount}개 표시 (관련 ${hops}단계)`
+                  : `Showing ${shownCount} of ${totalCount} (${hops} levels deep)`}
             </span>
-            {/* hop 토글 — 부분집합 모드(showAll=false)에서만 */}
+            {/* 관계 깊이 토글 — 부분집합 모드(showAll=false)에서만 */}
             {!showAll && (
               <div style={{ display: 'flex', gap: 4 }}>
                 {HOP_OPTIONS.map((h) => (
@@ -145,11 +146,11 @@ export default function DiffControls({
                     style={neutralBtn(hops === h)}
                     title={
                       ko
-                        ? `변경 지점에서 FK ${h}홉 이내 테이블 표시`
-                        : `Show tables within ${h} FK hops of the change`
+                        ? `변경된 테이블에서 관계 ${h}단계 이내 테이블 표시`
+                        : `Show tables within ${h} relationship level${h === 1 ? '' : 's'} of the changed tables`
                     }
                   >
-                    {ko ? `${h}홉` : `${h}-hop`}
+                    {ko ? `${h}단계` : `${h} level${h === 1 ? '' : 's'}`}
                   </button>
                 ))}
               </div>

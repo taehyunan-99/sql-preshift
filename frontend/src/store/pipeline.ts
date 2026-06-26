@@ -68,6 +68,11 @@ interface PipelineState {
   lastAppliedAuditIds: string[];
   setLastAppliedAuditIds: (ids: string[]) => void;
 
+  /* Apply All 직전 스택 백업 — Rollback("Apply 직전 상태로")이 프리뷰를 복원하는 데 쓴다.
+     applyAll은 적용 후 dryRunStack을 비우므로, 비우기 전 스냅샷을 여기 보관한다. */
+  appliedStackBackup: string[];
+  appliedCacheBackup: AnalyzeResult[];
+
   /* 런타임 DB 연결 상태 — 온보딩 게이트가 사용. epoch는 DB 교체 순번. */
   connected: boolean;
   connectedHost: string | null;
@@ -90,6 +95,12 @@ interface PipelineState {
   popDryRun: () => void;
   clearDryRun: () => void;
 
+  /* Apply All 직전 호출 — 현 스택을 백업하고 비운다(applied 진입 준비). */
+  prepareApply: () => void;
+  /* Applied 바 Rollback — DB 롤백은 호출부에서 끝낸 뒤, 프리뷰 스택을 백업에서 복원하고
+     stage를 'preview'로 되돌린다. 사용자는 "Apply 직전" 상태에서 다시 검토·재적용할 수 있다. */
+  rollbackApplied: () => void;
+
   setConnection: (status: {
     connected: boolean;
     host: string | null;
@@ -111,6 +122,8 @@ export const usePipelineStore = create<PipelineState>((set) => ({
   resultCache: [],
   appliedToast: null,
   lastAppliedAuditIds: [],
+  appliedStackBackup: [],
+  appliedCacheBackup: [],
 
   connected: false,
   connectedHost: null,
@@ -135,6 +148,8 @@ export const usePipelineStore = create<PipelineState>((set) => ({
       resultCache: [],
       appliedToast: null,
       lastAppliedAuditIds: [],
+      appliedStackBackup: [],
+      appliedCacheBackup: [],
     }),
   openAudit: () => set({ auditOpen: true }),
   closeAudit: () => set({ auditOpen: false }),
@@ -159,6 +174,32 @@ export const usePipelineStore = create<PipelineState>((set) => ({
     })),
   clearDryRun: () => set({ dryRunStack: [], resultCache: [] }),
 
+  // Apply 직전: 현 스택을 백업하고 비운다(applied 화면은 빈 스택 전제).
+  prepareApply: () =>
+    set((s) => ({
+      appliedStackBackup: s.dryRunStack,
+      appliedCacheBackup: s.resultCache,
+      dryRunStack: [],
+      resultCache: [],
+    })),
+
+  // Rollback(DB 되돌림은 호출부 완료 후): 백업한 프리뷰를 복원하고 preview로 복귀.
+  // analyzeResult를 마지막 캐시로 되돌려 ERD가 누적 diff를 다시 그린다. 백업은 소비 후 비움.
+  rollbackApplied: () =>
+    set((s) => {
+      const cache = s.appliedCacheBackup;
+      return {
+        dryRunStack: s.appliedStackBackup,
+        resultCache: cache,
+        analyzeResult: cache.length > 0 ? cache[cache.length - 1] : s.analyzeResult,
+        stage: 'preview' as PipelineStage,
+        lastAppliedAuditIds: [],
+        appliedToast: null,
+        appliedStackBackup: [],
+        appliedCacheBackup: [],
+      };
+    }),
+
   setConnection: (status) =>
     set((s) => {
       // DB가 바뀌면(epoch 증가) 이전 DB 기준 누적 스택·분석은 모두 무효 — 초기화.
@@ -175,6 +216,8 @@ export const usePipelineStore = create<PipelineState>((set) => ({
               analyzeResult: null,
               analyzeError: null,
               lastAppliedAuditIds: [],
+              appliedStackBackup: [],
+              appliedCacheBackup: [],
               stage: 'idle' as PipelineStage,
             }
           : {}),

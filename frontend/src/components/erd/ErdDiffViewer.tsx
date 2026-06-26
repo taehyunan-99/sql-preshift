@@ -61,6 +61,21 @@ function computeSubset(
   return { ids, shownCount: ids.size, totalCount: totalIds.size };
 }
 
+// Locate 대상 테이블의 노드 id를 subset에 추가 — subset 밖 테이블도 필터된 그래프에 남겨
+// fitView가 유효하고 화면에도 보이게 한다. highlightTable이 없거나 이미 포함이면 그대로.
+function withLocateTable(
+  ids: Set<string>,
+  graph: SchemaGraph,
+  highlightTable: string | null | undefined,
+): Set<string> {
+  if (!highlightTable) return ids;
+  const node = graph.nodes.find((n) => n.table === highlightTable);
+  if (!node || ids.has(node.id)) return ids;
+  const next = new Set(ids);
+  next.add(node.id);
+  return next;
+}
+
 const NODE_TYPES = { tableNode: TableNode };
 const EDGE_TYPES = { relationEdge: ErdRelationEdge };
 
@@ -86,48 +101,25 @@ function useHoverHandlers() {
 // 열린 사이드시트 폭 보정 고정상수 (좌 SqlSheet / 우 RiskSheet, px)
 const SHEET_WIDTH = 360;
 
-// ── 변경노드 fitView 카메라 연출 (preview 진입 시) ──
-// 변경노드(diff!=='unchanged') 집합으로 fitView ease pan.
-// 열린 시트 폭(360px)만큼 좌/우 padding을 px 보정 — 시트가 캔버스를 덮어도
-// 변경노드가 가려지지 않도록 뷰포트 안쪽으로 띄움. dagre 좌표 불변(뷰포트만 조정).
-function useChangedNodesFitView(
-  graph: SchemaGraph | undefined,
-  sqlSheetOpen: boolean,
-  riskSheetOpen: boolean,
+// Diagnostics "Locate in ERD" — highlightTable이 바뀌면 그 노드로 카메라 이동(fitView).
+// table명 → node id 매핑은 graph로(node.data.table 매칭). nodes를 의존에 넣지 않는 건
+// 매 레이아웃마다 fitView가 튀는 걸 막기 위함 — highlightTable 변경 때만 이동.
+// fallbackGraph: n홉 subset에 그 테이블이 없을 때(필터돼 사라짐) 원본 전체 그래프에서 좌표를 찾는다.
+// (subset이 좁아 대상이 빠지면 fitView 노드가 없어 카메라가 안 움직이던 버그 방지.)
+// locateNonce: Locate 클릭마다 증가하는 카운터. effect deps에 넣어 "같은 테이블 재클릭"에도
+// 매번 fitView가 발화하게 한다(highlightTable 값만으론 동일 값 재set이 effect를 안 깨움).
+function useLocateOnHighlight(
+  graph: SchemaGraph,
+  highlightTable: string | null | undefined,
+  locateNonce: number,
+  fallbackGraph?: SchemaGraph,
 ) {
   const { fitView } = useReactFlow();
   useEffect(() => {
-    if (!graph) return;
-    const changedIds = graph.nodes
-      .filter((n) => n.diff !== 'unchanged')
-      .map((n) => ({ id: n.id }));
-    fitView({
-      nodes: changedIds.length > 0 ? changedIds : undefined,
-      duration: 400,
-      minZoom: 0.4,
-      maxZoom: MAX_ZOOM, // 확대 상한 — WebKit scale 흐림(#27684) 억제
-
-      // 시트가 가리는 폭만큼 해당 변을 더 띄움(기본 64px + 시트 360px)
-      padding: {
-        top: 64,
-        bottom: 64,
-        left: sqlSheetOpen ? SHEET_WIDTH + 64 : 64,
-        right: riskSheetOpen ? SHEET_WIDTH + 64 : 64,
-      },
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [graph, sqlSheetOpen, riskSheetOpen, fitView]);
-}
-
-// Diagnostics "Locate in ERD" — highlightTable이 바뀌면 그 노드로 카메라 이동(fitView).
-// 화면 밖 테이블도 찾아가도록. 강조 ring은 applyHighlight가 별도로 그린다(여기선 카메라만).
-// table명 → node id 매핑은 graph로(node.data.table 매칭). nodes를 의존에 넣지 않는 건
-// 매 레이아웃마다 fitView가 튀는 걸 막기 위함 — highlightTable 변경 때만 이동.
-function useLocateOnHighlight(graph: SchemaGraph, highlightTable: string | null | undefined) {
-  const { fitView } = useReactFlow();
-  useEffect(() => {
     if (!highlightTable) return;
-    const node = graph.nodes.find((n) => n.table === highlightTable);
+    const node =
+      graph.nodes.find((n) => n.table === highlightTable) ??
+      fallbackGraph?.nodes.find((n) => n.table === highlightTable);
     if (!node) return;
     fitView({
       nodes: [{ id: node.id }],
@@ -136,49 +128,41 @@ function useLocateOnHighlight(graph: SchemaGraph, highlightTable: string | null 
       maxZoom: MAX_ZOOM,
       padding: 0.35,
     });
+    // locateNonce가 deps에 있어 동일 테이블 재클릭에도 재발화. graph는 의도적으로 제외
+    // (레이아웃 변동마다 카메라가 튀지 않도록 — locate 클릭(nonce 변경)에만 반응).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [highlightTable, fitView]);
+  }, [locateNonce, fitView]);
 }
 
 // fitView는 hook이라 ReactFlow 자식 컴포넌트로 호출해야 한다(Provider 컨텍스트 안). 렌더는 없음.
 function PanelLocator({
   graph,
   highlightTable,
+  locateNonce,
+  fallbackGraph,
 }: {
   graph: SchemaGraph;
   highlightTable: string | null | undefined;
+  locateNonce: number;
+  fallbackGraph?: SchemaGraph;
 }) {
-  useLocateOnHighlight(graph, highlightTable);
+  useLocateOnHighlight(graph, highlightTable, locateNonce, fallbackGraph);
   return null;
 }
 
 // 위험 강조는 TableNode가 Context(useRiskMap)로 기존 diff 시각언어(ringByVariant)를 써서 그린다.
 // node.style 직접 주입(사각 border)은 카드 디자인과 따로 놀아 제거했다.
 
-// 위험카드 hover 시 대응 노드에 강조 ring 주입. dagre 좌표·data 불변 — node.style만 덧입힘.
-// node.data.table(NodeDef)이 highlightTable과 일치하면 accent ring + 살짝 띄움.
-function applyHighlight(nodes: Node[], highlightTable: string | null | undefined): Node[] {
-  if (!highlightTable) return nodes;
-  return nodes.map((node) => {
-    const table = (node.data as unknown as NodeDef | undefined)?.table;
-    if (table !== highlightTable) return node;
-    return {
-      ...node,
-      style: {
-        ...node.style,
-        boxShadow: 'var(--shadow-focus)',
-        borderRadius: 'var(--radius-md)',
-        zIndex: 10,
-      },
-    };
-  });
-}
+// Locate/hover 강조는 "카메라 이동"으로만 표현한다(useLocateOnHighlight).
+// 과거엔 대상 노드에 boxShadow ring을 덧입혔으나, 카드 디자인 위에 사각 테두리가 겹쳐
+// "깨진 테두리"로 보였다 → ring 제거. highlightTable은 카메라 이동 트리거로만 쓰인다.
 
 // ── 단일 패널 (hook은 항상 최상위에서 호출) ──
 interface PanelProps {
   graph: SchemaGraph;
   label: string;
   highlightTable?: string | null;
+  locateNonce?: number;
   riskMap?: RiskMap;
   // Split뷰 pan/zoom 동기화: 공유 viewport(있으면 controlled) + 변경 콜백.
   viewport?: Viewport;
@@ -187,27 +171,27 @@ interface PanelProps {
   positions?: PositionMap;
   // Locate 카메라 이동 담당 패널인지(Split은 after만 — fitView가 onViewportChange로 before에 전파).
   locate?: boolean;
+  // n홉 subset에 없는 테이블 Locate 시 좌표를 찾을 원본 전체 그래프(After 패널만).
+  fullGraph?: SchemaGraph;
 }
 
 function ErdPanel({
   graph,
   label,
   highlightTable,
+  locateNonce = 0,
   riskMap = {},
   viewport,
   onViewportChange,
   positions,
   locate = false,
+  fullGraph,
 }: PanelProps) {
-  const { nodes: rawNodes, edges } = useErdLayout(graph, positions);
+  const { nodes, edges } = useErdLayout(graph, positions);
   // 노드 hover → 연결 엣지 강조(ErdRelationEdge가 store.hoveredNode 구독). 핸들러는 안정 참조.
   const { onNodeMouseEnter, onNodeMouseLeave } = useHoverHandlers();
   // 위험 강조는 TableNode가 Context(riskMap)로 기존 diff 시각언어(ringByVariant)를 써서 그린다.
-  // 여기선 hover focus-ring만 node.style로 덧입힘(useMemo — hover는 store 구독이라 입력 아님).
-  const nodes = useMemo(
-    () => applyHighlight(rawNodes, highlightTable),
-    [rawNodes, highlightTable],
-  );
+  // highlightTable은 PanelLocator의 카메라 이동에만 쓰인다(노드 ring 주입 없음).
   return (
     // 패널별 riskMap을 자체 Provider로 — before 패널은 {} 받아 강조 없음, after만 강조.
     <RiskMapContext.Provider value={riskMap}>
@@ -230,7 +214,15 @@ function ErdPanel({
         {/* 각 패널을 독립 Provider로 — Side-by-side 두 ReactFlow가 store를 공유하면
             한쪽(After) 노드가 양쪽에 그려지는 충돌 발생. Provider 분리로 Before/After 격리. */}
         <ReactFlowProvider>
-          {locate && <PanelLocator graph={graph} highlightTable={highlightTable} />}
+          {locate && (
+            // Locate(명시적 버튼 클릭)만 카메라를 이동. 새 쿼리 입력 시 자동 이동은 하지 않는다.
+            <PanelLocator
+              graph={graph}
+              highlightTable={highlightTable}
+              locateNonce={locateNonce}
+              fallbackGraph={fullGraph}
+            />
+          )}
           <ReactFlow
             nodes={nodes}
             edges={edges}
@@ -248,7 +240,8 @@ function ErdPanel({
             style={{ background: 'var(--bg-primary)' }}
           >
             <Background color="var(--border-subtle)" gap={20} />
-            <EdgeGlowOverlay />
+            {/* glow는 변경 결과 패널(After=locate)에만 — Before(baseline)엔 빛 없음. */}
+            {locate && <EdgeGlowOverlay />}
           </ReactFlow>
         </ReactFlowProvider>
       </div>
@@ -263,6 +256,7 @@ function ErdPanel({
 function SideBySideView({
   diff,
   highlightTable,
+  locateNonce = 0,
   riskMap,
   hops,
   showAll,
@@ -270,12 +264,15 @@ function SideBySideView({
 }: {
   diff: SchemaDiff;
   highlightTable?: string | null;
+  locateNonce?: number;
   riskMap?: RiskMap;
   hops: number;
   showAll: boolean;
   onSubset?: (info: SubsetInfo) => void;
 }) {
-  // undefined = 초기(각 패널 fitView 자동정렬). 첫 이동 후 controlled로 전환돼 동기화.
+  // undefined = 최초 진입(빌트인 fitView로 1회 자동정렬). 첫 pan/zoom 후 controlled로 전환돼
+  // 그 위치를 유지한다. 새 분석이 와도 viewport를 풀지 않으므로 사용자가 보던 화면이 고정된다
+  // (자동 카메라 이동 없음 — 변경 테이블로 가려면 진단 패널 Locate 버튼).
   const [viewport, setViewport] = useState<Viewport | undefined>(undefined);
   // n홉 부분집합 — before/after/cumulativeAfter의 변경 노드를 "합친 seed"로 동일 부분집합을
   // 양 패널에 적용한다. 좌표 괴리를 막으려면 양쪽이 반드시 같은 id 집합이어야 한다.
@@ -289,12 +286,15 @@ function SideBySideView({
       const fullInfo: SubsetInfo = { ids: new Set(), shownCount: info.totalCount, totalCount: info.totalCount };
       return { beforeGraph: diff.before, afterGraph: diff.after, subsetInfo: fullInfo };
     }
+    // Locate 대상은 subset 밖이어도 강제 포함 — 안 그러면 필터된 그래프에 노드가 없어
+    // fitView가 무효가 되고(=카메라 안 움직임), 화면에도 안 보인다.
+    const ids = withLocateTable(info.ids, diff.after, highlightTable);
     return {
-      beforeGraph: filterGraphByIds(diff.before, info.ids),
-      afterGraph: filterGraphByIds(diff.after, info.ids),
+      beforeGraph: filterGraphByIds(diff.before, ids),
+      afterGraph: filterGraphByIds(diff.after, ids),
       subsetInfo: info,
     };
-  }, [diff.before, diff.after, diff.cumulativeAfter, hops, showAll]);
+  }, [diff.before, diff.after, diff.cumulativeAfter, hops, showAll, highlightTable]);
   // 카운터 lift-up은 effect에서(OverlayView와 동일 패턴) — 렌더 중 부모 업데이트 경고 방지.
   useEffect(() => {
     onSubset?.(subsetInfo);
@@ -322,11 +322,13 @@ function SideBySideView({
         graph={afterGraph}
         label="After"
         highlightTable={highlightTable}
+        locateNonce={locateNonce}
         riskMap={riskMap}
         viewport={viewport}
         onViewportChange={setViewport}
         positions={positions}
         locate
+        fullGraph={diff.after}
       />
     </div>
   );
@@ -336,18 +338,16 @@ function SideBySideView({
 //    아니면 after를 쓴다 → Unified는 "지금까지 쌓은 전체", Split은 직전 1개(선명한 비교). ──
 function OverlayView({
   diff,
-  sqlSheetOpen,
-  riskSheetOpen,
   highlightTable,
+  locateNonce = 0,
   riskMap = {},
   hops,
   showAll,
   onSubset,
 }: {
   diff: SchemaDiff;
-  sqlSheetOpen: boolean;
-  riskSheetOpen: boolean;
   highlightTable?: string | null;
+  locateNonce?: number;
   riskMap?: RiskMap;
   hops: number;
   showAll: boolean;
@@ -358,9 +358,11 @@ function OverlayView({
   const { overlayGraph, subset } = useMemo(() => {
     const info = computeSubset([fullGraph], fullGraph, hops);
     const seedEmpty = changedNodeIds(fullGraph).length === 0;
-    const graph = showAll || seedEmpty ? fullGraph : filterGraphByIds(fullGraph, info.ids);
+    // Locate 대상은 subset 밖이어도 강제 포함(필터된 그래프에 노드를 남겨 fitView 유효).
+    const ids = withLocateTable(info.ids, fullGraph, highlightTable);
+    const graph = showAll || seedEmpty ? fullGraph : filterGraphByIds(fullGraph, ids);
     return { overlayGraph: graph, subset: info };
-  }, [fullGraph, hops, showAll]);
+  }, [fullGraph, hops, showAll, highlightTable]);
   // 카운터 lift-up — showAll/seedEmpty면 전체를 보여주므로 shownCount=totalCount.
   useEffect(() => {
     onSubset?.(
@@ -369,16 +371,11 @@ function OverlayView({
         : subset,
     );
   }, [subset, showAll, fullGraph, onSubset]);
-  const { nodes: rawNodes, edges } = useErdLayout(overlayGraph);
+  const { nodes, edges } = useErdLayout(overlayGraph);
   const { onNodeMouseEnter, onNodeMouseLeave } = useHoverHandlers();
-  const nodes = useMemo(
-    () => applyHighlight(rawNodes, highlightTable),
-    [rawNodes, highlightTable],
-  );
-  useChangedNodesFitView(overlayGraph, sqlSheetOpen, riskSheetOpen);
   return (
     <div style={{ flex: 1, position: 'relative', minHeight: 0 }}>
-      <PanelLocator graph={overlayGraph} highlightTable={highlightTable} />
+      <PanelLocator graph={overlayGraph} highlightTable={highlightTable} locateNonce={locateNonce} fallbackGraph={fullGraph} />
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -403,21 +400,19 @@ function OverlayView({
 function SingleGraphView({
   graph,
   highlightTable,
+  locateNonce = 0,
   riskMap = {},
 }: {
   graph: SchemaGraph;
   highlightTable?: string | null;
+  locateNonce?: number;
   riskMap?: RiskMap;
 }) {
-  const { nodes: rawNodes, edges } = useErdLayout(graph);
+  const { nodes, edges } = useErdLayout(graph);
   const { onNodeMouseEnter, onNodeMouseLeave } = useHoverHandlers();
-  const nodes = useMemo(
-    () => applyHighlight(rawNodes, highlightTable),
-    [rawNodes, highlightTable],
-  );
   return (
     <div style={{ flex: 1, position: 'relative', minHeight: 0 }}>
-      <PanelLocator graph={graph} highlightTable={highlightTable} />
+      <PanelLocator graph={graph} highlightTable={highlightTable} locateNonce={locateNonce} />
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -448,8 +443,10 @@ export interface ErdDiffViewerProps {
   // fitView padding 보정용 사이드시트 열림 여부
   sqlSheetOpen?: boolean;
   riskSheetOpen?: boolean;
-  // 위험카드 hover 시 강조할 테이블명(RiskSheet → 노드 ring)
+  // Locate 대상 테이블명(Diagnostics "ERD에서 찾기" → 카메라 이동)
   highlightTable?: string | null;
+  // Locate 발화 카운터 — 같은 테이블 재클릭에도 매번 fitView가 돌도록.
+  locateNonce?: number;
   // 위험 테이블 노드 강조용(table → 'critical'|'warning'). 기본 {}
   riskMap?: RiskMap;
   // n홉 부분집합 제어 — 입력이 닿는 테이블 기준 양방향 FK n홉만 그린다(큰 DB 성능).
@@ -463,9 +460,8 @@ function ErdDiffViewerInner({
   diff,
   graph,
   mode = 'side-by-side',
-  sqlSheetOpen = false,
-  riskSheetOpen = false,
   highlightTable = null,
+  locateNonce = 0,
   riskMap = {},
   hops = DEFAULT_HOPS,
   showAll = false,
@@ -479,7 +475,7 @@ function ErdDiffViewerInner({
   if (!diff) {
     return (
       <div style={{ display: 'flex', height: '100%', minHeight: 0 }}>
-        <SingleGraphView graph={graph ?? EMPTY_GRAPH} highlightTable={highlightTable} riskMap={riskMap} />
+        <SingleGraphView graph={graph ?? EMPTY_GRAPH} highlightTable={highlightTable} locateNonce={locateNonce} riskMap={riskMap} />
       </div>
     );
   }
@@ -493,6 +489,7 @@ function ErdDiffViewerInner({
         <SideBySideView
           diff={activeDiff}
           highlightTable={highlightTable}
+          locateNonce={locateNonce}
           riskMap={riskMap}
           hops={hops}
           showAll={showAll}
@@ -501,9 +498,8 @@ function ErdDiffViewerInner({
       ) : (
         <OverlayView
           diff={activeDiff}
-          sqlSheetOpen={sqlSheetOpen}
-          riskSheetOpen={riskSheetOpen}
           highlightTable={highlightTable}
+          locateNonce={locateNonce}
           riskMap={riskMap}
           hops={hops}
           showAll={showAll}

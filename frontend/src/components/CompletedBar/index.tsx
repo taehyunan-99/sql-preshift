@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { usePipelineStore } from '../../store/pipeline';
 import { rollbackAudit } from '../../lib/api';
 
@@ -8,10 +8,19 @@ import { rollbackAudit } from '../../lib/api';
 // [Rollback][New] — Rollback은 "방금 적용한 변경 전체"를 역순으로 되돌린다(나중 변경부터).
 // 적용 직후의 auditIds(store.lastAppliedAuditIds)를 역순으로 rollbackAudit 호출.
 export default function CompletedBar() {
-  const { stage, reset, language, lastAppliedAuditIds } = usePipelineStore();
+  const { stage, reset, rollbackApplied, language, lastAppliedAuditIds } = usePipelineStore();
   const [rollingBack, setRollingBack] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const ko = language === 'ko';
+
+  // applied가 아니면(롤백/재적용 등으로 화면을 떠남) 로딩·에러를 리셋 — 컴포넌트가 언마운트되지
+  // 않고 return null만 하므로 state가 남는다. 재진입 시 항상 깨끗한 상태에서 시작하도록.
+  useEffect(() => {
+    if (stage !== 'applied') {
+      setRollingBack(false);
+      setError(null);
+    }
+  }, [stage]);
 
   if (stage !== 'applied') return null;
 
@@ -26,7 +35,11 @@ export default function CompletedBar() {
       for (const id of [...lastAppliedAuditIds].reverse()) {
         await rollbackAudit(id);
       }
-      reset(); // idle 복귀 → page.tsx가 현재 DB 스키마 그래프 재로드(롤백 반영)
+      // 성공 — 로딩 해제 후 복원. 이걸 빼먹으면 컴포넌트가 살아있는 채로 rollingBack=true가 남아
+      // 재적용(applied 재진입) 시 버튼이 "되돌리는 중…"으로 영구 고정된다.
+      setRollingBack(false);
+      // Apply 직전 상태로 복원 — DB는 되돌렸고, 프리뷰 스택을 복원해 preview로 복귀(재적용 가능).
+      rollbackApplied();
     } catch (e) {
       setError(e instanceof Error ? e.message : ko ? '롤백 실패' : 'Rollback failed');
       setRollingBack(false);

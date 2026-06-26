@@ -12,7 +12,9 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException
+import asyncio
+
+from fastapi import APIRouter, HTTPException
 
 from app.config import settings
 from app.db import (
@@ -82,7 +84,7 @@ async def connection_test(req: ConnectionRequest) -> ConnectionTestResult:
 
 
 @router.post("", response_model=ConnectionStatus)
-async def connect(req: ConnectionRequest, background_tasks: BackgroundTasks) -> ConnectionStatus:
+async def connect(req: ConnectionRequest) -> ConnectionStatus:
     """검증 후 target engine을 교체한다. 교체 시 분석 토큰 캐시는 자동 무효화된다."""
     try:
         url = validate_url(build_url(req.host, req.port, req.user, req.password, req.dbname))
@@ -91,60 +93,81 @@ async def connect(req: ConnectionRequest, background_tasks: BackgroundTasks) -> 
         raise HTTPException(status_code=422, detail=e.message)
 
     set_target_engine(url)
-    # RAG 재색인은 응답을 막지 않는다 — NL→SQL에서만 쓰이고 연결 직후 ERD엔 불필요(첫인상 대기 제거).
-    background_tasks.add_task(_reindex_quietly)
+    # RAG 재색인은 응답을 막지 않는다 — 별도 스레드 fire-and-forget(메인 루프 무차단).
+    _schedule_reindex()
     return _current_status()
 
 
 @router.post("/sample", response_model=ConnectionStatus)
-async def connect_sample(
-    background_tasks: BackgroundTasks, req: SampleRequest | None = None
-) -> ConnectionStatus:
-    """기본 docker DB에 샘플을 시드한 뒤 연결한다(클릭 한 번 체험용).
+async def connect_sample(req: SampleRequest | None = None) -> ConnectionStatus:
+    """샘플 전용 분리 컨테이너에 연결한다(클릭 한 번 체험용).
 
-    kind: ecommerce(9테이블, 기본) / erp(92테이블). body 미전송 시 ecommerce(기존 호환).
+    kind: erp(92테이블, 런타임 시드) / pagila(공개 스키마, init 자동 적재). 기본 erp.
+    메타 DB(sqlpreshift)는 절대 건드리지 않는다 — 샘플은 pg_erp/pg_pagila에만 산다.
     """
-    kind = req.kind if req else "ecommerce"
-    url = settings.target_database_url
-    if not url:
-        raise HTTPException(
-            status_code=503,
-            detail="No sample database is configured.",
-        )
+    kind = req.kind if req else "erp"
+    # kind → 분리 컨테이너 URL. settings.target_database_url(메타와 동일 가능)은 쓰지 않는다.
+    url = settings.sample_erp_url if kind == "erp" else settings.sample_pagila_url
     try:
         validated = validate_url(url)
         test_connection(validated)
-        # 샘플 스키마 시드(드롭 후 재생성) — 함수만 호출(스크립트 부작용 없음).
-        # 두 시드 모두 seed(target_engine) 시그니처 동일.
-        from sqlalchemy import create_engine
-
+        # ERP만 런타임 시드(결함주입 로직이 Python). Pagila는 컨테이너 init이 이미 적재했다.
+        # 동기 seed(92테이블 DDL+INSERT)는 스레드로 떼어내 이벤트 루프를 막지 않는다(다른 요청 hang 방지).
         if kind == "erp":
-            from migrations.seed_erp import seed
-        else:
-            from migrations.seed_ecommerce import seed
-
-        seed_engine = create_engine(validated, connect_args={"connect_timeout": 5})
-        try:
-            seed(seed_engine)
-        finally:
-            seed_engine.dispose()
+            await asyncio.to_thread(_seed_erp_blocking, validated)
     except ConnectionValidationError as e:
         raise HTTPException(status_code=503, detail=e.message)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to seed sample database: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to connect sample database: {e}")
 
     set_target_engine(validated)
-    # 재색인은 백그라운드 — 시드 직후 ERD가 즉시 뜨고 색인은 뒤에서 끝난다.
-    background_tasks.add_task(_reindex_quietly)
+    # 재색인은 별도 스레드 fire-and-forget — 연결 직후 ERD가 즉시 뜨고 색인은 뒤에서 끝난다.
+    _schedule_reindex()
     return _current_status()
 
 
-async def _reindex_quietly() -> None:
-    """연결 직후 RAG 재색인 — 실패해도(Ollama 미기동 등) 연결 결과엔 영향 없음."""
+def _seed_erp_blocking(url: str) -> None:
+    """ERP 시드(동기) — 스레드에서 실행. create_engine→seed→dispose."""
+    from sqlalchemy import create_engine
+
+    from migrations.seed_erp import seed
+
+    seed_engine = create_engine(url, connect_args={"connect_timeout": 5})
+    try:
+        seed(seed_engine)
+    finally:
+        seed_engine.dispose()
+
+
+# fire-and-forget reindex 태스크 강한 참조 보관 — create_task 결과를 안 잡으면 GC로 중도 취소될 수 있다.
+_reindex_tasks: set[asyncio.Task[None]] = set()
+
+
+def _schedule_reindex() -> None:
+    """재색인을 메인 이벤트 루프와 분리된 스레드에서 fire-and-forget으로 돌린다.
+
+    BackgroundTasks/메인 루프에서 직접 await하면 92청크 순차 임베딩 + 동기 DB write가
+    단일 워커 이벤트 루프를 점유해 /status 등 모든 요청이 hang(→ 프론트 빈 화면)했다.
+    별도 스레드에서 자체 이벤트 루프로 돌려 메인 루프를 전혀 막지 않는다.
+    """
+
+    async def _runner() -> None:
+        try:
+            await asyncio.to_thread(_reindex_blocking)
+        except Exception:
+            pass
+
+    task = asyncio.create_task(_runner())
+    _reindex_tasks.add(task)
+    task.add_done_callback(_reindex_tasks.discard)
+
+
+def _reindex_blocking() -> None:
+    """스레드에서 실행 — 자체 이벤트 루프로 async reindex를 끝까지 돌린다(메인 루프 무관)."""
     try:
         from app.db import get_target_engine
         from app.pipeline.rag import reindex_schema
 
-        await reindex_schema(get_target_engine())
+        asyncio.run(reindex_schema(get_target_engine()))
     except Exception:
         pass
