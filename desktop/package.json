@@ -16,5 +16,20 @@
     "electron": "^33.0.0",
     "electron-builder": "^25.1.8",
     "wait-on": "^8.0.1"
+  },
+  "build": {
+    "appId": "dev.sqlpreshift.desktop",
+    "productName": "SQLPreShift",
+    "directories": { "output": "release" },
+    "files": ["main.js", "preload.js"],
+    "extraResources": [
+      { "from": "../backend/dist/sqlpreshift-backend", "to": "backend", "filter": ["**/*"] },
+      { "from": "../frontend/out", "to": "out", "filter": ["**/*"] }
+    ],
+    "mac": {
+      "target": [{ "target": "dmg", "arch": ["arm64"] }],
+      "category": "public.app-category.developer-tools",
+      "electronLanguages": ["en"]
+    }
   }
 }

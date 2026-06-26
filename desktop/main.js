@@ -119,7 +119,7 @@ function waitForHealth(port, timeoutMs) {
 function registerAppProtocol() {
   const outDir = isDev
     ? path.join(__dirname, '..', 'frontend', 'out')
-    : path.join(__dirname, 'out'); // packaged: asar 내 out/(files에 포함, 3d)
+    : path.join(process.resourcesPath, 'out'); // packaged: extraResources로 복사(asar 밖, 3d)
   protocol.handle('app', (request) => {
     const url = new URL(request.url);
     let rel = decodeURIComponent(url.pathname);

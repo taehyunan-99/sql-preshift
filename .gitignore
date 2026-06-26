@@ -8,6 +8,8 @@ build/
 .next/
 # Next static export 산출물(설치형 빌드 입력) — 추적 안 함
 out/
+# electron-builder 패키징 산출물(.dmg/.app)
+desktop/release/
 
 # Python / 백엔드
 __pycache__/
