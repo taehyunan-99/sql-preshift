@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { motion } from 'motion/react';
 import {
   connectDatabase,
@@ -17,8 +16,10 @@ import AppBackdrop from '../AppBackdrop';
 import ModelPicker from '../ModelSettings/ModelPicker';
 
 // 온보딩 전체화면 게이트 — target DB 미연결 시 메인 진입 전 노출.
-// 단일 경로: 사용자가 자기 PostgreSQL 연결 정보를 입력해 연결한다.
-// onConnected로 부모(page)에 상태를 올려 메인(대화창)으로 진입.
+// 첫 화면은 2카드 허브(진입형): 왼쪽 Language model 카드 / 오른쪽 Database 카드.
+// 카드를 누르면 전체화면이 해당 뷰로 전환된다(샘플 진입 경험). DB 연결 성공 시 onConnected.
+//
+// 교체 모달 재사용(onCancel 있음): 허브 없이 DB 폼만 곧장 노출(메인엔 TopBar Model이 별도).
 
 interface Props {
   onConnected: (status: ConnectionStatus) => void;
@@ -30,7 +31,10 @@ const FIELD: React.CSSProperties = {
   width: '100%',
   padding: '8px 10px',
   background: 'var(--bg-input)',
-  border: '1px solid var(--border)',
+  // border는 longhand로 — fieldStyle가 borderColor를 덮어쓰므로 shorthand와 섞이면 React 경고.
+  borderWidth: 1,
+  borderStyle: 'solid',
+  borderColor: 'var(--border)',
   borderRadius: 'var(--radius-md)',
   color: 'var(--text-primary)',
   fontSize: 'var(--font-size-md)',
@@ -45,9 +49,15 @@ const LABEL: React.CSSProperties = {
   marginBottom: 4,
 };
 
+type View = 'hub' | 'db' | 'model';
+
 export default function DatabaseConnect({ onConnected, onCancel }: Props) {
   const language = usePipelineStore((s) => s.language);
   const ko = language === 'ko';
+
+  // 뷰 전환 — 교체 모달(onCancel)은 허브를 건너뛰고 곧장 DB 폼.
+  const [view, setView] = useState<View>(onCancel ? 'db' : 'hub');
+
   const [host, setHost] = useState('localhost');
   const [port, setPort] = useState('5432');
   const [user, setUser] = useState('');
@@ -64,21 +74,17 @@ export default function DatabaseConnect({ onConnected, onCancel }: Props) {
   // Test Connection 진행 중 여부(shimmer 표시용).
   const [testing, setTesting] = useState(false);
 
-  // 모델 선택 — 요약 카드는 현재 선택을 표시하고, 누르면 모달을 띄운다.
-  // 최초 게이트에서만 노출(교체 모달엔 TopBar Model이 따로 있음).
+  // 모델 선택 — 허브의 Model 카드는 현재 선택을 요약 표시한다.
   const [llm, setLlm] = useState<LlmStatus | null>(null);
-  const [modelOpen, setModelOpen] = useState(false);
-  const [portalReady, setPortalReady] = useState(false);
-  useEffect(() => setPortalReady(true), []);
   useEffect(() => {
     if (!onCancel) getLlmStatus().then(setLlm).catch(() => setLlm(null));
   }, [onCancel]);
-  // 모달이 닫힐 때마다 최신 선택을 다시 읽어 요약 카드에 반영.
+  // 모델 뷰에서 허브로 돌아올 때마다 최신 선택을 다시 읽어 카드에 반영.
   useEffect(() => {
-    if (!modelOpen && !onCancel) getLlmStatus().then(setLlm).catch(() => {});
-  }, [modelOpen, onCancel]);
+    if (view === 'hub' && !onCancel) getLlmStatus().then(setLlm).catch(() => {});
+  }, [view, onCancel]);
 
-  // 현재 선택 모델의 표시용 정보 — 큐레이션이면 tier 라벨, 아니면 태그 그대로, 없으면 None.
+  // 현재 선택 모델 표시용 — 큐레이션이면 tier 라벨, 아니면 태그 그대로, 없으면 None.
   const selectedTag = llm?.chatModel?.trim() ?? '';
   const selectedCurated = CURATED_MODELS.find((m) => m.tag === selectedTag);
 
@@ -145,69 +151,32 @@ export default function DatabaseConnect({ onConnected, onCancel }: Props) {
         justifyContent: 'center',
         background: 'var(--bg-primary)',
         color: 'var(--text-primary)',
-        // 두 카드가 세로로 길어지면 잘리지 않게 스크롤 + 상하 여백.
         overflowX: 'hidden',
         overflowY: 'auto',
-        padding: 'var(--space-8) 0',
+        padding: 'var(--space-8) var(--space-4)',
       }}
     >
-      {/* 공통 배경 — 전 화면(연결/idle/작업중) 동일 후광. 연결 화면은 후광이 주역(lobby). */}
+      {/* 공통 배경 — 전 화면 동일 후광. 연결 화면은 후광이 주역(lobby). */}
       <AppBackdrop stage="lobby" />
 
-      {/* 언어 토글 — 시작화면엔 TopBar가 없으므로 우상단에 직접 배치(첫 화면부터 한/영 전환). */}
+      {/* 언어 토글 — 시작화면엔 TopBar가 없으므로 우상단에 직접 배치. */}
       <div style={{ position: 'absolute', top: 'var(--space-4)', right: 'var(--space-4)', zIndex: 2 }}>
         <LanguageToggle />
       </div>
 
-      <div
-        style={{
-          position: 'relative',
-          zIndex: 1,
-          width: 440,
-          maxWidth: '92vw',
-        }}
-      >
-        {/* 브랜드 헤더 — 진입 stagger fade-up: 타이틀→서브타이틀이 8px 아래에서 순차로 떠오름. */}
-        <div style={{ textAlign: 'center', marginBottom: 'var(--space-5)' }}>
-          <motion.h1
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, ease: [0.34, 1.2, 0.64, 1], delay: 0 }}
-            style={{ margin: 0, fontSize: 26, fontWeight: 800, letterSpacing: '-0.02em' }}
-          >
-            SQLPreShift
-          </motion.h1>
-          <motion.p
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, ease: [0.34, 1.2, 0.64, 1], delay: 0.08 }}
-            style={{
-              margin: '8px 0 0',
-              fontSize: 'var(--font-size-md)',
-              color: 'var(--text-secondary)',
-              lineHeight: 1.5,
-            }}
-          >
-            {ko
-              ? '실제 PostgreSQL 데이터베이스에 대해 스키마 변경을 미리 확인하세요 — 배포 전에, 안전하게.'
-              : 'Preview schema changes against a live PostgreSQL database — safely, before they ship.'}
-          </motion.p>
-        </div>
+      {/* 브랜드 헤더는 허브에서만. 진입 뷰(db/model)는 자체 Back + 제목을 갖는다. */}
+      {view === 'hub' && (
+        <HubView
+          ko={ko}
+          selectedTag={selectedTag}
+          selectedTier={selectedCurated?.tier ?? null}
+          onPickDb={() => { setError(null); setView('db'); }}
+          onPickModel={() => setView('model')}
+        />
+      )}
 
-        {/* 자기 DB 연결 폼 — 진입 fade-up(헤더 stagger의 마지막 요소). */}
-        <motion.div
-          className="glass-trim"
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, ease: [0.34, 1.2, 0.64, 1], delay: 0.16 }}
-          style={{
-            background: 'var(--bg-secondary)',
-            border: '1px solid var(--border)',
-            borderRadius: 'var(--radius-lg)',
-            boxShadow: 'var(--shadow-modal)',
-            padding: 'var(--space-6)',
-          }}
-        >
+      {view === 'db' && (
+        <DbView ko={ko} hasHub={!onCancel} onCancel={onCancel} onBack={() => setView('hub')}>
           <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
             <div style={{ flex: 2 }}>
               <label style={LABEL}>Host</label>
@@ -241,14 +210,7 @@ export default function DatabaseConnect({ onConnected, onCancel }: Props) {
 
           {/* SSRF 경고(차단 아님) */}
           {warnings.map((w) => (
-            <p
-              key={w}
-              style={{
-                margin: 'var(--space-3) 0 0',
-                fontSize: 'var(--font-size-xs)',
-                color: 'var(--color-warning)',
-              }}
-            >
+            <p key={w} style={{ margin: 'var(--space-3) 0 0', fontSize: 'var(--font-size-xs)', color: 'var(--color-warning)' }}>
               {w}
             </p>
           ))}
@@ -271,8 +233,7 @@ export default function DatabaseConnect({ onConnected, onCancel }: Props) {
           )}
 
           <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
-            {/* Secondary 버튼 — transparent + border, MD 사이즈. radius-md, weight 600.
-                testing 중 accent shimmer가 좌→우로 스윕(진행 피드백). */}
+            {/* Secondary 버튼 — testing 중 accent shimmer 스윕(진행 피드백). */}
             <button
               onClick={handleTest}
               disabled={busy}
@@ -298,7 +259,7 @@ export default function DatabaseConnect({ onConnected, onCancel }: Props) {
             >
               {ko ? '연결 테스트' : 'Test Connection'}
             </button>
-            {/* Primary 버튼 — accent 배경. Test 통과 시 풀 accent, 전엔 살짝 옅게(가이드 Primary 정신). */}
+            {/* Primary 버튼 — accent 배경. Test 통과 시 풀 accent. */}
             <button
               onClick={handleConnect}
               disabled={busy}
@@ -319,162 +280,314 @@ export default function DatabaseConnect({ onConnected, onCancel }: Props) {
               {ko ? '연결' : 'Connect'}
             </button>
           </div>
-        </motion.div>
+        </DbView>
+      )}
 
-        {/* 모델 선택 요약 카드 — 최초 게이트에서만. 현재 선택을 보여주고, 누르면 모달로 선택.
-            DB 연결이 주(主), 모델은 'Optional . 자연어용' 보조임을 위계로 드러낸다. */}
-        {!onCancel && (
-          <motion.button
-            type="button"
-            onClick={() => setModelOpen(true)}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, ease: [0.34, 1.2, 0.64, 1], delay: 0.24 }}
-            className="model-summary-card glass-trim"
-          >
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', minWidth: 0, flex: 1, textAlign: 'left' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
-                <span style={{ fontSize: 'var(--font-size-md)', fontWeight: 600, color: 'var(--text-primary)' }}>
-                  {ko ? '자연어 모델' : 'Language model'}
-                </span>
-                <span
-                  style={{
-                    fontSize: 'var(--font-size-xs)',
-                    fontWeight: 600,
-                    color: 'var(--text-tertiary)',
-                    border: '1px solid var(--border-subtle)',
-                    borderRadius: 'var(--radius-pill)',
-                    padding: '2px var(--space-2)',
-                  }}
-                >
-                  {ko ? '선택 . 자연어용' : 'Optional . for natural language'}
-                </span>
-              </div>
-              {/* 현재 선택 표시 — 선택됨이면 tier·tag, None이면 미선택 안내. */}
-              {selectedTag === '' ? (
-                <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                  {ko ? '모델 없음 . SQL 직접 입력만 사용' : 'No model . direct SQL input only'}
-                </span>
-              ) : (
-                <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-accent-hover)', fontWeight: 600 }}>
-                    {selectedCurated ? selectedCurated.tier : (ko ? '선택됨' : 'Selected')}
-                  </span>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
-                    {selectedTag}
-                  </span>
-                </span>
-              )}
-            </div>
-            <span
-              style={{
-                flexShrink: 0,
-                alignSelf: 'center',
-                fontSize: 'var(--font-size-sm)',
-                fontWeight: 600,
-                color: 'var(--color-accent)',
-              }}
-            >
-              {selectedTag === '' ? (ko ? '모델 고르기' : 'Choose model') : (ko ? '변경' : 'Change')}
-            </span>
-          </motion.button>
-        )}
+      {view === 'model' && (
+        <ModelView ko={ko} onBack={() => setView('hub')}>
+          <ModelPicker onReady={setLlm} onDone={() => setView('hub')} />
+        </ModelView>
+      )}
+    </div>
+  );
+}
 
-        {/* 모델 선택 모달 — 요약 카드 클릭 시. ModelSettings 모달과 동일한 ModelPicker 본문. */}
-        {modelOpen &&
-          portalReady &&
-          createPortal(
-            <div
-              onClick={() => setModelOpen(false)}
-              style={{
-                position: 'fixed',
-                inset: 0,
-                background: 'var(--bg-scrim)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                zIndex: 100,
-                padding: 'var(--space-4)',
-              }}
-            >
-              <div
-                className="glass-trim"
-                onClick={(e) => e.stopPropagation()}
-                style={{
-                  width: 460,
-                  maxWidth: '90vw',
-                  maxHeight: '88vh',
-                  overflowY: 'auto',
-                  background: 'var(--bg-primary)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 'var(--radius-lg)',
-                  boxShadow: 'var(--shadow-modal), 0 0 40px -10px var(--color-accent)',
-                  padding: 'var(--space-6)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 'var(--space-5)',
-                }}
-              >
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-                  <h2 style={{ margin: 0, fontSize: 'var(--font-size-lg)', fontWeight: 700, letterSpacing: '-0.01em' }}>
-                    {ko ? '자연어 모델' : 'Language model'}
-                  </h2>
-                  <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                    {ko
-                      ? '자연어를 SQL로 바꿀 때 쓰는 모델을 고르세요. SQL 직접 입력에는 필요하지 않습니다.'
-                      : 'Pick the model used to turn natural language into SQL. Not needed for direct SQL input.'}
-                  </p>
-                </div>
-                <ModelPicker onReady={setLlm} onDone={() => setModelOpen(false)} />
-              </div>
-            </div>,
-            document.body,
-          )}
+/* ─── 허브: 2카드 진입형 ──────────────────────────────────────────────── */
 
-        {/* 교체 모달 재사용 시 Cancel — 하단 중앙 */}
-        {onCancel && (
-          <button
-            onClick={onCancel}
-            disabled={busy}
-            style={{
-              display: 'block',
-              margin: 'var(--space-4) auto 0',
-              padding: '7px 16px',
-              background: 'transparent',
-              border: 'none',
-              color: 'var(--text-tertiary)',
-              fontSize: 'var(--font-size-sm)',
-              cursor: 'pointer',
-            }}
-          >
-            {ko ? '취소' : 'Cancel'}
-          </button>
-        )}
+function HubView({
+  ko,
+  selectedTag,
+  selectedTier,
+  onPickDb,
+  onPickModel,
+}: {
+  ko: boolean;
+  selectedTag: string;
+  selectedTier: string | null;
+  onPickDb: () => void;
+  onPickModel: () => void;
+}) {
+  // 모델 카드 부제 — 선택됨이면 tier·tag, None이면 미선택 안내.
+  const modelSub =
+    selectedTag === '' ? (
+      <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+        {ko ? '모델 없음 . SQL 직접 입력만' : 'No model . direct SQL only'}
+      </span>
+    ) : (
+      <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-accent-hover)', fontWeight: 600 }}>
+          {selectedTier ?? (ko ? '선택됨' : 'Selected')}
+        </span>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
+          {selectedTag}
+        </span>
+      </span>
+    );
+
+  return (
+    <div style={{ position: 'relative', zIndex: 1, width: 720, maxWidth: '94vw' }}>
+      {/* 브랜드 헤더 — 진입 stagger fade-up. */}
+      <div style={{ textAlign: 'center', marginBottom: 'var(--space-8)' }}>
+        <motion.h1
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, ease: [0.34, 1.2, 0.64, 1] }}
+          style={{ margin: 0, fontSize: 26, fontWeight: 800, letterSpacing: '-0.02em' }}
+        >
+          SQLPreShift
+        </motion.h1>
+        <motion.p
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, ease: [0.34, 1.2, 0.64, 1], delay: 0.08 }}
+          style={{ margin: '8px 0 0', fontSize: 'var(--font-size-md)', color: 'var(--text-secondary)', lineHeight: 1.5 }}
+        >
+          {ko
+            ? '실제 PostgreSQL 데이터베이스에 대해 스키마 변경을 미리 확인하세요 — 배포 전에, 안전하게.'
+            : 'Preview schema changes against a live PostgreSQL database — safely, before they ship.'}
+        </motion.p>
       </div>
 
-      <style jsx>{`
-        /* 모델 요약 카드 — DB 폼보다 한 단계 낮은 보조 표면. hover 시 teal glow(아이덴티티). */
-        .model-summary-card {
-          margin-top: var(--space-3);
-          display: flex;
-          align-items: center;
-          gap: var(--space-4);
-          width: 100%;
-          padding: var(--space-4) var(--space-5);
-          background: var(--bg-secondary);
-          border: 1px solid var(--border);
-          border-radius: var(--radius-lg);
-          box-shadow: var(--shadow-card);
-          cursor: pointer;
-          font-family: var(--font-sans);
-          transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+      {/* 2카드 — 동일 디자인. 왼쪽 Model(보조), 오른쪽 Database(주). */}
+      <div style={{ display: 'flex', gap: 'var(--space-6)', alignItems: 'stretch' }}>
+        <EntryCard
+          delay={0.16}
+          eyebrow={ko ? '선택 . 자연어용' : 'Optional . for natural language'}
+          title={ko ? '자연어 모델' : 'Language model'}
+          subtitle={modelSub}
+          action={selectedTag === '' ? (ko ? '모델 고르기' : 'Choose model') : (ko ? '변경' : 'Change')}
+          onClick={onPickModel}
+        />
+        <EntryCard
+          delay={0.24}
+          primary
+          eyebrow={ko ? '필수 . 시작점' : 'Required . to begin'}
+          title={ko ? '데이터베이스' : 'Database'}
+          subtitle={
+            <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+              {ko ? 'PostgreSQL 연결 정보를 입력해 연결' : 'Connect with your PostgreSQL credentials'}
+            </span>
+          }
+          action={ko ? '연결하기' : 'Connect'}
+          onClick={onPickDb}
+        />
+      </div>
+    </div>
+  );
+}
+
+// 허브의 두 진입 카드 — 동일 구조/디자인. primary면 accent 톤을 살짝 더 입힌다.
+function EntryCard({
+  delay,
+  eyebrow,
+  title,
+  subtitle,
+  action,
+  primary = false,
+  onClick,
+}: {
+  delay: number;
+  eyebrow: string;
+  title: string;
+  subtitle: React.ReactNode;
+  action: string;
+  primary?: boolean;
+  onClick: () => void;
+}) {
+  const hoverGlow = {
+    borderColor: 'var(--color-accent-border)',
+    boxShadow: 'var(--shadow-card), 0 0 0 3px var(--color-accent-10), 0 0 30px -8px var(--color-accent)',
+    y: -2,
+  };
+  return (
+    <motion.button
+      type="button"
+      onClick={onClick}
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: [0.34, 1.2, 0.64, 1], delay }}
+      whileHover={hoverGlow}
+      whileTap={{ scale: 0.99 }}
+      className="glass-trim"
+      style={{
+        flex: 1,
+        minWidth: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 'var(--space-4)',
+        textAlign: 'left',
+        padding: 'var(--space-6)',
+        minHeight: 200,
+        background: 'var(--bg-secondary)',
+        // border는 longhand로 분리 — whileHover가 borderColor를 애니메이트하므로
+        // shorthand `border`와 섞이면 React가 경고(shorthand/non-shorthand 충돌).
+        borderWidth: 1,
+        borderStyle: 'solid',
+        borderColor: primary ? 'var(--color-accent-border)' : 'var(--border)',
+        borderRadius: 'var(--radius-lg)',
+        boxShadow: 'var(--shadow-card)',
+        cursor: 'pointer',
+        fontFamily: 'var(--font-sans)',
+      }}
+    >
+      {/* eyebrow — 위계 라벨(필수/선택). */}
+      <span
+        style={{
+          fontSize: 'var(--font-size-xs)',
+          fontWeight: 600,
+          letterSpacing: '0.02em',
+          // 비-primary도 text-secondary로 — tertiary는 어두운 카드 위 대비 부족(WCAG 미달).
+          color: primary ? 'var(--color-accent-hover)' : 'var(--text-secondary)',
+        }}
+      >
+        {eyebrow}
+      </span>
+
+      {/* 제목 + 부제 — 본문은 위로 모으고 action은 카드 바닥에 고정. */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', flex: 1 }}>
+        <span style={{ fontSize: 'var(--font-size-lg)', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
+          {title}
+        </span>
+        {subtitle}
+      </div>
+
+      {/* action — 카드 진입 신호. */}
+      <span
+        style={{
+          fontSize: 'var(--font-size-sm)',
+          fontWeight: 600,
+          color: 'var(--color-accent)',
+        }}
+      >
+        {action}
+      </span>
+    </motion.button>
+  );
+}
+
+/* ─── DB 폼 뷰 ──────────────────────────────────────────────── */
+
+function DbView({
+  ko,
+  hasHub,
+  onCancel,
+  onBack,
+  children,
+}: {
+  ko: boolean;
+  hasHub: boolean;
+  onCancel?: () => void;
+  onBack: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.32, ease: [0.34, 1.2, 0.64, 1] }}
+      style={{ position: 'relative', zIndex: 1, width: 440, maxWidth: '92vw' }}
+    >
+      <ViewHeader
+        title={ko ? '데이터베이스 연결' : 'Connect a database'}
+        subtitle={ko ? 'PostgreSQL 연결 정보를 입력하세요.' : 'Enter your PostgreSQL connection details.'}
+        onBack={hasHub ? onBack : onCancel}
+        backLabel={hasHub ? (ko ? '뒤로' : 'Back') : (ko ? '취소' : 'Cancel')}
+      />
+      <div
+        className="glass-trim"
+        style={{
+          background: 'var(--bg-secondary)',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-lg)',
+          boxShadow: 'var(--shadow-modal)',
+          padding: 'var(--space-6)',
+        }}
+      >
+        {children}
+      </div>
+    </motion.div>
+  );
+}
+
+/* ─── 모델 선택 뷰 ──────────────────────────────────────────────── */
+
+function ModelView({ ko, onBack, children }: { ko: boolean; onBack: () => void; children: React.ReactNode }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.32, ease: [0.34, 1.2, 0.64, 1] }}
+      style={{ position: 'relative', zIndex: 1, width: 480, maxWidth: '92vw' }}
+    >
+      <ViewHeader
+        title={ko ? '자연어 모델' : 'Language model'}
+        subtitle={
+          ko
+            ? '자연어를 SQL로 바꿀 때 쓰는 모델을 고르세요. SQL 직접 입력에는 필요하지 않습니다.'
+            : 'Pick the model used to turn natural language into SQL. Not needed for direct SQL input.'
         }
-        .model-summary-card:hover {
-          border-color: var(--color-accent-border);
-          background: var(--bg-tertiary);
-          box-shadow: var(--shadow-card), 0 0 0 3px var(--color-accent-10), 0 0 26px -8px var(--color-accent);
-        }
-      `}</style>
+        onBack={onBack}
+        backLabel={ko ? '뒤로' : 'Back'}
+      />
+      <div
+        className="glass-trim"
+        style={{
+          background: 'var(--bg-secondary)',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-lg)',
+          boxShadow: 'var(--shadow-modal)',
+          padding: 'var(--space-6)',
+          // 카드가 길어 화면이 짧으면 내부 스크롤(하단 Advanced/foot이 잘리지 않게).
+          maxHeight: '76vh',
+          overflowY: 'auto',
+        }}
+      >
+        {children}
+      </div>
+    </motion.div>
+  );
+}
+
+// 진입 뷰 공통 헤더 — Back 버튼 + 제목 + 부제.
+function ViewHeader({
+  title,
+  subtitle,
+  onBack,
+  backLabel,
+}: {
+  title: string;
+  subtitle: string;
+  onBack?: () => void;
+  backLabel: string;
+}) {
+  const [hover, setHover] = useState(false);
+  return (
+    <div style={{ marginBottom: 'var(--space-5)' }}>
+      {onBack && (
+        <button
+          type="button"
+          onClick={onBack}
+          onMouseEnter={() => setHover(true)}
+          onMouseLeave={() => setHover(false)}
+          style={{
+            display: 'inline-block',
+            marginBottom: 'var(--space-4)',
+            padding: '4px 12px',
+            background: 'transparent',
+            border: `1px solid ${hover ? 'var(--border-strong)' : 'var(--border)'}`,
+            borderRadius: 'var(--radius-pill)',
+            color: hover ? 'var(--text-primary)' : 'var(--text-secondary)',
+            fontSize: 'var(--font-size-sm)',
+            fontWeight: 600,
+            cursor: 'pointer',
+            transition: 'color 0.15s ease, border-color 0.15s ease',
+          }}
+        >
+          {backLabel}
+        </button>
+      )}
+      <h2 style={{ margin: 0, fontSize: 'var(--font-size-lg)', fontWeight: 700, letterSpacing: '-0.01em' }}>{title}</h2>
+      <p style={{ margin: '6px 0 0', fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', lineHeight: 1.5 }}>{subtitle}</p>
     </div>
   );
 }

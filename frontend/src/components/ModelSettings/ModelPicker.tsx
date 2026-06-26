@@ -13,9 +13,13 @@ import {
   type CuratedModel,
 } from '../../lib/api';
 
-// 모델 선택 본문 — 모달(ModelSettings)과 첫 페이지 진입 모달에서 공유한다.
+// 모델 선택 본문 — 모달(ModelSettings)과 첫 페이지 진입 화면에서 공유한다.
 // 추천 카드 3종 + None(모델 없이 진행) + Advanced 직접입력. pull은 backend SSE 중계
 // (POST /api/llm/pull)를 fetch 스트림으로 읽어 인라인 진행 막대로 그린다.
+//
+// ⚠ 스타일은 전부 인라인이다. 이 코드베이스에서 styled-jsx(<style jsx>) 문자열 주입은
+// 신뢰 불가(클래스 해시 미적용 → 버튼 UA 기본 배경이 흰 박스로 노출). motion/portal 요소도
+// styled-jsx가 안 닿는다. 따라서 카드/칩/막대 전부 인라인 + tokens.css 전역 변수로 작성한다.
 // UI 문자열만 한/영 전환 — 모델 tier 라벨·태그·용량은 한글에서도 영어 유지(고유명/수치).
 
 interface DlState {
@@ -26,7 +30,7 @@ interface DlState {
 interface Props {
   // 모델 선택/준비가 바뀌면 부모에 최신 상태 전달(요약 카드 갱신용).
   onReady?: (status: LlmStatus) => void;
-  // 모델/None 확정 후 모달을 닫고 싶을 때(부모가 닫기 제어).
+  // 모델/None 확정 후 화면을 닫고 싶을 때(부모가 닫기 제어).
   onDone?: () => void;
 }
 
@@ -115,16 +119,16 @@ export default function ModelPicker({ onReady, onDone }: Props) {
   const advDownloading = dl && !CURATED_MODELS.some((m) => m.tag === dl.tag);
 
   return (
-    <div className="mp-wrap">
+    <div style={S.wrap}>
       {status && !reachable && (
-        <div className="mp-info">
+        <div style={S.info}>
           {ko
             ? 'Ollama가 감지되지 않습니다. ollama.com에서 설치하고 실행한 뒤 다시 열어주세요.'
             : 'Ollama not detected. Install it from ollama.com and start it, then reopen this.'}
         </div>
       )}
 
-      <div className="mp-cards">
+      <div style={S.cards}>
         {CURATED_MODELS.map((m) => (
           <ModelCard
             key={m.tag}
@@ -142,57 +146,38 @@ export default function ModelPicker({ onReady, onDone }: Props) {
         ))}
 
         {/* None — 모델 없이 진행. 선택 시 비활성 기능 안내 시트. */}
-        <button
-          type="button"
-          className={`mp-card mp-none${noneSelected ? ' mp-none-on' : ''}`}
-          onClick={() => setConfirmNone(true)}
-          disabled={!!dl}
-        >
-          <div className="mp-card-main">
-            <div className="mp-card-top">
-              <span className="mp-tier">{ko ? '모델 없이' : 'No model'}</span>
-              {noneSelected && <span className="mp-badge">{ko ? '선택됨' : 'Selected'}</span>}
-            </div>
-            <span className="mp-desc">
-              {ko ? 'SQL 직접 입력만 사용합니다. 언제든 모델을 받을 수 있습니다.' : 'Use direct SQL input only. You can add a model anytime.'}
-            </span>
-          </div>
-          <span className="mp-none-action">{ko ? '계속' : 'Continue'}</span>
-        </button>
+        <NoneCard ko={ko} selected={noneSelected} disabled={!!dl} onClick={() => setConfirmNone(true)} />
       </div>
 
-      {error && <div className="mp-error">{error}</div>}
+      {error && <div style={S.error}>{error}</div>}
 
-      {/* Advanced — 직접 태그 입력. 클릭 토글(details 대신 제어 상태로 한/영 안정화). */}
-      <div className="mp-adv">
-        <button type="button" className="mp-adv-toggle" onClick={() => setAdvOpen((v) => !v)}>
-          {ko ? '고급 . 태그 직접 입력' : 'Advanced . direct tag'}
-        </button>
+      {/* Advanced — 직접 태그 입력. 클릭 토글. */}
+      <div style={S.adv}>
+        <AdvToggle ko={ko} onClick={() => setAdvOpen((v) => !v)} />
         {advOpen && (
-          <div className="mp-adv-body">
-            <p className="mp-adv-note">
+          <div style={S.advBody}>
+            <p style={S.advNote}>
               {ko
                 ? 'Ollama 태그로 어떤 모델이든 받을 수 있습니다. 임베딩 모델은 없으면 자동으로 함께 받습니다.'
                 : 'Pull any model by its Ollama tag. The shared embedding model is added automatically if missing.'}
             </p>
-            <div className="mp-adv-row">
+            <div style={S.advRow}>
               <input
-                className="mp-input"
+                style={S.input}
                 type="text"
                 value={advTag}
                 onChange={(e) => setAdvTag(e.target.value)}
                 placeholder="e.g. llama3.1:8b"
                 spellCheck={false}
                 disabled={!reachable || !!dl}
+                onFocus={(e) => Object.assign(e.currentTarget.style, S.inputFocus)}
+                onBlur={(e) => Object.assign(e.currentTarget.style, S.inputBlur)}
               />
-              <button
-                className="mp-btn mp-btn-accent"
-                type="button"
-                onClick={() => startPull(advTag)}
+              <AccentButton
+                label={ko ? '받기' : 'Get'}
                 disabled={!reachable || !!dl || advTag.trim() === ''}
-              >
-                Get
-              </button>
+                onClick={() => startPull(advTag)}
+              />
             </div>
             {advDownloading && (
               <div style={{ marginTop: 'var(--space-3)' }}>
@@ -203,24 +188,114 @@ export default function ModelPicker({ onReady, onDone }: Props) {
         )}
       </div>
 
-      <div className="mp-foot">
-        <span className="mp-foot-dot" />
+      <div style={S.foot}>
+        <span style={S.footDot} />
         {ko
           ? '모델을 받으면 임베딩 모델 bge-m3 (1.2 GB)가 함께 포함됩니다.'
           : 'Shared embedding model bge-m3 (1.2 GB) is included with every download.'}
       </div>
 
       {/* None 확인 시트 — 정보성. 모델 없이 가능/불가 기능을 차분히 안내.
-          portal로 body에(모달 overflow 회피) + 인라인 스타일(portal엔 styled-jsx 미적용). */}
+          portal로 body에(모달 overflow 회피) + 인라인 스타일. */}
       {confirmNone && mounted && createPortal(<NoneSheet ko={ko} onBack={() => setConfirmNone(false)} onConfirm={confirmNoModel} />, document.body)}
-
-      <style jsx>{wrapCss}</style>
-      <style jsx>{cardCss}</style>
     </div>
   );
 }
 
-// None 확인 시트 — portal 렌더라 styled-jsx가 안 닿아 인라인 스타일로 작성한다.
+/* ─── None 카드 ──────────────────────────────────────────────── */
+
+function NoneCard({ ko, selected, disabled, onClick }: { ko: boolean; selected: boolean; disabled: boolean; onClick: () => void }) {
+  const [hover, setHover] = useState(false);
+  const style: React.CSSProperties = {
+    ...S.card,
+    alignItems: 'center',
+    cursor: disabled ? 'default' : 'pointer',
+    opacity: disabled ? 0.5 : 1,
+    ...(selected ? S.cardOn : hover && !disabled ? S.cardHover : null),
+  };
+  return (
+    <button
+      type="button"
+      style={style}
+      onClick={onClick}
+      disabled={disabled}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+    >
+      <div style={S.cardMain}>
+        <div style={S.cardTop}>
+          {/* tier 슬롯 — 언어 중립 라벨(model.tier와 동일 관례). */}
+          <span style={S.tier}>No model</span>
+          {selected && <span style={S.badge}>{ko ? '선택됨' : 'Selected'}</span>}
+        </div>
+        <span style={S.desc}>
+          {ko ? 'SQL 직접 입력만 사용합니다. 언제든 모델을 받을 수 있습니다.' : 'Use direct SQL input only. You can add a model anytime.'}
+        </span>
+      </div>
+      <span style={S.noneAction}>{ko ? '계속' : 'Continue'}</span>
+    </button>
+  );
+}
+
+/* ─── Advanced 토글 / Accent 버튼 ──────────────────────────────────────────────── */
+
+function AdvToggle({ ko, onClick }: { ko: boolean; onClick: () => void }) {
+  const [hover, setHover] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        background: 'none',
+        border: 'none',
+        padding: 0,
+        cursor: 'pointer',
+        fontFamily: 'var(--font-sans)',
+        fontSize: 'var(--font-size-sm)',
+        fontWeight: 500,
+        color: hover ? 'var(--text-primary)' : 'var(--text-secondary)',
+        transition: 'color 0.15s ease',
+      }}
+    >
+      {ko ? '고급 . 태그 직접 입력' : 'Advanced . direct tag'}
+    </button>
+  );
+}
+
+function AccentButton({ label, disabled, onClick }: { label: string; disabled: boolean; onClick: () => void }) {
+  const [hover, setHover] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        flexShrink: 0,
+        alignSelf: 'center',
+        fontFamily: 'var(--font-sans)',
+        fontSize: 'var(--font-size-sm)',
+        fontWeight: 600,
+        padding: 'var(--space-2) var(--space-4)',
+        borderRadius: 'var(--radius-md)',
+        cursor: disabled ? 'default' : 'pointer',
+        background: hover && !disabled ? 'var(--color-accent-hover)' : 'var(--color-accent)',
+        color: 'var(--text-inverse)',
+        border: '1px solid var(--color-accent-border)',
+        opacity: disabled ? 0.5 : 1,
+        transition: 'background 0.15s ease',
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
+/* ─── None 확인 시트 ──────────────────────────────────────────────── */
+
 function NoneSheet({ ko, onBack, onConfirm }: { ko: boolean; onBack: () => void; onConfirm: () => void }) {
   const headStyle = (color: string): React.CSSProperties => ({
     fontSize: 'var(--font-size-xs)',
@@ -282,7 +357,7 @@ function NoneSheet({ ko, onBack, onConfirm }: { ko: boolean; onBack: () => void;
             </ul>
           </div>
           <div style={{ flex: 1 }}>
-            <div style={headStyle('var(--text-tertiary)')}>{ko ? '사용 불가' : 'Not available'}</div>
+            <div style={headStyle('var(--text-secondary)')}>{ko ? '사용 불가' : 'Not available'}</div>
             <ul style={listStyle(true)}>
               <li>{ko ? '자연어로 SQL 작성' : 'Plain-English to SQL'}</li>
             </ul>
@@ -329,6 +404,8 @@ function NoneSheet({ ko, onBack, onConfirm }: { ko: boolean; onBack: () => void;
   );
 }
 
+/* ─── 모델 카드 ──────────────────────────────────────────────── */
+
 function ModelCard({
   ko,
   model,
@@ -352,43 +429,81 @@ function ModelCard({
   onSelect: () => void;
   onCancel: () => void;
 }) {
+  const [hover, setHover] = useState(false);
+
   if (isDownloading) {
     return (
-      <div className="mp-card mp-card-dl">
+      <div style={{ ...S.card, ...S.cardDl }}>
         <ProgressBlock ko={ko} tag={model.tag} tier={model.tier} progress={progress} onCancel={onCancel} />
-        <style jsx>{cardCss}</style>
       </div>
     );
   }
+
+  const style: React.CSSProperties = {
+    ...S.card,
+    ...(isSelected ? S.cardOn : hover ? S.cardHover : null),
+  };
+
   return (
-    <div className={`mp-card${isSelected ? ' mp-card-on' : ''}`}>
-      <div className="mp-card-main">
-        <div className="mp-card-top">
+    <div
+      style={style}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+    >
+      <div style={S.cardMain}>
+        <div style={S.cardTop}>
           {/* tier 라벨·태그·용량은 고유명/수치 — 한글에서도 영어 유지. */}
-          <span className="mp-tier">{model.tier}</span>
-          <span className="mp-size">{model.totalGb} GB total</span>
-          {isSelected && <span className="mp-badge">{ko ? '선택됨' : 'Selected'}</span>}
+          <span style={S.tier}>{model.tier}</span>
+          <span style={S.size}>{model.totalGb} GB</span>
+          {isSelected && <span style={S.badge}>{ko ? '선택됨' : 'Selected'}</span>}
         </div>
-        <span className="mp-tag">{model.tag}</span>
-        <span className="mp-desc">{ko ? model.blurbKo : model.blurb}</span>
+        <span style={S.tag}>{model.tag}</span>
+        <span style={S.desc}>{ko ? model.blurbKo : model.blurb}</span>
       </div>
       {installed ? (
         isSelected ? (
-          <span className="mp-installed">{ko ? '설치됨' : 'Installed'}</span>
+          <span style={S.installed}>{ko ? '설치됨' : 'Installed'}</span>
         ) : (
-          <button className="mp-btn mp-btn-get" type="button" onClick={onSelect} disabled={disabled}>
-            {ko ? '사용' : 'Use'}
-          </button>
+          <GetButton label={ko ? '사용' : 'Use'} disabled={disabled} onClick={onSelect} />
         )
       ) : (
-        <button className="mp-btn mp-btn-get" type="button" onClick={onGet} disabled={disabled}>
-          {ko ? '받기' : 'Get'}
-        </button>
+        <GetButton label={ko ? '받기' : 'Get'} disabled={disabled} onClick={onGet} />
       )}
-      <style jsx>{cardCss}</style>
     </div>
   );
 }
+
+function GetButton({ label, disabled, onClick }: { label: string; disabled: boolean; onClick: () => void }) {
+  const [hover, setHover] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        flexShrink: 0,
+        alignSelf: 'center',
+        fontFamily: 'var(--font-sans)',
+        fontSize: 'var(--font-size-sm)',
+        fontWeight: 600,
+        padding: 'var(--space-2) var(--space-4)',
+        borderRadius: 'var(--radius-md)',
+        cursor: disabled ? 'default' : 'pointer',
+        background: hover && !disabled ? 'var(--bg-hover)' : 'var(--bg-tertiary)',
+        color: 'var(--text-primary)',
+        border: `1px solid ${hover && !disabled ? 'var(--text-tertiary)' : 'var(--border-strong)'}`,
+        opacity: disabled ? 0.5 : 1,
+        transition: 'background 0.15s ease, border-color 0.15s ease',
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
+/* ─── 진행 막대 ──────────────────────────────────────────────── */
 
 function ProgressBlock({
   ko,
@@ -415,373 +530,290 @@ function ProgressBlock({
       : progress.status;
 
   return (
-    <div className="mp-dl-body">
-      <div className="mp-dl-head">
-        <div className="mp-dl-left">
-          <span className="mp-tier">{tier ?? tag}</span>
-          <span className="mp-tag">{tag}</span>
+    <div style={S.dlBody}>
+      <div style={S.dlHead}>
+        <div style={S.dlLeft}>
+          <span style={S.tier}>{tier ?? tag}</span>
+          <span style={S.tag}>{tag}</span>
         </div>
-        <div className="mp-dl-left">
-          <span className="mp-dl-pct">{total > 0 ? `${pct}%` : ''}</span>
-          <button className="mp-cancel" type="button" onClick={onCancel}>
+        <div style={S.dlLeft}>
+          <span style={S.dlPct}>{total > 0 ? `${pct}%` : ''}</span>
+          <button
+            type="button"
+            onClick={onCancel}
+            style={{
+              fontSize: 'var(--font-size-xs)',
+              color: 'var(--text-tertiary)',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: 0,
+              fontFamily: 'var(--font-sans)',
+            }}
+          >
             {ko ? '취소' : 'Cancel'}
           </button>
         </div>
       </div>
-      <div className="mp-track">
-        <div className="mp-fill" style={{ width: total > 0 ? `${pct}%` : '8%' }} />
+      <div style={S.track}>
+        <div style={{ ...S.fill, width: total > 0 ? `${pct}%` : '8%' }} />
       </div>
-      <div className="mp-dl-meta">
-        <span className="mp-dl-bytes">{total > 0 ? `${gb(completed)} / ${gb(total)} GB` : ''}</span>
-        <span className="mp-dl-sub">
-          <span className="mp-dot" />
+      <div style={S.dlMeta}>
+        <span style={S.dlBytes}>{total > 0 ? `${gb(completed)} / ${gb(total)} GB` : ''}</span>
+        <span style={S.dlSub}>
+          <span style={S.dlDot} />
           {sub}
         </span>
       </div>
-      <style jsx>{cardCss}</style>
     </div>
   );
 }
 
-// 래퍼 레벨 CSS — 간격 넉넉히(텍스트가 면에 붙지 않게), None 시트, Advanced.
-const wrapCss = `
-  .mp-wrap {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-4);
-    font-family: var(--font-sans);
-    color: var(--text-primary);
-  }
-  .mp-info {
-    padding: var(--space-3) var(--space-4);
-    border-radius: var(--radius-md);
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border-subtle);
-    font-size: var(--font-size-sm);
-    color: var(--text-secondary);
-    line-height: 1.5;
-  }
-  .mp-error {
-    padding: var(--space-3) var(--space-4);
-    border-radius: var(--radius-md);
-    background: var(--color-error-bg);
-    border: 1px solid var(--color-error-border);
-    font-size: var(--font-size-sm);
-    color: var(--color-error);
-    line-height: 1.5;
-  }
-  .mp-cards {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3);
-  }
-  .mp-adv {
-    border-top: 1px solid var(--border-subtle);
-    padding-top: var(--space-4);
-  }
-  .mp-adv-toggle {
-    background: none;
-    border: none;
-    padding: 0;
-    cursor: pointer;
-    font-family: var(--font-sans);
-    font-size: var(--font-size-sm);
-    font-weight: 500;
-    color: var(--text-secondary);
-    transition: color 0.15s ease;
-  }
-  .mp-adv-toggle:hover {
-    color: var(--text-primary);
-  }
-  .mp-adv-note {
-    font-size: var(--font-size-xs);
-    color: var(--text-tertiary);
-    margin: var(--space-3) 0;
-    line-height: 1.5;
-  }
-  .mp-adv-row {
-    display: flex;
-    gap: var(--space-2);
-  }
-  .mp-input {
-    flex: 1;
-    min-width: 0;
-    font-family: var(--font-mono);
-    font-size: var(--font-size-sm);
-    color: var(--text-primary);
-    background: var(--bg-input);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    padding: var(--space-2) var(--space-3);
-    outline: none;
-    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
-  }
-  .mp-input::placeholder {
-    color: var(--text-tertiary);
-  }
-  .mp-input:focus {
-    border-color: var(--color-accent-border);
-    box-shadow: 0 0 0 3px var(--color-accent-10);
-  }
-  .mp-input:disabled {
-    opacity: 0.5;
-  }
-  .mp-foot {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    font-size: var(--font-size-xs);
-    color: var(--text-tertiary);
-    line-height: 1.5;
-  }
-  .mp-foot-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: var(--radius-pill);
-    background: var(--color-success);
-    flex-shrink: 0;
-  }
-`;
+/* ─── 스타일 (전부 인라인 — styled-jsx 신뢰 불가) ──────────────────────── */
 
-// 카드/진행 막대 CSS — 간격 넉넉, glow(선택/다운로드 시 teal halo).
-const cardCss = `
-  .mp-card {
-    display: flex;
-    align-items: flex-start;
-    gap: var(--space-4);
-    padding: var(--space-4);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    background: var(--bg-secondary);
-    text-align: left;
-    width: 100%;
-    font-family: var(--font-sans);
-    transition: border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
-  }
-  .mp-card:hover {
-    border-color: var(--border-strong);
-    background: var(--bg-tertiary);
-  }
-  /* 선택된 카드 — accent 테두리 + 은은한 teal glow(아이덴티티). */
-  .mp-card-on {
-    border-color: var(--color-accent-border);
-    background: var(--color-accent-10);
-    box-shadow: 0 0 0 3px var(--color-accent-10), 0 0 24px -8px var(--color-accent);
-  }
-  .mp-card-on:hover {
-    border-color: var(--color-accent-border);
-    background: var(--color-accent-10);
-  }
-  /* 다운로드 중 — 더 강한 glow로 진행을 부각. */
-  .mp-card-dl {
-    border-color: var(--color-accent-border);
-    background: var(--color-accent-10);
-    box-shadow: 0 0 0 3px var(--color-accent-10), 0 0 30px -6px var(--color-accent);
-  }
-  .mp-card-dl:hover {
-    border-color: var(--color-accent-border);
-    background: var(--color-accent-10);
-  }
-  .mp-none {
-    cursor: pointer;
-    align-items: center;
-  }
-  .mp-none:disabled {
-    opacity: 0.5;
-    cursor: default;
-  }
-  .mp-none-on {
-    border-color: var(--color-accent-border);
-    background: var(--color-accent-10);
-    box-shadow: 0 0 0 3px var(--color-accent-10), 0 0 24px -8px var(--color-accent);
-  }
-  .mp-none-action {
-    flex-shrink: 0;
-    align-self: center;
-    font-size: var(--font-size-sm);
-    font-weight: 600;
-    color: var(--color-accent);
-  }
-  .mp-card-main {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-    min-width: 0;
-    flex: 1;
-  }
-  .mp-card-top {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    flex-wrap: wrap;
-  }
-  .mp-tier {
-    font-size: var(--font-size-md);
-    font-weight: 600;
-  }
-  .mp-size {
-    font-size: var(--font-size-xs);
-    color: var(--text-secondary);
-    font-variant-numeric: tabular-nums;
-    padding: 2px var(--space-2);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-pill);
-    background: var(--bg-input);
-  }
-  .mp-badge {
-    font-size: var(--font-size-xs);
-    font-weight: 600;
-    color: var(--color-success);
-    background: var(--color-success-bg);
-    border: 1px solid var(--color-success-border);
-    padding: 2px var(--space-2);
-    border-radius: var(--radius-pill);
-  }
-  .mp-tag {
-    font-family: var(--font-mono);
-    font-size: var(--font-size-xs);
-    color: var(--text-tertiary);
-    letter-spacing: -0.02em;
-  }
-  .mp-desc {
-    font-size: var(--font-size-sm);
-    color: var(--text-secondary);
-    line-height: 1.5;
-  }
-  .mp-btn {
-    flex-shrink: 0;
-    align-self: center;
-    font-family: var(--font-sans);
-    font-size: var(--font-size-sm);
-    font-weight: 600;
-    padding: var(--space-2) var(--space-4);
-    border-radius: var(--radius-md);
-    cursor: pointer;
-    transition: background 0.15s ease, border-color 0.15s ease;
-  }
-  .mp-btn-get {
-    background: var(--bg-tertiary);
-    color: var(--text-primary);
-    border: 1px solid var(--border-strong);
-  }
-  .mp-btn-get:hover:not(:disabled) {
-    background: var(--bg-hover);
-    border-color: var(--text-tertiary);
-  }
-  .mp-btn-accent {
-    background: var(--color-accent);
-    color: var(--text-inverse);
-    border: 1px solid var(--color-accent-border);
-  }
-  .mp-btn-accent:hover:not(:disabled) {
-    background: var(--color-accent-hover);
-  }
-  .mp-btn:disabled {
-    opacity: 0.5;
-    cursor: default;
-  }
-  .mp-installed {
-    flex-shrink: 0;
-    align-self: center;
-    font-size: var(--font-size-sm);
-    font-weight: 600;
-    color: var(--color-success);
-  }
-  .mp-dl-body {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-    width: 100%;
-  }
-  .mp-dl-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-2);
-  }
-  .mp-dl-left {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    min-width: 0;
-  }
-  .mp-dl-pct {
-    font-size: var(--font-size-sm);
-    font-weight: 600;
-    color: var(--color-accent-hover);
-    font-variant-numeric: tabular-nums;
-  }
-  .mp-cancel {
-    font-size: var(--font-size-xs);
-    color: var(--text-tertiary);
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 0;
-    font-family: var(--font-sans);
-  }
-  .mp-cancel:hover {
-    color: var(--text-secondary);
-  }
-  .mp-track {
-    position: relative;
-    height: 6px;
-    border-radius: var(--radius-pill);
-    background: var(--bg-tertiary);
-    overflow: hidden;
-  }
-  .mp-fill {
-    position: absolute;
-    inset: 0 auto 0 0;
-    border-radius: var(--radius-pill);
-    background: var(--color-accent);
-    transition: width 0.3s ease;
-  }
-  .mp-fill::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.22), transparent);
-    transform: translateX(-100%);
-    animation: mp-shim 1.6s ease-in-out infinite;
-  }
-  @keyframes mp-shim {
-    to {
-      transform: translateX(220%);
-    }
-  }
-  .mp-dl-meta {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-2);
-  }
-  .mp-dl-bytes {
-    font-size: var(--font-size-xs);
-    color: var(--text-secondary);
-    font-variant-numeric: tabular-nums;
-  }
-  .mp-dl-sub {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    font-size: var(--font-size-xs);
-    color: var(--text-tertiary);
-  }
-  .mp-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: var(--radius-pill);
-    background: var(--color-accent);
-    flex-shrink: 0;
-    animation: mp-pulse 1.4s ease-in-out infinite;
-  }
-  @keyframes mp-pulse {
-    0%, 100% {
-      opacity: 0.4;
-    }
-    50% {
-      opacity: 1;
-    }
-  }
-`;
+const S = {
+  wrap: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 'var(--space-5)',
+    fontFamily: 'var(--font-sans)',
+    color: 'var(--text-primary)',
+  },
+  info: {
+    padding: 'var(--space-3) var(--space-4)',
+    borderRadius: 'var(--radius-md)',
+    background: 'var(--bg-tertiary)',
+    border: '1px solid var(--border-subtle)',
+    fontSize: 'var(--font-size-sm)',
+    color: 'var(--text-secondary)',
+    lineHeight: 1.5,
+  },
+  error: {
+    padding: 'var(--space-3) var(--space-4)',
+    borderRadius: 'var(--radius-md)',
+    background: 'var(--color-error-bg)',
+    border: '1px solid var(--color-error-border)',
+    fontSize: 'var(--font-size-sm)',
+    color: 'var(--color-error)',
+    lineHeight: 1.5,
+  },
+  cards: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 'var(--space-3)',
+  },
+
+  // 카드 — 넉넉한 패딩(텍스트가 면에 안 붙게 space-5), 본체는 어두운 표면.
+  card: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: 'var(--space-4)',
+    padding: 'var(--space-5)',
+    border: '1px solid var(--border)',
+    borderRadius: 'var(--radius-md)',
+    background: 'var(--bg-secondary)',
+    textAlign: 'left',
+    width: '100%',
+    fontFamily: 'var(--font-sans)',
+    transition: 'border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease',
+  },
+  cardHover: {
+    borderColor: 'var(--border-strong)',
+    background: 'var(--bg-tertiary)',
+  },
+  // 선택된 카드 — accent 테두리 + 은은한 teal glow(아이덴티티).
+  cardOn: {
+    borderColor: 'var(--color-accent-border)',
+    background: 'var(--color-accent-10)',
+    boxShadow: '0 0 0 3px var(--color-accent-10), 0 0 24px -8px var(--color-accent)',
+  },
+  // 다운로드 중 — 더 강한 glow로 진행을 부각.
+  cardDl: {
+    borderColor: 'var(--color-accent-border)',
+    background: 'var(--color-accent-10)',
+    boxShadow: '0 0 0 3px var(--color-accent-10), 0 0 30px -6px var(--color-accent)',
+  },
+
+  cardMain: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 'var(--space-2)',
+    minWidth: 0,
+    flex: 1,
+  },
+  cardTop: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 'var(--space-2)',
+    flexWrap: 'wrap',
+  },
+  tier: {
+    fontSize: 'var(--font-size-md)',
+    fontWeight: 600,
+    color: 'var(--text-primary)',
+  },
+  // 용량 칩 — 흰 박스 금지. 배경 없이 미묘한 테두리 outline + 밝은 글자(가독).
+  size: {
+    fontSize: 'var(--font-size-xs)',
+    fontWeight: 500,
+    color: 'var(--text-secondary)',
+    fontVariantNumeric: 'tabular-nums',
+    padding: '2px var(--space-2)',
+    border: '1px solid var(--border)',
+    borderRadius: 'var(--radius-pill)',
+    background: 'transparent',
+  },
+  badge: {
+    fontSize: 'var(--font-size-xs)',
+    fontWeight: 600,
+    color: 'var(--color-success)',
+    background: 'var(--color-success-bg)',
+    border: '1px solid var(--color-success-border)',
+    padding: '2px var(--space-2)',
+    borderRadius: 'var(--radius-pill)',
+  },
+  // 태그(모노) — text-tertiary는 너무 어두워 안 보임. secondary로 가독 확보.
+  tag: {
+    fontFamily: 'var(--font-mono)',
+    fontSize: 'var(--font-size-xs)',
+    color: 'var(--text-secondary)',
+    letterSpacing: '-0.02em',
+  },
+  desc: {
+    fontSize: 'var(--font-size-sm)',
+    color: 'var(--text-secondary)',
+    lineHeight: 1.55,
+  },
+  installed: {
+    flexShrink: 0,
+    alignSelf: 'center',
+    fontSize: 'var(--font-size-sm)',
+    fontWeight: 600,
+    color: 'var(--color-success)',
+  },
+  noneAction: {
+    flexShrink: 0,
+    alignSelf: 'center',
+    fontSize: 'var(--font-size-sm)',
+    fontWeight: 600,
+    color: 'var(--color-accent)',
+  },
+
+  adv: {
+    borderTop: '1px solid var(--border-subtle)',
+    paddingTop: 'var(--space-4)',
+  },
+  advBody: {},
+  advNote: {
+    fontSize: 'var(--font-size-xs)',
+    // 본문성 안내라 가독 필요 — tertiary는 어두운 표면 위 대비 부족(secondary로).
+    color: 'var(--text-secondary)',
+    margin: 'var(--space-3) 0',
+    lineHeight: 1.5,
+  },
+  advRow: {
+    display: 'flex',
+    gap: 'var(--space-2)',
+  },
+  input: {
+    flex: 1,
+    minWidth: 0,
+    fontFamily: 'var(--font-mono)',
+    fontSize: 'var(--font-size-sm)',
+    color: 'var(--text-primary)',
+    background: 'var(--bg-input)',
+    border: '1px solid var(--border)',
+    borderRadius: 'var(--radius-md)',
+    padding: 'var(--space-2) var(--space-3)',
+    outline: 'none',
+    transition: 'border-color var(--transition-fast), box-shadow var(--transition-fast)',
+  },
+  inputFocus: {
+    borderColor: 'var(--color-accent-border)',
+    boxShadow: '0 0 0 3px var(--color-accent-10)',
+  },
+  inputBlur: {
+    borderColor: 'var(--border)',
+    boxShadow: 'none',
+  },
+
+  foot: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 'var(--space-2)',
+    fontSize: 'var(--font-size-xs)',
+    color: 'var(--text-tertiary)',
+    lineHeight: 1.5,
+  },
+  footDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 'var(--radius-pill)',
+    background: 'var(--color-success)',
+    flexShrink: 0,
+  },
+
+  dlBody: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 'var(--space-2)',
+    width: '100%',
+  },
+  dlHead: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 'var(--space-2)',
+  },
+  dlLeft: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 'var(--space-2)',
+    minWidth: 0,
+  },
+  dlPct: {
+    fontSize: 'var(--font-size-sm)',
+    fontWeight: 600,
+    color: 'var(--color-accent-hover)',
+    fontVariantNumeric: 'tabular-nums',
+  },
+  track: {
+    position: 'relative',
+    height: 6,
+    borderRadius: 'var(--radius-pill)',
+    background: 'var(--bg-tertiary)',
+    overflow: 'hidden',
+  },
+  fill: {
+    position: 'absolute',
+    inset: '0 auto 0 0',
+    borderRadius: 'var(--radius-pill)',
+    background: 'var(--color-accent)',
+    transition: 'width 0.3s ease',
+  },
+  dlMeta: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 'var(--space-2)',
+  },
+  dlBytes: {
+    fontSize: 'var(--font-size-xs)',
+    color: 'var(--text-secondary)',
+    fontVariantNumeric: 'tabular-nums',
+  },
+  dlSub: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 'var(--space-2)',
+    fontSize: 'var(--font-size-xs)',
+    color: 'var(--text-tertiary)',
+  },
+  dlDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 'var(--radius-pill)',
+    background: 'var(--color-accent)',
+    flexShrink: 0,
+  },
+} satisfies Record<string, React.CSSProperties>;
