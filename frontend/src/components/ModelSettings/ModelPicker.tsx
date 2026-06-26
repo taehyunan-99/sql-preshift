@@ -225,8 +225,8 @@ function NoneCard({ ko, selected, disabled, onClick }: { ko: boolean; selected: 
     >
       <div style={S.cardMain}>
         <div style={S.cardTop}>
-          {/* tier 슬롯 — 언어 중립 라벨(model.tier와 동일 관례). */}
-          <span style={S.tier}>No model</span>
+          {/* tier 슬롯 — 언어 중립 라벨(model.tier와 동일 관례). 선택 시 accent 색. */}
+          <span style={{ ...S.tier, ...(selected ? { color: 'var(--color-accent-hover)' } : null) }}>No model</span>
           {selected && <span style={S.badge}>{ko ? '선택됨' : 'Selected'}</span>}
         </div>
         <span style={S.desc}>
@@ -454,8 +454,9 @@ function ModelCard({
     >
       <div style={S.cardMain}>
         <div style={S.cardTop}>
-          {/* tier 라벨·태그·용량은 고유명/수치 — 한글에서도 영어 유지. */}
-          <span style={S.tier}>{model.tier}</span>
+          {/* tier 라벨·태그·용량은 고유명/수치 — 한글에서도 영어 유지.
+              선택 시 tier를 accent 색으로 — 카드 glow와 함께 '선택됨'을 또렷이. */}
+          <span style={{ ...S.tier, ...(isSelected ? { color: 'var(--color-accent-hover)' } : null) }}>{model.tier}</span>
           <span style={S.size}>{model.totalGb} GB</span>
           {isSelected && <span style={S.badge}>{ko ? '선택됨' : 'Selected'}</span>}
         </div>
@@ -621,10 +622,10 @@ const S = {
     borderStyle: 'solid',
     borderColor: 'var(--border)',
     borderRadius: 'var(--radius-md)',
-    // 셸(bg-secondary) 위에서 한 단계 떠 보이는 elevated 표면 — 가이드의 카드 패턴.
-    // glass-trim 광택을 함께 입혀 허브 카드/DB 셸과 '같은 유리 재질'을 공유한다
-    // (이전엔 glass-trim 없는 평면 tertiary라 밝기만 높아 떠 보였다).
-    background: 'var(--bg-tertiary)',
+    // 셸(bg-secondary) 안의 콘텐츠 면 — DB 폼의 입력 필드(bg-input)와 같은 어두운 톤.
+    // tertiary는 셸보다 밝아 카드가 떠 보였다(DB 폼 대비 과하게 밝음). 셸보다 어둡게
+    // 가라앉히고, 유리 재질(glass-trim)만 공유해 같은 표면 언어를 유지한다.
+    background: 'var(--bg-input)',
     boxShadow: 'var(--shadow-card)',
     textAlign: 'left',
     width: '100%',
@@ -636,16 +637,18 @@ const S = {
     borderColor: 'var(--border-strong)',
     boxShadow: '0 0 0 1px var(--border-strong), var(--shadow-card)',
   },
-  // 선택된 카드 — accent 테두리 + 은은한 teal glow(아이덴티티). 표면색은 유지하고
-  // accent-10은 ring으로만(배경을 칠하지 않아 glass-trim 광택이 살아 있게).
+  // 선택된 카드 — accent 테두리 + 은은한 teal glow + accent-10 배경(선택 명확히).
+  // 직전에 glow를 너무 줄여 거의 안 보였다. 색광 번짐을 다시 살려 '선택됨'이 한눈에 보이게.
   cardOn: {
     borderColor: 'var(--color-accent-border)',
-    boxShadow: '0 0 0 1px var(--color-accent-border), 0 0 18px -10px var(--color-accent), var(--shadow-card)',
+    background: 'var(--color-accent-10)',
+    boxShadow: '0 0 0 1px var(--color-accent-border), 0 0 24px -6px var(--color-accent), var(--shadow-card)',
   },
   // 다운로드 중 — selected와 같은 언어, glow만 한 단계 더(진행 부각).
   cardDl: {
     borderColor: 'var(--color-accent-border)',
-    boxShadow: '0 0 0 1px var(--color-accent-border), 0 0 22px -8px var(--color-accent), var(--shadow-card)',
+    background: 'var(--color-accent-10)',
+    boxShadow: '0 0 0 1px var(--color-accent-border), 0 0 30px -5px var(--color-accent), var(--shadow-card)',
   },
 
   cardMain: {
@@ -677,12 +680,13 @@ const S = {
     borderRadius: 'var(--radius-pill)',
     background: 'transparent',
   },
+  // 선택 배지 — accent 톤(success-green이 아니라 선택=accent 아이덴티티로 통일).
   badge: {
     fontSize: 'var(--font-size-xs)',
     fontWeight: 600,
-    color: 'var(--color-success)',
-    background: 'var(--color-success-bg)',
-    border: '1px solid var(--color-success-border)',
+    color: 'var(--color-accent-hover)',
+    background: 'var(--color-accent-10)',
+    border: '1px solid var(--color-accent-border)',
     padding: '2px var(--space-2)',
     borderRadius: 'var(--radius-pill)',
   },
@@ -698,12 +702,13 @@ const S = {
     color: 'var(--text-secondary)',
     lineHeight: 1.55,
   },
+  // 선택된 설치 모델의 우측 상태 — 선택=accent 아이덴티티로 통일(카드 glow와 한 색).
   installed: {
     flexShrink: 0,
     alignSelf: 'center',
     fontSize: 'var(--font-size-sm)',
     fontWeight: 600,
-    color: 'var(--color-success)',
+    color: 'var(--color-accent-hover)',
   },
   noneAction: {
     flexShrink: 0,
