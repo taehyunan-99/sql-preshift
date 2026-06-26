@@ -11,10 +11,11 @@ import pytest
 # ─── app.db 를 import 시점에 mock (psycopg 없는 환경) ───────────────────
 _mock_db = ModuleType("app.db")
 _mock_db.meta_engine = MagicMock()
+_mock_db.MetaSession = MagicMock()
 # target_engine은 holder + accessor로 전환됨 — get_target_engine으로 모킹
 _mock_db.get_target_engine = MagicMock(return_value=MagicMock())
 _mock_db.get_meta_session = MagicMock()
-_mock_db.ensure_vector_extension = MagicMock()
+_mock_db.create_meta_tables = MagicMock()
 sys.modules.setdefault("app.db", _mock_db)
 
 from app.pipeline.explain import _fallback_explain, explain_sql  # noqa: E402
@@ -204,35 +205,29 @@ async def test_reindex_schema_returns_count():
     mock_insp.get_pk_constraint.return_value = {"constrained_columns": ["id"]}
     mock_insp.get_foreign_keys.return_value = []
 
-    mock_conn = MagicMock()
-    mock_conn.__enter__ = MagicMock(return_value=mock_conn)
-    mock_conn.__exit__ = MagicMock(return_value=False)
-    mock_conn.execute.return_value.fetchone.return_value = None
-
-    mock_meta = MagicMock()
-    mock_meta.begin.return_value = mock_conn
+    # ORM 세션 mock: upsert 조회(scalar)는 신규(None), add/commit/close는 no-op
+    mock_session = MagicMock()
+    mock_session.scalar.return_value = None
 
     with patch("app.pipeline.rag.inspect", return_value=mock_insp), \
          patch("app.pipeline.rag.embed", new=AsyncMock(return_value=[0.1] * 768)), \
-         patch("app.pipeline.rag.meta_engine", mock_meta):
+         patch("app.pipeline.rag.MetaSession", return_value=mock_session):
         count = await reindex_schema(mock_engine)
 
     assert count == 2  # ddl + desc 청크 = 2
+    assert mock_session.add.call_count == 2  # 신규 청크 2개 insert
 
 
 # ─── retrieve fallback ──────────────────────────────────────────────────
 
 def test_fallback_retrieve_returns_list():
-    mock_conn = MagicMock()
-    mock_conn.__enter__ = MagicMock(return_value=mock_conn)
-    mock_conn.__exit__ = MagicMock(return_value=False)
-    mock_conn.execute.return_value.fetchall.return_value = [
+    # ORM 세션 mock: execute().all()이 (table, kind, content) 행을 반환
+    mock_session = MagicMock()
+    mock_session.execute.return_value.all.return_value = [
         ("users", "ddl", "CREATE TABLE users (id int)"),
     ]
-    mock_meta = MagicMock()
-    mock_meta.connect.return_value = mock_conn
 
-    with patch("app.pipeline.rag.meta_engine", mock_meta):
+    with patch("app.pipeline.rag.MetaSession", return_value=mock_session):
         results = _fallback_retrieve("users", k=3)
 
     assert len(results) == 1

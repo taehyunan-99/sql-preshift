@@ -8,8 +8,12 @@ from app.base import Base
 from app.config import settings
 
 # 앱 메타 DB (audit_log, migration_history, schema_embeddings) — 런타임 불변.
-# 사용자 target DB와 분리된 앱 소유 고정 인프라.
-meta_engine = create_engine(settings.database_url)
+# 사용자 target DB와 분리된 앱 소유 고정 인프라. 설치형은 SQLite 단일 파일.
+# SQLite는 FastAPI 멀티스레드 접근을 위해 check_same_thread=False가 필요하다.
+_meta_connect_args = (
+    {"check_same_thread": False} if settings.database_url.startswith("sqlite") else {}
+)
+meta_engine = create_engine(settings.database_url, connect_args=_meta_connect_args)
 MetaSession = sessionmaker(bind=meta_engine)
 
 
@@ -120,7 +124,13 @@ def get_meta_session():
         session.close()
 
 
-def ensure_vector_extension() -> None:
-    with meta_engine.connect() as conn:
-        conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
-        conn.commit()
+def create_meta_tables() -> None:
+    """앱 메타 테이블(audit_log/migration_history/schema_embeddings)을 보장한다.
+
+    설치형 SQLite는 pgvector 확장도 alembic도 불필요 — 3개 테이블뿐이라
+    ORM 메타데이터로 create_all 하면 충분하다. 모델을 임포트해야 metadata에 등록된다.
+    """
+    from app.models import audit as _audit  # noqa: F401  (테이블 등록용)
+    from app.models import rag as _rag  # noqa: F401
+
+    Base.metadata.create_all(meta_engine)

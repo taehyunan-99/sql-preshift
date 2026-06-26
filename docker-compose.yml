@@ -70,7 +70,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://sqlpreshift:sqlpreshift@postgres:5432/sqlpreshift}
+      DATABASE_URL: ${DATABASE_URL:-sqlite:////app/data/app_meta.db}
       TARGET_DATABASE_URL: ${TARGET_DATABASE_URL:-postgresql+psycopg://sqlpreshift:sqlpreshift@postgres:5432/sqlpreshift}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma4:latest}
@@ -90,8 +90,8 @@ services:
         condition: service_healthy
     volumes:
       - ./backend:/app
-    # 기동 시 메타 DB 마이그레이션 선행 — audit_log/migration_history/schema_embeddings 테이블 보장
-    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    # 메타 테이블은 앱 기동(lifespan)에서 create_meta_tables로 보장 — SQLite는 alembic 불필요
+    command: sh -c "uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
 
   frontend:
     build:

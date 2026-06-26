@@ -45,3 +45,7 @@ models/
 
 # TypeScript 빌드 캐시
 *.tsbuildinfo
+
+# 설치형 SQLite 메타 DB (런타임 생성)
+backend/data/
+*.db
