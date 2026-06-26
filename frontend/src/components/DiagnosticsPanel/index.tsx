@@ -10,6 +10,7 @@ import {
   type DiagnosticKind,
 } from '../../lib/diagnostics';
 import type { SchemaGraph } from '../../lib/api';
+import '../../lib/monaco-setup'; // monaco self-host loader 설정(설치형 오프라인 대응) — 마운트 전 실행
 
 const MonacoEditor = dynamic(() => import('@monaco-editor/react'), { ssr: false });
 
