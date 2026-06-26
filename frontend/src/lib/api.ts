@@ -120,6 +120,19 @@ const API_BASE =
   process.env.NEXT_PUBLIC_API_URL ||
   'http://localhost:8000';
 
+// FastAPI 에러 본문에서 사람이 읽을 메시지를 뽑는다.
+// HTTPException(detail=str)이면 그 문자열, detail={...message...}(구조화)이면 message를 쓴다.
+// 후자를 그대로 Error()에 넣으면 "[object Object]"가 되므로 반드시 언래핑.
+function errorMessage(body: unknown, fallback: string): string {
+  const detail = (body as { detail?: unknown } | null)?.detail;
+  if (typeof detail === 'string') return detail;
+  if (detail && typeof detail === 'object') {
+    const msg = (detail as { message?: unknown }).message;
+    if (typeof msg === 'string') return msg;
+  }
+  return fallback;
+}
+
 export async function analyzeInput(req: AnalyzeRequest): Promise<AnalyzeResponse> {
   const res = await fetch(`${API_BASE}/api/analyze`, {
     method: 'POST',
@@ -128,7 +141,7 @@ export async function analyzeInput(req: AnalyzeRequest): Promise<AnalyzeResponse
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body?.detail ?? `analyze failed: ${res.status}`);
+    throw new Error(errorMessage(body, `analyze failed: ${res.status}`));
   }
   return res.json();
 }
@@ -157,7 +170,7 @@ export async function applyAll(sqls: string[], confirmCritical = false): Promise
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body?.detail ?? `apply-all failed: ${res.status}`);
+    throw new Error(errorMessage(body, `apply-all failed: ${res.status}`));
   }
   return res.json();
 }
