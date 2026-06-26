@@ -10,7 +10,10 @@ class Settings(BaseSettings):
     # 대상 DB: 기동 시 lazy-init 시도용 기본 target(dev/웹). frozen에선 자동연결 안 함.
     target_database_url: str = "postgresql+psycopg://sqlpreshift:sqlpreshift@localhost:5432/sqlpreshift"
     ollama_base_url: str = "http://localhost:11434"
-    ollama_model: str = "gemma4:latest"
+    # NL→SQL chat 모델 — 기본값을 강제하지 않는다(빈 값=미선택). 설치앱 첫 실행은
+    # 미선택 상태로 시작해 NL이 비활성이고, 사용자가 설정에서 모델을 골라 받으면 활성화된다.
+    # 웹/docker는 compose가 OLLAMA_MODEL을 주입하므로 그 값을 쓴다(개발 편의).
+    ollama_model: str = ""
     # 임베딩 모델 (bge-m3: 1024차원)
     ollama_embed_model: str = "bge-m3:latest"
     # 임베딩 차원 (bge-m3 기본) — BLOB float32 직렬화/numpy 코사인 길이
