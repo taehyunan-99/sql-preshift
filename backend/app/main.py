@@ -5,15 +5,16 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.audit import router as audit_router
 from app.api.connection import router as connection_router
+from app.api.llm import router as llm_router
 from app.api.pipeline import router as pipeline_router
 from app.api.schema import router as schema_router
-from app.db import ensure_vector_extension, get_target_engine, is_target_connected
+from app.db import create_meta_tables, get_target_engine, is_target_connected
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # pgvector 확장 활성화
-    ensure_vector_extension()
+    # 앱 메타 테이블 보장 (설치형 SQLite — alembic/pgvector 불필요)
+    create_meta_tables()
 
     # ① 시작 시 전체 스키마 임베딩 동기화 (M6 RAG) — target 연결돼 있을 때만.
     # 미연결이면 온보딩에서 연결 시점에 reindex하므로 여기선 스킵.
@@ -42,6 +43,7 @@ app.include_router(schema_router)
 app.include_router(pipeline_router)
 app.include_router(audit_router)
 app.include_router(connection_router)
+app.include_router(llm_router)
 
 
 @app.get("/health")

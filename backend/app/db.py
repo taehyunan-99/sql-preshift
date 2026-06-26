@@ -8,8 +8,12 @@ from app.base import Base
 from app.config import settings
 
 # 앱 메타 DB (audit_log, migration_history, schema_embeddings) — 런타임 불변.
-# 사용자 target DB와 분리된 앱 소유 고정 인프라.
-meta_engine = create_engine(settings.database_url)
+# 사용자 target DB와 분리된 앱 소유 고정 인프라. 설치형은 SQLite 단일 파일.
+# SQLite는 FastAPI 멀티스레드 접근을 위해 check_same_thread=False가 필요하다.
+_meta_connect_args = (
+    {"check_same_thread": False} if settings.database_url.startswith("sqlite") else {}
+)
+meta_engine = create_engine(settings.database_url, connect_args=_meta_connect_args)
 MetaSession = sessionmaker(bind=meta_engine)
 
 
@@ -24,7 +28,15 @@ def _try_initial_target_engine() -> None:
     """기동 시 config의 target_database_url이 있으면 연결을 시도(lazy-init).
 
     실패하거나 URL이 없으면 미연결 상태(None)로 둔다 — 부팅은 항상 성공.
+
+    설치형(frozen)은 자동 연결을 건너뛴다 — 첫 실행은 항상 온보딩 게이트에서
+    사용자가 자기 DB를 연결하는 흐름이어야 하기 때문. dev/웹의 기본 target 자동연결
+    편의는 그대로 보존한다(개발 환경에 Postgres가 떠 있으면 바로 메인 진입).
     """
+    from app.runtime_paths import is_frozen
+
+    if is_frozen():
+        return
     url = settings.target_database_url
     if not url:
         return
@@ -120,7 +132,14 @@ def get_meta_session():
         session.close()
 
 
-def ensure_vector_extension() -> None:
-    with meta_engine.connect() as conn:
-        conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
-        conn.commit()
+def create_meta_tables() -> None:
+    """앱 메타 테이블(audit_log/migration_history/schema_embeddings)을 보장한다.
+
+    설치형 SQLite는 pgvector 확장도 alembic도 불필요 — 3개 테이블뿐이라
+    ORM 메타데이터로 create_all 하면 충분하다. 모델을 임포트해야 metadata에 등록된다.
+    """
+    from app.models import audit as _audit  # noqa: F401  (테이블 등록용)
+    from app.models import rag as _rag  # noqa: F401
+    from app.models import settings as _settings  # noqa: F401
+
+    Base.metadata.create_all(meta_engine)

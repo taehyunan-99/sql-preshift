@@ -113,7 +113,25 @@ export interface ApplyAllResponse {
   count: number;
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
+// 설치형(Electron): preload가 주입한 동적 sidecar 포트를 최우선으로 쓴다.
+// 웹/dev: 기존 env fallback 유지 — 한 코드로 두 환경 모두 동작.
+const API_BASE =
+  (typeof window !== 'undefined' && window.desktop?.apiBase) ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  'http://localhost:8000';
+
+// FastAPI 에러 본문에서 사람이 읽을 메시지를 뽑는다.
+// HTTPException(detail=str)이면 그 문자열, detail={...message...}(구조화)이면 message를 쓴다.
+// 후자를 그대로 Error()에 넣으면 "[object Object]"가 되므로 반드시 언래핑.
+function errorMessage(body: unknown, fallback: string): string {
+  const detail = (body as { detail?: unknown } | null)?.detail;
+  if (typeof detail === 'string') return detail;
+  if (detail && typeof detail === 'object') {
+    const msg = (detail as { message?: unknown }).message;
+    if (typeof msg === 'string') return msg;
+  }
+  return fallback;
+}
 
 export async function analyzeInput(req: AnalyzeRequest): Promise<AnalyzeResponse> {
   const res = await fetch(`${API_BASE}/api/analyze`, {
@@ -123,7 +141,7 @@ export async function analyzeInput(req: AnalyzeRequest): Promise<AnalyzeResponse
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body?.detail ?? `analyze failed: ${res.status}`);
+    throw new Error(errorMessage(body, `analyze failed: ${res.status}`));
   }
   return res.json();
 }
@@ -152,7 +170,7 @@ export async function applyAll(sqls: string[], confirmCritical = false): Promise
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body?.detail ?? `apply-all failed: ${res.status}`);
+    throw new Error(errorMessage(body, `apply-all failed: ${res.status}`));
   }
   return res.json();
 }
@@ -204,6 +222,140 @@ export async function getConnectionStatus(): Promise<ConnectionStatus> {
   return res.json();
 }
 
+export interface LlmStatus {
+  reachable: boolean;
+  chatModel: string;
+  chatReady: boolean;
+  embedModel: string;
+  embedReady: boolean;
+  ready: boolean;
+  available: string[]; // 설치된 모델 태그 — 설정 드롭다운 후보
+}
+
+export async function getLlmStatus(): Promise<LlmStatus> {
+  // NL 게이팅 신호 — Ollama serve + 필수 모델 가용 여부. 짧은 타임아웃(3s):
+  // 무응답이면 미가용으로 간주해 SQL-only 안내로 폴백(메인 화면을 막지 않음).
+  const res = await fetch(`${API_BASE}/api/llm/status`, {
+    signal: AbortSignal.timeout(3000),
+  });
+  if (!res.ok) throw new Error(`llm status failed: ${res.status}`);
+  return res.json();
+}
+
+export interface LlmConfig {
+  chatModel: string;
+}
+
+export async function getLlmConfig(): Promise<LlmConfig> {
+  const res = await fetch(`${API_BASE}/api/llm/config`, {
+    signal: AbortSignal.timeout(3000),
+  });
+  if (!res.ok) throw new Error(`llm config failed: ${res.status}`);
+  return res.json();
+}
+
+export async function setLlmConfig(chatModel: string): Promise<LlmConfig> {
+  const res = await fetch(`${API_BASE}/api/llm/config`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chatModel }),
+  });
+  if (!res.ok) throw new Error(`set llm config failed: ${res.status}`);
+  return res.json();
+}
+
+/* ─── 인앱 모델 다운로드 ──────────────────────────────────────────────── */
+
+// 큐레이션 카드 — 실측(4f) 기반. size = NL 총 다운로드량(chat + bge-m3 1.2GB).
+// tag는 실제 pull 가능 태그(호스트 Ollama 실측 확인).
+export interface CuratedModel {
+  tier: 'Light' | 'Balanced' | 'Quality'; // tier·tag·용량은 한글 UI에서도 영어 유지(고유명/수치)
+  tag: string;
+  totalGb: number; // NL 총량(chat + 1.2GB embed)
+  blurb: string; // 영어 한 줄 설명
+  blurbKo: string; // 한국어 한 줄 설명(UI 토글)
+}
+
+export const CURATED_MODELS: CuratedModel[] = [
+  {
+    tier: 'Light',
+    tag: 'qwen3:4b',
+    totalGb: 3.7,
+    blurb: 'Fastest. Good for short, direct questions on smaller schemas.',
+    blurbKo: '가장 빠릅니다. 작은 스키마의 짧고 직접적인 질문에 적합합니다.',
+  },
+  {
+    tier: 'Balanced',
+    tag: 'gemma4:e2b',
+    totalGb: 8.4,
+    blurb: 'A strong middle ground. Accurate SQL at a comfortable speed.',
+    blurbKo: '균형 잡힌 선택. 적당한 속도로 정확한 SQL을 만듭니다.',
+  },
+  {
+    tier: 'Quality',
+    tag: 'gemma4:latest',
+    totalGb: 10.8,
+    blurb: 'Most accurate on complex joins and large schemas. Needs more memory.',
+    blurbKo: '복잡한 조인과 큰 스키마에 가장 정확합니다. 메모리를 더 씁니다.',
+  },
+];
+
+// pull 진행 이벤트 — backend client.pull_models가 흘리는 dict와 1:1.
+export interface PullProgress {
+  model?: string; // 현재 받는 태그(chat 또는 bge-m3)
+  step?: number; // 1-기반 현재 단계
+  steps?: number; // 전체 단계 수(1=chat만, 2=chat+embed)
+  status?: string; // pulling manifest / verifying / success 등
+  total?: number; // 현재 레이어 총 바이트
+  completed?: number; // 현재 레이어 받은 바이트
+  error?: string; // 실패 사유(있으면 스트림 종료)
+  done?: boolean; // 통합 완료
+}
+
+// chat 모델(+ 미설치 bge-m3)을 받는 SSE 스트림을 읽어 진행 콜백을 호출한다.
+// POST라 EventSource를 못 써서 fetch + ReadableStream으로 직접 파싱한다.
+// signal로 취소 가능(AbortController). 반환은 정상 완료(done) 여부.
+export async function pullModel(
+  chatModel: string,
+  onProgress: (p: PullProgress) => void,
+  signal?: AbortSignal,
+): Promise<boolean> {
+  const res = await fetch(`${API_BASE}/api/llm/pull`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chatModel }),
+    signal,
+  });
+  if (!res.ok || !res.body) throw new Error(`pull failed: ${res.status}`);
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let done = false;
+  // SSE 프레임은 빈 줄(\n\n)로 구분, 각 프레임의 "data: " 라인이 페이로드.
+  for (;;) {
+    const { value, done: streamDone } = await reader.read();
+    if (streamDone) break;
+    buffer += decoder.decode(value, { stream: true });
+    const frames = buffer.split('\n\n');
+    buffer = frames.pop() ?? ''; // 마지막은 미완 프레임 — 다음 청크와 이어붙임
+    for (const frame of frames) {
+      const line = frame.split('\n').find((l) => l.startsWith('data:'));
+      if (!line) continue;
+      let evt: PullProgress | null = null;
+      try {
+        evt = JSON.parse(line.slice(5).trim());
+      } catch {
+        continue; // JSON 파싱 실패는 부분 라인 — 다음 유효 프레임으로 회복.
+      }
+      onProgress(evt!);
+      if (evt!.error) throw new Error(evt!.error); // 서버가 보고한 실패는 그대로 전파.
+      if (evt!.done) done = true;
+    }
+  }
+  return done;
+}
+
 export async function testConnection(req: ConnectionRequest): Promise<ConnectionTestResult> {
   const res = await fetch(`${API_BASE}/api/connection/test`, {
     method: 'POST',
@@ -228,23 +380,8 @@ export async function connectDatabase(req: ConnectionRequest): Promise<Connectio
 }
 
 // 샘플 종류 — erp(92테이블, 분리 컨테이너 런타임 시드) / pagila(공개 스키마). 로비 카드에서 선택.
-export type SampleKind = 'erp' | 'pagila';
-
 export async function disconnectDatabase(): Promise<ConnectionStatus> {
   const res = await fetch(`${API_BASE}/api/connection`, { method: 'DELETE' });
   if (!res.ok) throw new Error(`disconnect failed: ${res.status}`);
-  return res.json();
-}
-
-export async function connectSampleDatabase(kind: SampleKind = 'erp'): Promise<ConnectionStatus> {
-  const res = await fetch(`${API_BASE}/api/connection/sample`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ kind }),
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body?.detail ?? `sample connect failed: ${res.status}`);
-  }
   return res.json();
 }

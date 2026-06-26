@@ -1,0 +1,108 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { usePipelineStore } from '../../store/pipeline';
+import { getLlmStatus, type LlmStatus } from '../../lib/api';
+import ModelPicker from './ModelPicker';
+
+// TopBar의 모델 설정 진입점 + 모달. 자연어(NL→SQL)에 쓰는 chat 모델을 고르고 받는다.
+// 내부 UI(추천 카드 + 인앱 다운로드 + Advanced)는 ModelPicker로 분리해 첫 페이지 카드와 공유한다.
+export default function ModelSettings() {
+  const language = usePipelineStore((s) => s.language);
+  const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  // TopBar 배지 점등용 — ready면 success. 모달과 별개로 마운트 시/열 때 갱신.
+  const [status, setStatus] = useState<LlmStatus | null>(null);
+  useEffect(() => {
+    getLlmStatus().then(setStatus).catch(() => setStatus(null));
+  }, []);
+
+  const ko = language === 'ko';
+  const ready = status?.ready ?? false;
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        title={ko ? '자연어 모델 설정' : 'Natural-language model settings'}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          padding: '4px 12px',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-pill)',
+          background: 'var(--bg-tertiary)',
+          color: 'var(--text-secondary)',
+          fontSize: 'var(--font-size-xs)',
+          fontWeight: 600,
+          cursor: 'pointer',
+        }}
+      >
+        <span
+          style={{
+            width: 7,
+            height: 7,
+            borderRadius: '50%',
+            background: ready ? 'var(--color-success)' : 'var(--text-tertiary)',
+          }}
+        />
+        {ko ? '모델' : 'Model'}
+      </button>
+
+      {open &&
+        mounted &&
+        createPortal(
+          <div
+            onClick={() => setOpen(false)}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'var(--bg-scrim)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 100,
+            }}
+          >
+            <div
+              className="glass-trim"
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                width: 460,
+                maxWidth: '90vw',
+                maxHeight: '88vh',
+                overflowY: 'auto',
+                background: 'var(--bg-primary)',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-lg)',
+                // 모달 가장자리에 은은한 teal glow — 디자인 아이덴티티.
+                boxShadow: 'var(--shadow-modal), 0 0 40px -10px var(--color-accent)',
+                padding: 'var(--space-6)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 'var(--space-5)',
+              }}
+            >
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                <h2 style={{ margin: 0, fontSize: 'var(--font-size-lg)', fontWeight: 700, letterSpacing: '-0.01em' }}>
+                  {ko ? '자연어 모델' : 'Language model'}
+                </h2>
+                <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                  {ko
+                    ? '자연어를 SQL로 바꿀 때 쓰는 모델을 고르세요. SQL 직접 입력에는 필요하지 않습니다.'
+                    : 'Pick the model used to turn natural language into SQL. Not needed for direct SQL input.'}
+                </p>
+              </div>
+              <ModelPicker onReady={setStatus} onDone={() => setOpen(false)} />
+            </div>
+          </div>,
+          document.body,
+        )}
+    </>
+  );
+}

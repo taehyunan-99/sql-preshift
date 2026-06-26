@@ -74,8 +74,11 @@
   --space-2: 8px;
   --space-3: 12px;
   --space-4: 16px;
+  --space-5: 20px; /* 4px 스케일 채움 — 카드 내부 패딩 등 16↔24 사이 호흡 */
   --space-6: 24px;
   --space-8: 32px;
+  --space-12: 48px; /* 페이지 섹션 구분(가이드 표준) — 온보딩 헤더↔카드 등 광활한 여백 */
+  --space-16: 64px; /* 히어로/대형 여백 */
 
   /* 타이포 */
   --font-mono: 'Fira Code', 'JetBrains Mono', 'Cascadia Code', monospace;

@@ -21,6 +21,7 @@ root에 모든 가이드를 몰아넣지 않고 영역별로 분리한 이유는
 
 - **backend** — FastAPI 파이프라인·API·DB·LLM 작업 → [`backend/AGENTS.md`](backend/AGENTS.md)
 - **frontend** — Next.js UI·ERD·store 작업 → [`frontend/AGENTS.md`](frontend/AGENTS.md)
+- **desktop** — Electron 셸·sidecar spawn·패키징 작업 → [`desktop/AGENTS.md`](desktop/AGENTS.md)
 
 ## 영역 가이드의 구조
 

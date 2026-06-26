@@ -39,7 +39,7 @@ It isn't a daily tool for data engineers. It's a **safety gate that blocks dange
 - **18 risk rules + golden-path alternatives** — Detects the operations that trigger lock queues: DELETE/UPDATE without WHERE, DROP, full table rewrites, validating constraints, and more. It doesn't just block — it offers zero-downtime alternatives like `ADD CONSTRAINT ... NOT VALID → VALIDATE`.
 - **Size-aware impact** — Risk warnings carry the target table's estimated row count and size, so the same `SET NOT NULL` reads very differently on 100 rows versus 100 million.
 - **Read-only integrity diagnostics on connect** — The moment you connect, it runs four read-only checks (broken referential integrity and more). It changes nothing — it just surfaces risk signals in the current state.
-- **Local LLM for NL→SQL + RAG** — Natural language is turned into SQL by Ollama (gemma) running on the host, with relevant tables retrieved via schema embeddings (bge-m3 · pgvector). Credentials and inference both stay local — nothing leaves for the cloud.
+- **Local LLM for NL→SQL + RAG (optional)** — Natural language is turned into SQL by a local Ollama, with relevant tables retrieved via schema embeddings (bge-m3). Credentials and inference both stay local — nothing leaves for the cloud. Without Ollama you are guided to enter SQL directly, and the core features work without any LLM.
 
 <br/><br/>
 
@@ -59,40 +59,46 @@ Connecting runs the integrity diagnostics immediately. Type natural language or 
 
 <br/><br/>
 
-## Quick Start
+## Download
 
-> **Sample databases included** — Pagila and a 92-table ERP sample boot alongside the app, so you can demo right away without connecting your own database.
+Ships as an installable app for macOS (Apple Silicon). Launch it and the database connection screen appears right away.
 
-**1. Environment**
+<!-- TODO: replace with the real URL once a release is published -->
+1. Grab the latest `SQLPreShift-*.dmg` from [Releases](https://github.com/taehyunan-99/sql-preshift/releases).
+2. Open the dmg and drag `SQLPreShift.app` into Applications.
+3. **First launch** — the app is not notarized yet, so a plain double-click is blocked by macOS. Open it once with either of these and it runs normally afterward:
+   - **Right-click > Open** — then click **Open** again in the warning dialog, or
+   - remove the quarantine attribute from a terminal:
+     ```bash
+     xattr -dr com.apple.quarantine /Applications/SQLPreShift.app
+     ```
+
+Connect a database and integrity diagnostics run immediately; enter SQL to use the full diff / risk / dry-run / Apply flow right away.
+
+**Natural-language input (optional)** — NL→SQL and RAG retrieval work only when a local [Ollama](https://ollama.com) is available. Without it you are guided to enter SQL directly, and the core features (connect · diagnose · ERD · risk · dry-run · Apply · Rollback) all work without Ollama. To enable natural language:
 
 ```bash
-cp .env.example .env
-```
-
-**2. Ollama** (run on the host — Mac Metal GPU acceleration)
-
-```bash
-ollama serve
 ollama pull gemma4:latest    # NL→SQL · explanations
 ollama pull bge-m3:latest    # RAG embeddings (1024-dim)
 ```
 
-**3. Start services**
+<!-- TODO: capture → assets/s1-connect.png (connection screen) -->
+<p align="center">
+  <img src="assets/placeholder.png" alt="Database connection screen" width="720" />
+</p>
+
+<br/><br/>
+
+## Run from source
 
 ```bash
+cp .env.example .env
 docker compose up -d
 ```
 
-- Frontend: http://localhost:3000
-- Backend: http://localhost:8000
-- Health check: http://localhost:8000/health
-
-The backend runs the meta-DB migration (`alembic upgrade head`) automatically on startup.
-
-<!-- TODO: capture → assets/s1-connect-lobby.png (connection lobby + sample picker) -->
-<p align="center">
-  <img src="assets/placeholder.png" alt="Connection lobby — sample database picker" width="720" />
-</p>
+- Frontend: http://localhost:3000 · Backend: http://localhost:8000 · Health: http://localhost:8000/health
+- ERP (92-table) and Pagila demo databases boot alongside — connect to `localhost:5433` (ERP) etc. from the connection screen to try it out.
+- The app's meta DB is a single SQLite file, so no migration step is needed (created automatically on startup).
 
 <br/><br/>
 
@@ -103,11 +109,11 @@ The backend runs the meta-DB migration (`alembic upgrade head`) automatically on
 
 <br/>
 
-**Backend** — Python · FastAPI 0.115 · SQLAlchemy 2.0 · Alembic · sqlglot 25 · psycopg3 · pgvector
+**Backend** — Python · FastAPI 0.115 · SQLAlchemy 2.0 · sqlglot 25 · psycopg3
 
 - `sqlglot` parses SQL into an AST to evaluate risk rules deterministically.
-- The meta DB (audit_log · migration_history · schema_embeddings) and the runtime-connected target DB are **separated at the engine level**, so a user's migration never pollutes the app's infrastructure DB.
-- `pgvector` is used only for cosine search over schema embeddings (RAG).
+- The meta DB (audit_log · migration_history · schema_embeddings) and the runtime-connected target DB are **separated at the engine level**, so a user's migration never pollutes the app's infrastructure DB. The meta DB is a single SQLite file for the installable app.
+- Cosine search over schema embeddings (RAG) runs on BLOB + numpy — no external vector extension needed.
 
 **Frontend** — Next.js 15 · React 19 · TypeScript · @xyflow/react 12 · dagre · zustand 5 · Monaco · motion 12
 
@@ -130,8 +136,9 @@ The backend runs the meta-DB migration (`alembic upgrade head`) automatically on
 
 | Group | Endpoints |
 |-------|-----------|
-| `/connection` | `POST /test` · `POST ""` (connect) · `POST /sample` · `GET /status` · `DELETE ""` |
+| `/connection` | `POST /test` · `POST ""` (connect) · `GET /status` · `DELETE ""` |
 | `/schema` | `GET /graph` · `POST /reindex` |
+| `/llm` | `GET /status` (NL availability) |
 | `/pipeline` | `POST /analyze` · `POST /apply` · `POST /apply-all` |
 | `/audit` | `GET ""` · `POST /{id}/rollback` |
 
@@ -146,7 +153,7 @@ The backend runs the meta-DB migration (`alembic upgrade head`) automatically on
 - **Stateless · one-shot** — User credentials are never persisted to a DB or server (memory only). The connection lives only at runtime.
 - **PostgreSQL 16 only** — Other engines such as MySQL are not supported.
 - **Portfolio demo** — Not a production service; it exists to demonstrate the concept and visuals of a migration safety gate.
-- **Ollama on the host** — NL→SQL and RAG embeddings require a running host Ollama.
+- **Natural-language input needs Ollama** — only NL→SQL and RAG embeddings depend on a local Ollama. The core features (connect · diagnose · ERD · risk · dry-run · Apply · Rollback) work without it.
 
 <br/><br/>
 

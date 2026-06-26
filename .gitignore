@@ -6,12 +6,18 @@ node_modules/
 dist/
 build/
 .next/
+# Next static export 산출물(설치형 빌드 입력) — 추적 안 함
+out/
+# electron-builder 패키징 산출물(.dmg/.app)
+desktop/release/
 
 # Python / 백엔드
 __pycache__/
 *.py[cod]
 .venv/
 venv/
+# PyInstaller 빌드용 격리 venv (sidecar) — .spec은 추적(빌드 재현)
+.venv-build/
 
 # 환경 변수 / 시크릿
 .env
@@ -32,6 +38,9 @@ frontend/scripts/
 # 로컬 LLM 모델 파일
 *.gguf
 models/
+# 단, backend ORM 모델 디렉토리의 .py는 소스 코드다(LLM 모델 파일 아님) — 추적 대상.
+!backend/app/models/
+!backend/app/models/*.py
 
 # OS / IDE
 .DS_Store
@@ -45,3 +54,7 @@ models/
 
 # TypeScript 빌드 캐시
 *.tsbuildinfo
+
+# 설치형 SQLite 메타 DB (런타임 생성)
+backend/data/
+*.db
