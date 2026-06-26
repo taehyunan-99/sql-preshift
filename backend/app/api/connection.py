@@ -4,7 +4,6 @@
 - GET  /api/connection/status — 현재 연결 상태(password 제외)
 - POST /api/connection/test   — 도달성만 확인(엔진 교체 없음) + SSRF 경고
 - POST /api/connection        — 검증 후 target engine 교체(+ 캐시 무효화) + reindex
-- POST /api/connection/sample — 기본 docker DB에 e커머스 샘플 시드 후 연결
 
 보안: connection_validation으로 dialect 고정·SSRF 경고·자격증명 마스킹.
 감사로그엔 host/port/dbname만 — password는 절대 기록하지 않는다.
@@ -16,7 +15,6 @@ import asyncio
 
 from fastapi import APIRouter, HTTPException
 
-from app.config import settings
 from app.db import (
     clear_target_engine,
     get_connection_epoch,
@@ -35,7 +33,6 @@ from app.schemas.connection import (
     ConnectionRequest,
     ConnectionStatus,
     ConnectionTestResult,
-    SampleRequest,
 )
 
 router = APIRouter(prefix="/api/connection", tags=["connection"])
@@ -96,47 +93,6 @@ async def connect(req: ConnectionRequest) -> ConnectionStatus:
     # RAG 재색인은 응답을 막지 않는다 — 별도 스레드 fire-and-forget(메인 루프 무차단).
     _schedule_reindex()
     return _current_status()
-
-
-@router.post("/sample", response_model=ConnectionStatus)
-async def connect_sample(req: SampleRequest | None = None) -> ConnectionStatus:
-    """샘플 전용 분리 컨테이너에 연결한다(클릭 한 번 체험용).
-
-    kind: erp(92테이블, 런타임 시드) / pagila(공개 스키마, init 자동 적재). 기본 erp.
-    메타 DB(sqlpreshift)는 절대 건드리지 않는다 — 샘플은 pg_erp/pg_pagila에만 산다.
-    """
-    kind = req.kind if req else "erp"
-    # kind → 분리 컨테이너 URL. settings.target_database_url(메타와 동일 가능)은 쓰지 않는다.
-    url = settings.sample_erp_url if kind == "erp" else settings.sample_pagila_url
-    try:
-        validated = validate_url(url)
-        test_connection(validated)
-        # ERP만 런타임 시드(결함주입 로직이 Python). Pagila는 컨테이너 init이 이미 적재했다.
-        # 동기 seed(92테이블 DDL+INSERT)는 스레드로 떼어내 이벤트 루프를 막지 않는다(다른 요청 hang 방지).
-        if kind == "erp":
-            await asyncio.to_thread(_seed_erp_blocking, validated)
-    except ConnectionValidationError as e:
-        raise HTTPException(status_code=503, detail=e.message)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to connect sample database: {e}")
-
-    set_target_engine(validated)
-    # 재색인은 별도 스레드 fire-and-forget — 연결 직후 ERD가 즉시 뜨고 색인은 뒤에서 끝난다.
-    _schedule_reindex()
-    return _current_status()
-
-
-def _seed_erp_blocking(url: str) -> None:
-    """ERP 시드(동기) — 스레드에서 실행. create_engine→seed→dispose."""
-    from sqlalchemy import create_engine
-
-    from migrations.seed_erp import seed
-
-    seed_engine = create_engine(url, connect_args={"connect_timeout": 5})
-    try:
-        seed(seed_engine)
-    finally:
-        seed_engine.dispose()
 
 
 # fire-and-forget reindex 태스크 강한 참조 보관 — create_task 결과를 안 잡으면 GC로 중도 취소될 수 있다.

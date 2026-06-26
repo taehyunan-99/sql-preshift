@@ -1,7 +1,9 @@
 """대형 e커머스/ERP 시드 — 92테이블, 무결성 진단 데모/성능 검증용.
 
-기존 seed_ecommerce.py(9테이블, 'Try Sample' 온보딩 재사용)는 건드리지 않는다.
-이 시드는 수동 실행 전용:
+배포는 samples/erp/{01-schema,02-data,03-defects}.sql(선언적 initdb)이 담당한다.
+이 파일은 그 덤프의 "생성기"로 보존한다 — 시드 구성을 바꾸려면 여기서 고치고,
+빈 컨테이너에 1회 실행한 뒤 pg_dump로 다시 동결한다(매 기동 동일 데이터 보장).
+수동 재생성:
     docker compose exec -T backend python migrations/seed_erp.py
 
 설계 근거(현업 조사 Spree/Magento/Odoo/Oracle + 진단 엔진 실측 규칙):

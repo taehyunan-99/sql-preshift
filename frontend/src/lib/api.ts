@@ -233,23 +233,8 @@ export async function connectDatabase(req: ConnectionRequest): Promise<Connectio
 }
 
 // 샘플 종류 — erp(92테이블, 분리 컨테이너 런타임 시드) / pagila(공개 스키마). 로비 카드에서 선택.
-export type SampleKind = 'erp' | 'pagila';
-
 export async function disconnectDatabase(): Promise<ConnectionStatus> {
   const res = await fetch(`${API_BASE}/api/connection`, { method: 'DELETE' });
   if (!res.ok) throw new Error(`disconnect failed: ${res.status}`);
-  return res.json();
-}
-
-export async function connectSampleDatabase(kind: SampleKind = 'erp'): Promise<ConnectionStatus> {
-  const res = await fetch(`${API_BASE}/api/connection/sample`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ kind }),
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body?.detail ?? `sample connect failed: ${res.status}`);
-  }
   return res.json();
 }
