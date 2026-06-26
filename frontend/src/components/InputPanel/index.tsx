@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { usePipelineStore } from '../../store/pipeline';
-import { analyzeInput, applyAll } from '../../lib/api';
+import { analyzeInput, applyAll, getLlmStatus, type LlmStatus } from '../../lib/api';
 
 // CommandBar — 하단 중앙 floating pill. 입력 모드는 항상 auto(NL/SQL 자동 감지).
 // idle=확장, analyzing=collapse+disabled. preview에서도 노출돼 누적 dry-run 입력을 받고,
@@ -45,6 +45,17 @@ export default function InputPanel() {
   // SSR엔 document가 없으므로 클라이언트 마운트 후에만 portal한다.
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+
+  // NL 가용성 — Ollama serve + 필수 모델이 있어야 자연어 입력이 동작한다.
+  // 조회 실패/무응답은 미가용으로 간주(SQL-only 안내). 마운트 시 1회.
+  const [llm, setLlm] = useState<LlmStatus | null>(null);
+  useEffect(() => {
+    getLlmStatus()
+      .then(setLlm)
+      .catch(() => setLlm(null));
+  }, []);
+  // 안내는 명시적 미가용일 때만 띄운다(조회 전 null은 깜빡임 방지로 무표시).
+  const nlUnavailable = llm !== null && !llm.ready;
 
   // 입력 내용에 맞춰 textarea 높이 자동 확장 — 최대 화면 절반(50vh), 그 이상은 내부 스크롤.
   // analyzing 중(collapsed)엔 1줄로 접어 두므로 auto-resize를 건너뛴다.
@@ -288,13 +299,23 @@ export default function InputPanel() {
         disabled={isDisabled}
         rows={collapsed ? 1 : 3}
         placeholder={
-          language === 'ko'
-            ? stacking
-              ? '다른 변경을 추가하세요 (자연어 또는 SQL) — Cmd/Ctrl+Enter로 추가'
-              : '자연어 또는 SQL을 입력하세요 (자동 감지) — Cmd/Ctrl+Enter로 분석'
-            : stacking
-              ? 'Add another change (natural language or SQL) — Cmd/Ctrl+Enter to add'
-              : 'Enter natural language or SQL (auto-detected) — Cmd/Ctrl+Enter to analyze'
+          // NL 미가용(Ollama 부재)이면 SQL 전용 안내로 — 자연어를 쳐도 503이 친절히 안내되지만,
+          // 미리 SQL을 유도해 헛입력을 줄인다. 가용/미상이면 기존 자동감지 문구.
+          nlUnavailable
+            ? language === 'ko'
+              ? stacking
+                ? 'SQL을 추가하세요 — 자연어 입력은 Ollama가 필요합니다 — Cmd/Ctrl+Enter로 추가'
+                : 'SQL을 입력하세요 — 자연어 입력은 Ollama가 필요합니다 — Cmd/Ctrl+Enter로 분석'
+              : stacking
+                ? 'Add SQL — natural-language input requires Ollama — Cmd/Ctrl+Enter to add'
+                : 'Enter SQL — natural-language input requires Ollama — Cmd/Ctrl+Enter to analyze'
+            : language === 'ko'
+              ? stacking
+                ? '다른 변경을 추가하세요 (자연어 또는 SQL) — Cmd/Ctrl+Enter로 추가'
+                : '자연어 또는 SQL을 입력하세요 (자동 감지) — Cmd/Ctrl+Enter로 분석'
+              : stacking
+                ? 'Add another change (natural language or SQL) — Cmd/Ctrl+Enter to add'
+                : 'Enter natural language or SQL (auto-detected) — Cmd/Ctrl+Enter to analyze'
         }
         style={{
           resize: 'none',
@@ -329,6 +350,25 @@ export default function InputPanel() {
           }}
         >
           {analyzeError || actionError}
+        </div>
+      )}
+
+      {/* NL 미가용 안내 — Ollama 부재 시 SQL 전용임을 차분히(info 톤) 알린다.
+          에러 배너가 떠 있으면 중복을 피해 숨긴다. */}
+      {nlUnavailable && !analyzeError && !actionError && (
+        <div
+          style={{
+            padding: '8px 12px',
+            borderRadius: 'var(--radius-sm)',
+            background: 'var(--bg-tertiary)',
+            border: '1px solid var(--border-subtle)',
+            fontSize: 'var(--font-size-sm)',
+            color: 'var(--text-secondary)',
+          }}
+        >
+          {language === 'ko'
+            ? 'Ollama가 감지되지 않아 자연어 입력은 비활성화됩니다. SQL을 직접 입력하세요.'
+            : 'Ollama not detected — natural-language input is disabled. Enter SQL directly.'}
         </div>
       )}
 

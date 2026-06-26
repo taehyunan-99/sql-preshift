@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.audit import router as audit_router
 from app.api.connection import router as connection_router
+from app.api.llm import router as llm_router
 from app.api.pipeline import router as pipeline_router
 from app.api.schema import router as schema_router
 from app.db import create_meta_tables, get_target_engine, is_target_connected
@@ -42,6 +43,7 @@ app.include_router(schema_router)
 app.include_router(pipeline_router)
 app.include_router(audit_router)
 app.include_router(connection_router)
+app.include_router(llm_router)
 
 
 @app.get("/health")

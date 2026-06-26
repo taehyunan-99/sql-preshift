@@ -222,6 +222,25 @@ export async function getConnectionStatus(): Promise<ConnectionStatus> {
   return res.json();
 }
 
+export interface LlmStatus {
+  reachable: boolean;
+  chatModel: string;
+  chatReady: boolean;
+  embedModel: string;
+  embedReady: boolean;
+  ready: boolean;
+}
+
+export async function getLlmStatus(): Promise<LlmStatus> {
+  // NL 게이팅 신호 — Ollama serve + 필수 모델 가용 여부. 짧은 타임아웃(3s):
+  // 무응답이면 미가용으로 간주해 SQL-only 안내로 폴백(메인 화면을 막지 않음).
+  const res = await fetch(`${API_BASE}/api/llm/status`, {
+    signal: AbortSignal.timeout(3000),
+  });
+  if (!res.ok) throw new Error(`llm status failed: ${res.status}`);
+  return res.json();
+}
+
 export async function testConnection(req: ConnectionRequest): Promise<ConnectionTestResult> {
   const res = await fetch(`${API_BASE}/api/connection/test`, {
     method: 'POST',

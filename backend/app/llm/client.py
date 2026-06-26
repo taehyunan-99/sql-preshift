@@ -36,6 +36,31 @@ async def complete(messages: list[dict[str, str]], *, temperature: float = 0.0) 
         raise OllamaError(f"Ollama 호출 중 예외: {e}") from e
 
 
+async def status() -> dict[str, Any]:
+    """Ollama serve 도달 가능 여부 + 필수 모델(chat·embed) 존재를 확인한다.
+
+    설치앱 NL 게이팅의 신호원 — ready=True여야 자연어 입력이 동작한다.
+    serve 미기동/모델 부재를 구분해 안내 문구를 다르게 줄 수 있게 필드를 분리한다.
+    호출은 가벼운 GET /api/tags 한 번(임베딩/추론 안 함)으로 끝낸다.
+    """
+    chat = settings.ollama_model
+    embed_model = settings.ollama_embed_model
+    try:
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            resp = await client.get(f"{settings.ollama_base_url}/api/tags")
+            resp.raise_for_status()
+            tags = {m["name"] for m in resp.json().get("models", [])}
+    except Exception:
+        # serve 미기동/도달 불가 — reachable=False면 모델 존재 여부는 알 수 없다.
+        return {"reachable": False, "chatModel": chat, "chatReady": False,
+                "embedModel": embed_model, "embedReady": False, "ready": False}
+    chat_ready = chat in tags
+    embed_ready = embed_model in tags
+    return {"reachable": True, "chatModel": chat, "chatReady": chat_ready,
+            "embedModel": embed_model, "embedReady": embed_ready,
+            "ready": chat_ready and embed_ready}
+
+
 async def embed(text: str) -> list[float]:
     """Ollama /api/embeddings 호출 → 벡터 반환."""
     url = f"{settings.ollama_base_url}/api/embeddings"
