@@ -140,5 +140,6 @@ def create_meta_tables() -> None:
     """
     from app.models import audit as _audit  # noqa: F401  (테이블 등록용)
     from app.models import rag as _rag  # noqa: F401
+    from app.models import settings as _settings  # noqa: F401
 
     Base.metadata.create_all(meta_engine)
