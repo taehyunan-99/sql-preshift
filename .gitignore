@@ -12,6 +12,8 @@ __pycache__/
 *.py[cod]
 .venv/
 venv/
+# PyInstaller 빌드용 격리 venv (sidecar) — .spec은 추적(빌드 재현)
+.venv-build/
 
 # 환경 변수 / 시크릿
 .env

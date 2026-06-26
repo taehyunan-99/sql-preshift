@@ -1,3 +1,5 @@
+import os
+
 from pydantic_settings import BaseSettings
 
 
@@ -18,7 +20,9 @@ class Settings(BaseSettings):
     embedding_dim: int = 1024
 
     class Config:
-        env_file = ".env"
+        # frozen이면 runtime_paths.bootstrap_paths가 절대경로를 SIDECAR_ENV_FILE에 넣는다.
+        # 개발에선 미설정이라 기존 ".env"(CWD 기준)를 그대로 쓴다.
+        env_file = os.environ.get("SIDECAR_ENV_FILE", ".env")
 
 
 settings = Settings()
