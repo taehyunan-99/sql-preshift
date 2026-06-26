@@ -1,11 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion } from 'motion/react';
 import {
   connectDatabase,
   testConnection,
+  getLlmStatus,
+  CURATED_MODELS,
   type ConnectionStatus,
+  type LlmStatus,
 } from '../../lib/api';
 import { usePipelineStore } from '../../store/pipeline';
 import LanguageToggle from '../LanguageToggle';
@@ -59,6 +63,24 @@ export default function DatabaseConnect({ onConnected, onCancel }: Props) {
   const [focused, setFocused] = useState<string | null>(null);
   // Test Connection 진행 중 여부(shimmer 표시용).
   const [testing, setTesting] = useState(false);
+
+  // 모델 선택 — 요약 카드는 현재 선택을 표시하고, 누르면 모달을 띄운다.
+  // 최초 게이트에서만 노출(교체 모달엔 TopBar Model이 따로 있음).
+  const [llm, setLlm] = useState<LlmStatus | null>(null);
+  const [modelOpen, setModelOpen] = useState(false);
+  const [portalReady, setPortalReady] = useState(false);
+  useEffect(() => setPortalReady(true), []);
+  useEffect(() => {
+    if (!onCancel) getLlmStatus().then(setLlm).catch(() => setLlm(null));
+  }, [onCancel]);
+  // 모달이 닫힐 때마다 최신 선택을 다시 읽어 요약 카드에 반영.
+  useEffect(() => {
+    if (!modelOpen && !onCancel) getLlmStatus().then(setLlm).catch(() => {});
+  }, [modelOpen, onCancel]);
+
+  // 현재 선택 모델의 표시용 정보 — 큐레이션이면 tier 라벨, 아니면 태그 그대로, 없으면 None.
+  const selectedTag = llm?.chatModel?.trim() ?? '';
+  const selectedCurated = CURATED_MODELS.find((m) => m.tag === selectedTag);
 
   const req = () => ({ host, port: Number(port) || 5432, user, password, dbname });
 
@@ -123,7 +145,10 @@ export default function DatabaseConnect({ onConnected, onCancel }: Props) {
         justifyContent: 'center',
         background: 'var(--bg-primary)',
         color: 'var(--text-primary)',
-        overflow: 'hidden',
+        // 두 카드가 세로로 길어지면 잘리지 않게 스크롤 + 상하 여백.
+        overflowX: 'hidden',
+        overflowY: 'auto',
+        padding: 'var(--space-8) 0',
       }}
     >
       {/* 공통 배경 — 전 화면(연결/idle/작업중) 동일 후광. 연결 화면은 후광이 주역(lobby). */}
@@ -143,7 +168,7 @@ export default function DatabaseConnect({ onConnected, onCancel }: Props) {
         }}
       >
         {/* 브랜드 헤더 — 진입 stagger fade-up: 타이틀→서브타이틀이 8px 아래에서 순차로 떠오름. */}
-        <div style={{ textAlign: 'center', marginBottom: 'var(--space-6)' }}>
+        <div style={{ textAlign: 'center', marginBottom: 'var(--space-5)' }}>
           <motion.h1
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -296,48 +321,115 @@ export default function DatabaseConnect({ onConnected, onCancel }: Props) {
           </div>
         </motion.div>
 
-        {/* 모델 선택 보조 카드 — 최초 게이트에서만(교체 모달엔 TopBar Model이 따로 있음).
-            DB 연결이 주(主)이고 모델은 NL 전용 선택사항임을 위계로 드러낸다(작게, optional 라벨). */}
+        {/* 모델 선택 요약 카드 — 최초 게이트에서만. 현재 선택을 보여주고, 누르면 모달로 선택.
+            DB 연결이 주(主), 모델은 'Optional . 자연어용' 보조임을 위계로 드러낸다. */}
         {!onCancel && (
-          <motion.div
+          <motion.button
+            type="button"
+            onClick={() => setModelOpen(true)}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, ease: [0.34, 1.2, 0.64, 1], delay: 0.24 }}
-            style={{
-              marginTop: 'var(--space-4)',
-              background: 'var(--bg-secondary)',
-              border: '1px solid var(--border)',
-              borderRadius: 'var(--radius-lg)',
-              boxShadow: 'var(--shadow-card)',
-              padding: 'var(--space-5)',
-            }}
+            className="model-summary-card glass-trim"
           >
-            {/* 보조 카드 헤더 — "선택사항 · 자연어용"을 명확히 해 'DB만 연결해도 시작됨'을 전달. */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-1)' }}>
-              <span style={{ fontSize: 'var(--font-size-md)', fontWeight: 600, color: 'var(--text-primary)' }}>
-                {ko ? '자연어 모델' : 'Language model'}
-              </span>
-              <span
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', minWidth: 0, flex: 1, textAlign: 'left' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 'var(--font-size-md)', fontWeight: 600, color: 'var(--text-primary)' }}>
+                  {ko ? '자연어 모델' : 'Language model'}
+                </span>
+                <span
+                  style={{
+                    fontSize: 'var(--font-size-xs)',
+                    fontWeight: 600,
+                    color: 'var(--text-tertiary)',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: 'var(--radius-pill)',
+                    padding: '2px var(--space-2)',
+                  }}
+                >
+                  {ko ? '선택 . 자연어용' : 'Optional . for natural language'}
+                </span>
+              </div>
+              {/* 현재 선택 표시 — 선택됨이면 tier·tag, None이면 미선택 안내. */}
+              {selectedTag === '' ? (
+                <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                  {ko ? '모델 없음 . SQL 직접 입력만 사용' : 'No model . direct SQL input only'}
+                </span>
+              ) : (
+                <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-accent-hover)', fontWeight: 600 }}>
+                    {selectedCurated ? selectedCurated.tier : (ko ? '선택됨' : 'Selected')}
+                  </span>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
+                    {selectedTag}
+                  </span>
+                </span>
+              )}
+            </div>
+            <span
+              style={{
+                flexShrink: 0,
+                alignSelf: 'center',
+                fontSize: 'var(--font-size-sm)',
+                fontWeight: 600,
+                color: 'var(--color-accent)',
+              }}
+            >
+              {selectedTag === '' ? (ko ? '모델 고르기' : 'Choose model') : (ko ? '변경' : 'Change')}
+            </span>
+          </motion.button>
+        )}
+
+        {/* 모델 선택 모달 — 요약 카드 클릭 시. ModelSettings 모달과 동일한 ModelPicker 본문. */}
+        {modelOpen &&
+          portalReady &&
+          createPortal(
+            <div
+              onClick={() => setModelOpen(false)}
+              style={{
+                position: 'fixed',
+                inset: 0,
+                background: 'var(--bg-scrim)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 100,
+                padding: 'var(--space-4)',
+              }}
+            >
+              <div
+                className="glass-trim"
+                onClick={(e) => e.stopPropagation()}
                 style={{
-                  fontSize: 'var(--font-size-xs)',
-                  fontWeight: 600,
-                  color: 'var(--text-tertiary)',
-                  border: '1px solid var(--border-subtle)',
-                  borderRadius: 'var(--radius-pill)',
-                  padding: '1px var(--space-2)',
+                  width: 460,
+                  maxWidth: '90vw',
+                  maxHeight: '88vh',
+                  overflowY: 'auto',
+                  background: 'var(--bg-primary)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-lg)',
+                  boxShadow: 'var(--shadow-modal), 0 0 40px -10px var(--color-accent)',
+                  padding: 'var(--space-6)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 'var(--space-5)',
                 }}
               >
-                {ko ? '선택 . 자연어용' : 'Optional . for natural language'}
-              </span>
-            </div>
-            <p style={{ margin: '0 0 var(--space-3)', fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', lineHeight: 1.45 }}>
-              {ko
-                ? '자연어로 SQL을 작성하려면 모델을 하나 받으세요. SQL 직접 입력은 모델 없이도 됩니다.'
-                : 'Download a model to write SQL in natural language. Direct SQL input works without one.'}
-            </p>
-            <ModelPicker hideHeader />
-          </motion.div>
-        )}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                  <h2 style={{ margin: 0, fontSize: 'var(--font-size-lg)', fontWeight: 700, letterSpacing: '-0.01em' }}>
+                    {ko ? '자연어 모델' : 'Language model'}
+                  </h2>
+                  <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                    {ko
+                      ? '자연어를 SQL로 바꿀 때 쓰는 모델을 고르세요. SQL 직접 입력에는 필요하지 않습니다.'
+                      : 'Pick the model used to turn natural language into SQL. Not needed for direct SQL input.'}
+                  </p>
+                </div>
+                <ModelPicker onReady={setLlm} onDone={() => setModelOpen(false)} />
+              </div>
+            </div>,
+            document.body,
+          )}
 
         {/* 교체 모달 재사용 시 Cancel — 하단 중앙 */}
         {onCancel && (
@@ -359,6 +451,30 @@ export default function DatabaseConnect({ onConnected, onCancel }: Props) {
           </button>
         )}
       </div>
+
+      <style jsx>{`
+        /* 모델 요약 카드 — DB 폼보다 한 단계 낮은 보조 표면. hover 시 teal glow(아이덴티티). */
+        .model-summary-card {
+          margin-top: var(--space-3);
+          display: flex;
+          align-items: center;
+          gap: var(--space-4);
+          width: 100%;
+          padding: var(--space-4) var(--space-5);
+          background: var(--bg-secondary);
+          border: 1px solid var(--border);
+          border-radius: var(--radius-lg);
+          box-shadow: var(--shadow-card);
+          cursor: pointer;
+          font-family: var(--font-sans);
+          transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+        }
+        .model-summary-card:hover {
+          border-color: var(--color-accent-border);
+          background: var(--bg-tertiary);
+          box-shadow: var(--shadow-card), 0 0 0 3px var(--color-accent-10), 0 0 26px -8px var(--color-accent);
+        }
+      `}</style>
     </div>
   );
 }

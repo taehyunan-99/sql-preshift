@@ -269,16 +269,35 @@ export async function setLlmConfig(chatModel: string): Promise<LlmConfig> {
 // 큐레이션 카드 — 실측(4f) 기반. size = NL 총 다운로드량(chat + bge-m3 1.2GB).
 // tag는 실제 pull 가능 태그(호스트 Ollama 실측 확인).
 export interface CuratedModel {
-  tier: 'Light' | 'Balanced' | 'Quality';
+  tier: 'Light' | 'Balanced' | 'Quality'; // tier·tag·용량은 한글 UI에서도 영어 유지(고유명/수치)
   tag: string;
   totalGb: number; // NL 총량(chat + 1.2GB embed)
   blurb: string; // 영어 한 줄 설명
+  blurbKo: string; // 한국어 한 줄 설명(UI 토글)
 }
 
 export const CURATED_MODELS: CuratedModel[] = [
-  { tier: 'Light', tag: 'qwen3:4b', totalGb: 3.7, blurb: 'Fastest. Good for short, direct questions on smaller schemas.' },
-  { tier: 'Balanced', tag: 'gemma4:e2b', totalGb: 8.4, blurb: 'A strong middle ground. Accurate SQL at a comfortable speed.' },
-  { tier: 'Quality', tag: 'gemma4:latest', totalGb: 10.8, blurb: 'Most accurate on complex joins and large schemas. Needs more memory.' },
+  {
+    tier: 'Light',
+    tag: 'qwen3:4b',
+    totalGb: 3.7,
+    blurb: 'Fastest. Good for short, direct questions on smaller schemas.',
+    blurbKo: '가장 빠릅니다. 작은 스키마의 짧고 직접적인 질문에 적합합니다.',
+  },
+  {
+    tier: 'Balanced',
+    tag: 'gemma4:e2b',
+    totalGb: 8.4,
+    blurb: 'A strong middle ground. Accurate SQL at a comfortable speed.',
+    blurbKo: '균형 잡힌 선택. 적당한 속도로 정확한 SQL을 만듭니다.',
+  },
+  {
+    tier: 'Quality',
+    tag: 'gemma4:latest',
+    totalGb: 10.8,
+    blurb: 'Most accurate on complex joins and large schemas. Needs more memory.',
+    blurbKo: '복잡한 조인과 큰 스키마에 가장 정확합니다. 메모리를 더 씁니다.',
+  },
 ];
 
 // pull 진행 이벤트 — backend client.pull_models가 흘리는 dict와 1:1.

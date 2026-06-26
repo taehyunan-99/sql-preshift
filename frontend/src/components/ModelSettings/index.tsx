@@ -70,19 +70,35 @@ export default function ModelSettings() {
             }}
           >
             <div
+              className="glass-trim"
               onClick={(e) => e.stopPropagation()}
               style={{
-                width: 440,
+                width: 460,
                 maxWidth: '90vw',
                 maxHeight: '88vh',
                 overflowY: 'auto',
                 background: 'var(--bg-primary)',
                 border: '1px solid var(--border)',
                 borderRadius: 'var(--radius-lg)',
-                padding: 'var(--space-5)',
+                // 모달 가장자리에 은은한 teal glow — 디자인 아이덴티티.
+                boxShadow: 'var(--shadow-modal), 0 0 40px -10px var(--color-accent)',
+                padding: 'var(--space-6)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 'var(--space-5)',
               }}
             >
-              <ModelPicker onReady={setStatus} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                <h2 style={{ margin: 0, fontSize: 'var(--font-size-lg)', fontWeight: 700, letterSpacing: '-0.01em' }}>
+                  {ko ? '자연어 모델' : 'Language model'}
+                </h2>
+                <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                  {ko
+                    ? '자연어를 SQL로 바꿀 때 쓰는 모델을 고르세요. SQL 직접 입력에는 필요하지 않습니다.'
+                    : 'Pick the model used to turn natural language into SQL. Not needed for direct SQL input.'}
+                </p>
+              </div>
+              <ModelPicker onReady={setStatus} onDone={() => setOpen(false)} />
             </div>
           </div>,
           document.body,

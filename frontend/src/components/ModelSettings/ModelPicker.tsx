@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { usePipelineStore } from '../../store/pipeline';
 import {
   getLlmStatus,
   pullModel,
@@ -11,28 +13,35 @@ import {
   type CuratedModel,
 } from '../../lib/api';
 
-// v1 디자인 — 추천 카드 3종 + 인라인 진행 막대(%+용량) + Advanced 직접입력.
-// 모달(ModelSettings)과 첫 페이지 보조 카드(DatabaseConnect) 양쪽에서 재사용한다.
-// pull은 backend SSE 중계(POST /api/llm/pull)를 fetch 스트림으로 읽어 진행률을 그린다.
+// 모델 선택 본문 — 모달(ModelSettings)과 첫 페이지 진입 모달에서 공유한다.
+// 추천 카드 3종 + None(모델 없이 진행) + Advanced 직접입력. pull은 backend SSE 중계
+// (POST /api/llm/pull)를 fetch 스트림으로 읽어 인라인 진행 막대로 그린다.
+// UI 문자열만 한/영 전환 — 모델 tier 라벨·태그·용량은 한글에서도 영어 유지(고유명/수치).
 
-// 한 다운로드의 진행 상태 — 어떤 태그를 누가 받는지 + 현재 진행 이벤트.
 interface DlState {
-  tag: string; // 사용자가 누른 chat 태그(카드/입력)
-  progress: PullProgress | null; // 최신 SSE 이벤트
+  tag: string;
+  progress: PullProgress | null;
 }
 
 interface Props {
-  // 모델이 선택/준비되면 부모에 알린다(첫 페이지에서 카드 상태 갱신용). optional.
+  // 모델 선택/준비가 바뀌면 부모에 최신 상태 전달(요약 카드 갱신용).
   onReady?: (status: LlmStatus) => void;
-  // 헤더(타이틀+설명)를 숨긴다 — 모달은 자체 헤더가 있으므로 카드에서만 노출.
-  hideHeader?: boolean;
+  // 모델/None 확정 후 모달을 닫고 싶을 때(부모가 닫기 제어).
+  onDone?: () => void;
 }
 
-export default function ModelPicker({ onReady, hideHeader }: Props) {
+export default function ModelPicker({ onReady, onDone }: Props) {
+  const ko = usePipelineStore((s) => s.language) === 'ko';
   const [status, setStatus] = useState<LlmStatus | null>(null);
   const [dl, setDl] = useState<DlState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [advTag, setAdvTag] = useState('');
+  const [advOpen, setAdvOpen] = useState(false);
+  // None 확인 시트 — 모델 없이 진행 시 비활성 기능 안내.
+  const [confirmNone, setConfirmNone] = useState(false);
+  // 시트는 portal로 document.body에 렌더 — 모달의 overflow가 fixed를 가두는 문제 회피.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const abortRef = useRef<AbortController | null>(null);
 
   const refresh = () => {
@@ -43,7 +52,6 @@ export default function ModelPicker({ onReady, hideHeader }: Props) {
       })
       .catch(() => setStatus(null));
   };
-  // 마운트 시 1회 + 언마운트 시 진행 중 pull 중단.
   useEffect(() => {
     refresh();
     return () => abortRef.current?.abort();
@@ -53,8 +61,8 @@ export default function ModelPicker({ onReady, hideHeader }: Props) {
   const installed = status?.available ?? [];
   const reachable = status?.reachable ?? false;
   const selected = status?.chatModel ?? '';
+  const noneSelected = selected.trim() === '';
 
-  // chat 태그를 받는다 — 완료되면 그 모델을 선택(set config)하고 상태 갱신.
   const startPull = async (tag: string) => {
     const trimmed = tag.trim();
     if (!trimmed || dl) return;
@@ -65,13 +73,11 @@ export default function ModelPicker({ onReady, hideHeader }: Props) {
     try {
       const ok = await pullModel(trimmed, (p) => setDl({ tag: trimmed, progress: p }), ctrl.signal);
       if (ok) {
-        await setLlmConfig(trimmed); // 받은 모델을 NL 모델로 선택
+        await setLlmConfig(trimmed);
         refresh();
       }
     } catch (e) {
-      if (!ctrl.signal.aborted) {
-        setError(e instanceof Error ? e.message : 'Download failed.');
-      }
+      if (!ctrl.signal.aborted) setError(e instanceof Error ? e.message : (ko ? '다운로드에 실패했습니다.' : 'Download failed.'));
     } finally {
       setDl(null);
       abortRef.current = null;
@@ -80,7 +86,7 @@ export default function ModelPicker({ onReady, hideHeader }: Props) {
 
   const cancel = () => abortRef.current?.abort();
 
-  // 이미 설치된 모델을 클릭 선택(다운로드 없이 chat 모델만 교체).
+  // 설치된 모델 선택(다운로드 없이 chat 모델 교체).
   const selectInstalled = async (tag: string) => {
     if (dl) return;
     setError(null);
@@ -88,29 +94,41 @@ export default function ModelPicker({ onReady, hideHeader }: Props) {
       await setLlmConfig(tag);
       refresh();
     } catch {
-      setError('Failed to select model.');
+      setError(ko ? '모델 선택에 실패했습니다.' : 'Failed to select model.');
     }
   };
 
+  // None 확정 — chat 모델을 비워 NL 비활성. 안내 시트는 닫는다.
+  const confirmNoModel = async () => {
+    setError(null);
+    try {
+      await setLlmConfig('');
+      refresh();
+      setConfirmNone(false);
+      onDone?.();
+    } catch {
+      setError(ko ? '설정 저장에 실패했습니다.' : 'Failed to save.');
+    }
+  };
+
+  // 직접입력 진행은 카드가 아닌 입력 아래에 인라인으로.
+  const advDownloading = dl && !CURATED_MODELS.some((m) => m.tag === dl.tag);
+
   return (
     <div className="mp-wrap">
-      {!hideHeader && (
-        <div className="mp-head">
-          <div className="mp-title">Language model</div>
-          <div className="mp-sub">
-            Pick one model for natural-language to SQL. Each download includes the shared embedding model automatically.
-          </div>
-        </div>
-      )}
-
       {status && !reachable && (
-        <div className="mp-info">Ollama not detected. Install it from ollama.com and start it, then reopen this.</div>
+        <div className="mp-info">
+          {ko
+            ? 'Ollama가 감지되지 않습니다. ollama.com에서 설치하고 실행한 뒤 다시 열어주세요.'
+            : 'Ollama not detected. Install it from ollama.com and start it, then reopen this.'}
+        </div>
       )}
 
       <div className="mp-cards">
         {CURATED_MODELS.map((m) => (
           <ModelCard
             key={m.tag}
+            ko={ko}
             model={m}
             installed={installed.includes(m.tag)}
             isSelected={selected === m.tag}
@@ -122,185 +140,197 @@ export default function ModelPicker({ onReady, hideHeader }: Props) {
             onCancel={cancel}
           />
         ))}
+
+        {/* None — 모델 없이 진행. 선택 시 비활성 기능 안내 시트. */}
+        <button
+          type="button"
+          className={`mp-card mp-none${noneSelected ? ' mp-none-on' : ''}`}
+          onClick={() => setConfirmNone(true)}
+          disabled={!!dl}
+        >
+          <div className="mp-card-main">
+            <div className="mp-card-top">
+              <span className="mp-tier">{ko ? '모델 없이' : 'No model'}</span>
+              {noneSelected && <span className="mp-badge">{ko ? '선택됨' : 'Selected'}</span>}
+            </div>
+            <span className="mp-desc">
+              {ko ? 'SQL 직접 입력만 사용합니다. 언제든 모델을 받을 수 있습니다.' : 'Use direct SQL input only. You can add a model anytime.'}
+            </span>
+          </div>
+          <span className="mp-none-action">{ko ? '계속' : 'Continue'}</span>
+        </button>
       </div>
 
       {error && <div className="mp-error">{error}</div>}
 
-      <details className="mp-adv">
-        <summary>Advanced . direct tag</summary>
-        <div className="mp-adv-note">
-          Pull any model by its Ollama tag. The shared embedding model is added automatically if missing.
-        </div>
-        <div className="mp-adv-row">
-          <input
-            className="mp-input"
-            type="text"
-            value={advTag}
-            onChange={(e) => setAdvTag(e.target.value)}
-            placeholder="e.g. llama3.1:8b"
-            spellCheck={false}
-            disabled={!reachable || !!dl}
-          />
-          <button
-            className="mp-btn mp-btn-accent"
-            type="button"
-            onClick={() => startPull(advTag)}
-            disabled={!reachable || !!dl || advTag.trim() === ''}
-          >
-            Get
-          </button>
-        </div>
-        {/* 직접입력 태그를 받는 중이면 그 진행을 입력 아래에 인라인 표시 */}
-        {dl && !CURATED_MODELS.some((m) => m.tag === dl.tag) && (
-          <div style={{ marginTop: 'var(--space-3)' }}>
-            <ProgressBlock tag={dl.tag} progress={dl.progress} onCancel={cancel} />
+      {/* Advanced — 직접 태그 입력. 클릭 토글(details 대신 제어 상태로 한/영 안정화). */}
+      <div className="mp-adv">
+        <button type="button" className="mp-adv-toggle" onClick={() => setAdvOpen((v) => !v)}>
+          {ko ? '고급 . 태그 직접 입력' : 'Advanced . direct tag'}
+        </button>
+        {advOpen && (
+          <div className="mp-adv-body">
+            <p className="mp-adv-note">
+              {ko
+                ? 'Ollama 태그로 어떤 모델이든 받을 수 있습니다. 임베딩 모델은 없으면 자동으로 함께 받습니다.'
+                : 'Pull any model by its Ollama tag. The shared embedding model is added automatically if missing.'}
+            </p>
+            <div className="mp-adv-row">
+              <input
+                className="mp-input"
+                type="text"
+                value={advTag}
+                onChange={(e) => setAdvTag(e.target.value)}
+                placeholder="e.g. llama3.1:8b"
+                spellCheck={false}
+                disabled={!reachable || !!dl}
+              />
+              <button
+                className="mp-btn mp-btn-accent"
+                type="button"
+                onClick={() => startPull(advTag)}
+                disabled={!reachable || !!dl || advTag.trim() === ''}
+              >
+                Get
+              </button>
+            </div>
+            {advDownloading && (
+              <div style={{ marginTop: 'var(--space-3)' }}>
+                <ProgressBlock ko={ko} tag={dl!.tag} progress={dl!.progress} onCancel={cancel} />
+              </div>
+            )}
           </div>
         )}
-      </details>
+      </div>
 
       <div className="mp-foot">
         <span className="mp-foot-dot" />
-        Shared embedding model bge-m3 (1.2 GB) is included with every download.
+        {ko
+          ? '모델을 받으면 임베딩 모델 bge-m3 (1.2 GB)가 함께 포함됩니다.'
+          : 'Shared embedding model bge-m3 (1.2 GB) is included with every download.'}
       </div>
 
-      <style jsx>{`
-        .mp-wrap {
-          display: flex;
-          flex-direction: column;
-          gap: var(--space-4);
-          font-family: var(--font-sans);
-          color: var(--text-primary);
-        }
-        .mp-head {
-          display: flex;
-          flex-direction: column;
-          gap: var(--space-1);
-        }
-        .mp-title {
-          font-size: var(--font-size-lg);
-          font-weight: 600;
-          letter-spacing: -0.01em;
-        }
-        .mp-sub {
-          font-size: var(--font-size-sm);
-          color: var(--text-secondary);
-          line-height: 1.45;
-        }
-        .mp-info {
-          padding: var(--space-2) var(--space-3);
-          border-radius: var(--radius-sm);
-          background: var(--bg-tertiary);
-          border: 1px solid var(--border-subtle);
-          font-size: var(--font-size-sm);
-          color: var(--text-secondary);
-        }
-        .mp-error {
-          padding: var(--space-2) var(--space-3);
-          border-radius: var(--radius-sm);
-          background: var(--color-error-bg);
-          border: 1px solid var(--color-error-border);
-          font-size: var(--font-size-sm);
-          color: var(--color-error);
-        }
-        .mp-cards {
-          display: flex;
-          flex-direction: column;
-          gap: var(--space-2);
-        }
-        .mp-adv {
-          border-top: 1px solid var(--border-subtle);
-          padding-top: var(--space-4);
-        }
-        .mp-adv :global(summary) {
-          list-style: none;
-          cursor: pointer;
-          font-size: var(--font-size-sm);
-          font-weight: 500;
-          color: var(--text-secondary);
-          outline: none;
-          user-select: none;
-        }
-        .mp-adv :global(summary)::-webkit-details-marker {
-          display: none;
-        }
-        .mp-adv :global(summary):hover {
-          color: var(--text-primary);
-        }
-        .mp-adv-note {
-          font-size: var(--font-size-xs);
-          color: var(--text-tertiary);
-          margin: var(--space-2) 0 var(--space-3);
-          line-height: 1.45;
-        }
-        .mp-adv-row {
-          display: flex;
-          gap: var(--space-2);
-        }
-        .mp-input {
-          flex: 1;
-          min-width: 0;
-          font-family: var(--font-mono);
-          font-size: var(--font-size-sm);
-          color: var(--text-primary);
-          background: var(--bg-input);
-          border: 1px solid var(--border);
-          border-radius: var(--radius-sm);
-          padding: var(--space-2) var(--space-3);
-          outline: none;
-        }
-        .mp-input::placeholder {
-          color: var(--text-tertiary);
-        }
-        .mp-input:focus {
-          border-color: var(--color-accent-border);
-        }
-        .mp-input:disabled {
-          opacity: 0.5;
-        }
-        .mp-btn {
-          flex-shrink: 0;
-          font-family: var(--font-sans);
-          font-size: var(--font-size-sm);
-          font-weight: 600;
-          padding: var(--space-2) var(--space-4);
-          border-radius: var(--radius-sm);
-          cursor: pointer;
-          transition: background 0.15s ease, border-color 0.15s ease;
-        }
-        .mp-btn-accent {
-          background: var(--color-accent);
-          color: var(--text-inverse);
-          border: 1px solid var(--color-accent-border);
-        }
-        .mp-btn-accent:hover:not(:disabled) {
-          background: var(--color-accent-hover);
-        }
-        .mp-btn:disabled {
-          opacity: 0.5;
-          cursor: default;
-        }
-        .mp-foot {
-          display: flex;
-          align-items: center;
-          gap: var(--space-2);
-          font-size: var(--font-size-xs);
-          color: var(--text-tertiary);
-          line-height: 1.45;
-        }
-        .mp-foot-dot {
-          width: 7px;
-          height: 7px;
-          border-radius: var(--radius-pill);
-          background: var(--color-success);
-          flex-shrink: 0;
-        }
-      `}</style>
+      {/* None 확인 시트 — 정보성. 모델 없이 가능/불가 기능을 차분히 안내.
+          portal로 body에(모달 overflow 회피) + 인라인 스타일(portal엔 styled-jsx 미적용). */}
+      {confirmNone && mounted && createPortal(<NoneSheet ko={ko} onBack={() => setConfirmNone(false)} onConfirm={confirmNoModel} />, document.body)}
+
+      <style jsx>{wrapCss}</style>
+      <style jsx>{cardCss}</style>
     </div>
   );
 }
 
-// 단일 추천 카드 — 평상시(tier/tag/size/desc + Get|Installed|Selected), 다운로드 중엔 진행 막대로 전환.
+// None 확인 시트 — portal 렌더라 styled-jsx가 안 닿아 인라인 스타일로 작성한다.
+function NoneSheet({ ko, onBack, onConfirm }: { ko: boolean; onBack: () => void; onConfirm: () => void }) {
+  const headStyle = (color: string): React.CSSProperties => ({
+    fontSize: 'var(--font-size-xs)',
+    fontWeight: 700,
+    letterSpacing: '0.04em',
+    textTransform: 'uppercase',
+    marginBottom: 'var(--space-2)',
+    color,
+  });
+  const listStyle = (muted: boolean): React.CSSProperties => ({
+    margin: 0,
+    paddingLeft: 'var(--space-4)',
+    fontSize: 'var(--font-size-sm)',
+    color: muted ? 'var(--text-tertiary)' : 'var(--text-secondary)',
+    lineHeight: 1.7,
+  });
+  return (
+    <div
+      onClick={onBack}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'var(--bg-scrim)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 200,
+        padding: 'var(--space-4)',
+      }}
+    >
+      <div
+        className="glass-trim"
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: 420,
+          maxWidth: '100%',
+          background: 'var(--bg-primary)',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-lg)',
+          boxShadow: 'var(--shadow-modal), 0 0 30px -6px var(--color-accent)',
+          padding: 'var(--space-6)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 'var(--space-4)',
+        }}
+      >
+        <div style={{ fontSize: 'var(--font-size-lg)', fontWeight: 700 }}>
+          {ko ? '모델 없이 진행할까요?' : 'Continue without a model?'}
+        </div>
+        <p style={{ margin: 'calc(-1 * var(--space-2)) 0 0', fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+          {ko ? '자연어 입력이 꺼진 상태로 유지됩니다.' : 'Natural-language input stays off.'}
+        </p>
+        <div style={{ display: 'flex', gap: 'var(--space-4)' }}>
+          <div style={{ flex: 1 }}>
+            <div style={headStyle('var(--color-success)')}>{ko ? '계속 사용 가능' : 'Still works'}</div>
+            <ul style={listStyle(false)}>
+              <li>{ko ? 'SQL 직접 입력' : 'Direct SQL input'}</li>
+              <li>{ko ? '스키마 diff . 위험 . 적용' : 'Schema diffs, risks, apply'}</li>
+            </ul>
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={headStyle('var(--text-tertiary)')}>{ko ? '사용 불가' : 'Not available'}</div>
+            <ul style={listStyle(true)}>
+              <li>{ko ? '자연어로 SQL 작성' : 'Plain-English to SQL'}</li>
+            </ul>
+          </div>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-2)', marginTop: 'var(--space-1)' }}>
+          <button
+            type="button"
+            onClick={onBack}
+            style={{
+              fontFamily: 'var(--font-sans)',
+              fontSize: 'var(--font-size-sm)',
+              fontWeight: 600,
+              padding: 'var(--space-2) var(--space-4)',
+              borderRadius: 'var(--radius-md)',
+              background: 'transparent',
+              color: 'var(--text-secondary)',
+              border: '1px solid var(--border)',
+              cursor: 'pointer',
+            }}
+          >
+            {ko ? '뒤로' : 'Back'}
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            style={{
+              fontFamily: 'var(--font-sans)',
+              fontSize: 'var(--font-size-sm)',
+              fontWeight: 600,
+              padding: 'var(--space-2) var(--space-4)',
+              borderRadius: 'var(--radius-md)',
+              background: 'var(--color-accent)',
+              color: 'var(--text-inverse)',
+              border: '1px solid var(--color-accent-border)',
+              cursor: 'pointer',
+            }}
+          >
+            {ko ? '계속' : 'Continue'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ModelCard({
+  ko,
   model,
   installed,
   isSelected,
@@ -311,6 +341,7 @@ function ModelCard({
   onSelect,
   onCancel,
 }: {
+  ko: boolean;
   model: CuratedModel;
   installed: boolean;
   isSelected: boolean;
@@ -321,37 +352,37 @@ function ModelCard({
   onSelect: () => void;
   onCancel: () => void;
 }) {
-  // 이 카드가 받는 중이면 progress가 아직 null이어도 즉시 막대로 전환(깜빡임 방지).
   if (isDownloading) {
     return (
       <div className="mp-card mp-card-dl">
-        <ProgressBlock tag={model.tag} tier={model.tier} progress={progress} onCancel={onCancel} />
+        <ProgressBlock ko={ko} tag={model.tag} tier={model.tier} progress={progress} onCancel={onCancel} />
         <style jsx>{cardCss}</style>
       </div>
     );
   }
   return (
-    <div className="mp-card">
+    <div className={`mp-card${isSelected ? ' mp-card-on' : ''}`}>
       <div className="mp-card-main">
         <div className="mp-card-top">
+          {/* tier 라벨·태그·용량은 고유명/수치 — 한글에서도 영어 유지. */}
           <span className="mp-tier">{model.tier}</span>
           <span className="mp-size">{model.totalGb} GB total</span>
-          {isSelected && <span className="mp-badge">Selected</span>}
+          {isSelected && <span className="mp-badge">{ko ? '선택됨' : 'Selected'}</span>}
         </div>
         <span className="mp-tag">{model.tag}</span>
-        <span className="mp-desc">{model.blurb}</span>
+        <span className="mp-desc">{ko ? model.blurbKo : model.blurb}</span>
       </div>
       {installed ? (
         isSelected ? (
-          <span className="mp-installed">Installed</span>
+          <span className="mp-installed">{ko ? '설치됨' : 'Installed'}</span>
         ) : (
           <button className="mp-btn mp-btn-get" type="button" onClick={onSelect} disabled={disabled}>
-            Use
+            {ko ? '사용' : 'Use'}
           </button>
         )
       ) : (
         <button className="mp-btn mp-btn-get" type="button" onClick={onGet} disabled={disabled}>
-          Get
+          {ko ? '받기' : 'Get'}
         </button>
       )}
       <style jsx>{cardCss}</style>
@@ -359,13 +390,14 @@ function ModelCard({
   );
 }
 
-// 진행 막대 — %+용량+서브라인(현재 받는 모델 단계). bytes는 현재 레이어 기준.
 function ProgressBlock({
+  ko,
   tag,
   tier,
   progress,
   onCancel,
 }: {
+  ko: boolean;
   tag: string;
   tier?: string;
   progress: PullProgress | null;
@@ -375,12 +407,11 @@ function ProgressBlock({
   const completed = progress?.completed ?? 0;
   const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
   const gb = (n: number) => (n / 1e9).toFixed(1);
-  // 현재 받는 게 임베딩이면 그 사실을 서브라인에 — 아니면 일반 상태 텍스트.
   const isEmbed = (progress?.model ?? '').startsWith('bge-m3');
   const sub = isEmbed
-    ? 'Downloading shared embedding model'
+    ? ko ? '임베딩 모델 받는 중' : 'Downloading shared embedding model'
     : progress?.status === 'starting' || !progress?.status
-      ? 'Starting download'
+      ? ko ? '시작하는 중' : 'Starting download'
       : progress.status;
 
   return (
@@ -393,7 +424,7 @@ function ProgressBlock({
         <div className="mp-dl-left">
           <span className="mp-dl-pct">{total > 0 ? `${pct}%` : ''}</span>
           <button className="mp-cancel" type="button" onClick={onCancel}>
-            Cancel
+            {ko ? '취소' : 'Cancel'}
           </button>
         </div>
       </div>
@@ -412,34 +443,169 @@ function ProgressBlock({
   );
 }
 
-// 카드/진행 막대 공통 CSS — v1 디자인 그대로(클래스만 mp- 프리픽스).
+// 래퍼 레벨 CSS — 간격 넉넉히(텍스트가 면에 붙지 않게), None 시트, Advanced.
+const wrapCss = `
+  .mp-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    font-family: var(--font-sans);
+    color: var(--text-primary);
+  }
+  .mp-info {
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-md);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-subtle);
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+  .mp-error {
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-md);
+    background: var(--color-error-bg);
+    border: 1px solid var(--color-error-border);
+    font-size: var(--font-size-sm);
+    color: var(--color-error);
+    line-height: 1.5;
+  }
+  .mp-cards {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+  .mp-adv {
+    border-top: 1px solid var(--border-subtle);
+    padding-top: var(--space-4);
+  }
+  .mp-adv-toggle {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    font-family: var(--font-sans);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    color: var(--text-secondary);
+    transition: color 0.15s ease;
+  }
+  .mp-adv-toggle:hover {
+    color: var(--text-primary);
+  }
+  .mp-adv-note {
+    font-size: var(--font-size-xs);
+    color: var(--text-tertiary);
+    margin: var(--space-3) 0;
+    line-height: 1.5;
+  }
+  .mp-adv-row {
+    display: flex;
+    gap: var(--space-2);
+  }
+  .mp-input {
+    flex: 1;
+    min-width: 0;
+    font-family: var(--font-mono);
+    font-size: var(--font-size-sm);
+    color: var(--text-primary);
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--space-2) var(--space-3);
+    outline: none;
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  }
+  .mp-input::placeholder {
+    color: var(--text-tertiary);
+  }
+  .mp-input:focus {
+    border-color: var(--color-accent-border);
+    box-shadow: 0 0 0 3px var(--color-accent-10);
+  }
+  .mp-input:disabled {
+    opacity: 0.5;
+  }
+  .mp-foot {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--font-size-xs);
+    color: var(--text-tertiary);
+    line-height: 1.5;
+  }
+  .mp-foot-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: var(--radius-pill);
+    background: var(--color-success);
+    flex-shrink: 0;
+  }
+`;
+
+// 카드/진행 막대 CSS — 간격 넉넉, glow(선택/다운로드 시 teal halo).
 const cardCss = `
   .mp-card {
     display: flex;
     align-items: flex-start;
-    gap: var(--space-3);
-    padding: var(--space-3);
+    gap: var(--space-4);
+    padding: var(--space-4);
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
     background: var(--bg-secondary);
-    transition: border-color 0.15s ease, background 0.15s ease;
+    text-align: left;
+    width: 100%;
+    font-family: var(--font-sans);
+    transition: border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
   }
   .mp-card:hover {
     border-color: var(--border-strong);
     background: var(--bg-tertiary);
   }
+  /* 선택된 카드 — accent 테두리 + 은은한 teal glow(아이덴티티). */
+  .mp-card-on {
+    border-color: var(--color-accent-border);
+    background: var(--color-accent-10);
+    box-shadow: 0 0 0 3px var(--color-accent-10), 0 0 24px -8px var(--color-accent);
+  }
+  .mp-card-on:hover {
+    border-color: var(--color-accent-border);
+    background: var(--color-accent-10);
+  }
+  /* 다운로드 중 — 더 강한 glow로 진행을 부각. */
   .mp-card-dl {
     border-color: var(--color-accent-border);
     background: var(--color-accent-10);
+    box-shadow: 0 0 0 3px var(--color-accent-10), 0 0 30px -6px var(--color-accent);
   }
   .mp-card-dl:hover {
     border-color: var(--color-accent-border);
     background: var(--color-accent-10);
   }
+  .mp-none {
+    cursor: pointer;
+    align-items: center;
+  }
+  .mp-none:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+  .mp-none-on {
+    border-color: var(--color-accent-border);
+    background: var(--color-accent-10);
+    box-shadow: 0 0 0 3px var(--color-accent-10), 0 0 24px -8px var(--color-accent);
+  }
+  .mp-none-action {
+    flex-shrink: 0;
+    align-self: center;
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--color-accent);
+  }
   .mp-card-main {
     display: flex;
     flex-direction: column;
-    gap: var(--space-1);
+    gap: var(--space-2);
     min-width: 0;
     flex: 1;
   }
@@ -447,6 +613,7 @@ const cardCss = `
     display: flex;
     align-items: center;
     gap: var(--space-2);
+    flex-wrap: wrap;
   }
   .mp-tier {
     font-size: var(--font-size-md);
@@ -456,7 +623,7 @@ const cardCss = `
     font-size: var(--font-size-xs);
     color: var(--text-secondary);
     font-variant-numeric: tabular-nums;
-    padding: 1px var(--space-2);
+    padding: 2px var(--space-2);
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-pill);
     background: var(--bg-input);
@@ -467,7 +634,7 @@ const cardCss = `
     color: var(--color-success);
     background: var(--color-success-bg);
     border: 1px solid var(--color-success-border);
-    padding: 1px var(--space-2);
+    padding: 2px var(--space-2);
     border-radius: var(--radius-pill);
   }
   .mp-tag {
@@ -479,7 +646,7 @@ const cardCss = `
   .mp-desc {
     font-size: var(--font-size-sm);
     color: var(--text-secondary);
-    line-height: 1.4;
+    line-height: 1.5;
   }
   .mp-btn {
     flex-shrink: 0;
@@ -488,7 +655,7 @@ const cardCss = `
     font-size: var(--font-size-sm);
     font-weight: 600;
     padding: var(--space-2) var(--space-4);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-md);
     cursor: pointer;
     transition: background 0.15s ease, border-color 0.15s ease;
   }
@@ -500,6 +667,14 @@ const cardCss = `
   .mp-btn-get:hover:not(:disabled) {
     background: var(--bg-hover);
     border-color: var(--text-tertiary);
+  }
+  .mp-btn-accent {
+    background: var(--color-accent);
+    color: var(--text-inverse);
+    border: 1px solid var(--color-accent-border);
+  }
+  .mp-btn-accent:hover:not(:disabled) {
+    background: var(--color-accent-hover);
   }
   .mp-btn:disabled {
     opacity: 0.5;
@@ -515,7 +690,7 @@ const cardCss = `
   .mp-dl-body {
     display: flex;
     flex-direction: column;
-    gap: var(--space-1);
+    gap: var(--space-2);
     width: 100%;
   }
   .mp-dl-head {
