@@ -615,7 +615,8 @@ const S = {
     borderStyle: 'solid',
     borderColor: 'var(--border)',
     borderRadius: 'var(--radius-md)',
-    background: 'var(--bg-secondary)',
+    // 패널(bg-secondary) 위에서 카드가 떠 보이게 한 단계 밝은 표면.
+    background: 'var(--bg-tertiary)',
     textAlign: 'left',
     width: '100%',
     fontFamily: 'var(--font-sans)',
@@ -623,7 +624,7 @@ const S = {
   },
   cardHover: {
     borderColor: 'var(--border-strong)',
-    background: 'var(--bg-tertiary)',
+    boxShadow: '0 0 0 1px var(--border-strong)',
   },
   // 선택된 카드 — accent 테두리 + 은은한 teal glow(아이덴티티).
   cardOn: {

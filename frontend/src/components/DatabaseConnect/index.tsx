@@ -176,7 +176,13 @@ export default function DatabaseConnect({ onConnected, onCancel }: Props) {
       )}
 
       {view === 'db' && (
-        <DbView ko={ko} hasHub={!onCancel} onCancel={onCancel} onBack={() => setView('hub')}>
+        <EntryShell
+          width={460}
+          title={ko ? '데이터베이스 연결' : 'Connect a database'}
+          subtitle={ko ? 'PostgreSQL 연결 정보를 입력하세요.' : 'Enter your PostgreSQL connection details.'}
+          backLabel={onCancel ? (ko ? '취소' : 'Cancel') : (ko ? '뒤로' : 'Back')}
+          onBack={onCancel ? onCancel : () => setView('hub')}
+        >
           <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
             <div style={{ flex: 2 }}>
               <label style={LABEL}>Host</label>
@@ -280,13 +286,23 @@ export default function DatabaseConnect({ onConnected, onCancel }: Props) {
               {ko ? '연결' : 'Connect'}
             </button>
           </div>
-        </DbView>
+        </EntryShell>
       )}
 
       {view === 'model' && (
-        <ModelView ko={ko} onBack={() => setView('hub')}>
+        <EntryShell
+          width={500}
+          title={ko ? '자연어 모델' : 'Language model'}
+          subtitle={
+            ko
+              ? '자연어를 SQL로 바꿀 때 쓰는 모델을 고르세요. SQL 직접 입력에는 필요하지 않습니다.'
+              : 'Pick the model used to turn natural language into SQL. Not needed for direct SQL input.'
+          }
+          backLabel={ko ? '뒤로' : 'Back'}
+          onBack={() => setView('hub')}
+        >
           <ModelPicker onReady={setLlm} onDone={() => setView('hub')} />
-        </ModelView>
+        </EntryShell>
       )}
     </div>
   );
@@ -465,19 +481,23 @@ function EntryCard({
   );
 }
 
-/* ─── DB 폼 뷰 ──────────────────────────────────────────────── */
+/* ─── 진입 뷰 셸 — Back+헤더+본문을 하나의 카드 안에 통합 ──────────────────────────────────────────────── */
 
-function DbView({
-  ko,
-  hasHub,
-  onCancel,
+// DB 폼·모델 선택 모두 동일 셸을 쓴다(hub 카드와 통일된 디자인).
+// Back은 카드 좌상단 안쪽, 그 아래 제목/설명, 구분선, 본문 순으로 한 덩어리로 정돈한다.
+function EntryShell({
+  width,
+  title,
+  subtitle,
+  backLabel,
   onBack,
   children,
 }: {
-  ko: boolean;
-  hasHub: boolean;
-  onCancel?: () => void;
-  onBack: () => void;
+  width: number;
+  title: string;
+  subtitle: string;
+  backLabel: string;
+  onBack?: () => void;
   children: React.ReactNode;
 }) {
   return (
@@ -485,109 +505,66 @@ function DbView({
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.32, ease: [0.34, 1.2, 0.64, 1] }}
-      style={{ position: 'relative', zIndex: 1, width: 440, maxWidth: '92vw' }}
+      className="glass-trim"
+      style={{
+        position: 'relative',
+        zIndex: 1,
+        width,
+        maxWidth: '92vw',
+        background: 'var(--bg-secondary)',
+        border: '1px solid var(--border)',
+        borderRadius: 'var(--radius-lg)',
+        boxShadow: 'var(--shadow-modal)',
+        // 카드가 길어 화면이 짧으면 내부 스크롤(하단이 잘리지 않게).
+        maxHeight: '84vh',
+        overflowY: 'auto',
+        // 헤더(좌상단 Back/제목)는 카드 안에 통합 — 패딩으로 본문과 면 사이 간격 확보.
+        padding: 'var(--space-6)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 'var(--space-5)',
+      }}
     >
-      <ViewHeader
-        title={ko ? '데이터베이스 연결' : 'Connect a database'}
-        subtitle={ko ? 'PostgreSQL 연결 정보를 입력하세요.' : 'Enter your PostgreSQL connection details.'}
-        onBack={hasHub ? onBack : onCancel}
-        backLabel={hasHub ? (ko ? '뒤로' : 'Back') : (ko ? '취소' : 'Cancel')}
-      />
-      <div
-        className="glass-trim"
-        style={{
-          background: 'var(--bg-secondary)',
-          border: '1px solid var(--border)',
-          borderRadius: 'var(--radius-lg)',
-          boxShadow: 'var(--shadow-modal)',
-          padding: 'var(--space-6)',
-        }}
-      >
-        {children}
+      {/* 헤더 영역 — Back + 제목 + 설명 + 구분선. */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+        {onBack && <BackButton label={backLabel} onClick={onBack} />}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <h2 style={{ margin: 0, fontSize: 'var(--font-size-lg)', fontWeight: 700, letterSpacing: '-0.01em' }}>{title}</h2>
+          <p style={{ margin: 0, fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', lineHeight: 1.5 }}>{subtitle}</p>
+        </div>
       </div>
+
+      {/* 헤더와 본문 구분선 — v1 모달의 정돈감(헤더/본문이 한 카드 안에서 분절). */}
+      <div style={{ height: 1, background: 'var(--border)', margin: '0 calc(-1 * var(--space-6))' }} />
+
+      {children}
     </motion.div>
   );
 }
 
-/* ─── 모델 선택 뷰 ──────────────────────────────────────────────── */
-
-function ModelView({ ko, onBack, children }: { ko: boolean; onBack: () => void; children: React.ReactNode }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.32, ease: [0.34, 1.2, 0.64, 1] }}
-      style={{ position: 'relative', zIndex: 1, width: 480, maxWidth: '92vw' }}
-    >
-      <ViewHeader
-        title={ko ? '자연어 모델' : 'Language model'}
-        subtitle={
-          ko
-            ? '자연어를 SQL로 바꿀 때 쓰는 모델을 고르세요. SQL 직접 입력에는 필요하지 않습니다.'
-            : 'Pick the model used to turn natural language into SQL. Not needed for direct SQL input.'
-        }
-        onBack={onBack}
-        backLabel={ko ? '뒤로' : 'Back'}
-      />
-      <div
-        className="glass-trim"
-        style={{
-          background: 'var(--bg-secondary)',
-          border: '1px solid var(--border)',
-          borderRadius: 'var(--radius-lg)',
-          boxShadow: 'var(--shadow-modal)',
-          padding: 'var(--space-6)',
-          // 카드가 길어 화면이 짧으면 내부 스크롤(하단 Advanced/foot이 잘리지 않게).
-          maxHeight: '76vh',
-          overflowY: 'auto',
-        }}
-      >
-        {children}
-      </div>
-    </motion.div>
-  );
-}
-
-// 진입 뷰 공통 헤더 — Back 버튼 + 제목 + 부제.
-function ViewHeader({
-  title,
-  subtitle,
-  onBack,
-  backLabel,
-}: {
-  title: string;
-  subtitle: string;
-  onBack?: () => void;
-  backLabel: string;
-}) {
+// Back — 카드 좌상단 안쪽의 절제된 텍스트 버튼(꺾쇠 글리프 금지이므로 라벨만).
+function BackButton({ label, onClick }: { label: string; onClick: () => void }) {
   const [hover, setHover] = useState(false);
   return (
-    <div style={{ marginBottom: 'var(--space-5)' }}>
-      {onBack && (
-        <button
-          type="button"
-          onClick={onBack}
-          onMouseEnter={() => setHover(true)}
-          onMouseLeave={() => setHover(false)}
-          style={{
-            display: 'inline-block',
-            marginBottom: 'var(--space-4)',
-            padding: '4px 12px',
-            background: 'transparent',
-            border: `1px solid ${hover ? 'var(--border-strong)' : 'var(--border)'}`,
-            borderRadius: 'var(--radius-pill)',
-            color: hover ? 'var(--text-primary)' : 'var(--text-secondary)',
-            fontSize: 'var(--font-size-sm)',
-            fontWeight: 600,
-            cursor: 'pointer',
-            transition: 'color 0.15s ease, border-color 0.15s ease',
-          }}
-        >
-          {backLabel}
-        </button>
-      )}
-      <h2 style={{ margin: 0, fontSize: 'var(--font-size-lg)', fontWeight: 700, letterSpacing: '-0.01em' }}>{title}</h2>
-      <p style={{ margin: '6px 0 0', fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', lineHeight: 1.5 }}>{subtitle}</p>
-    </div>
+    <button
+      type="button"
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        alignSelf: 'flex-start',
+        padding: '4px 12px',
+        background: hover ? 'var(--bg-hover)' : 'transparent',
+        border: `1px solid ${hover ? 'var(--border-strong)' : 'var(--border)'}`,
+        borderRadius: 'var(--radius-pill)',
+        color: hover ? 'var(--text-primary)' : 'var(--text-secondary)',
+        fontSize: 'var(--font-size-sm)',
+        fontWeight: 600,
+        cursor: 'pointer',
+        transition: 'color 0.15s ease, border-color 0.15s ease, background 0.15s ease',
+      }}
+    >
+      {label}
+    </button>
   );
 }
