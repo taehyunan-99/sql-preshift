@@ -46,14 +46,21 @@ HOW/HOW NOT/WHY는 placeholder. 본격 작성은 베이스라인 완성 즈음 /
 모든 영역에 공통으로 적용되는 명령어. 영역별 명령어는 각 가이드의 7. COMMANDS 참고.
 -->
 
-- 전체 기동: `docker compose up -d` (postgres + backend + frontend)
+- 전체 기동: `docker compose up -d` (postgres + backend + frontend) — docker 개발 경로. 이때 메타 DB는 postgres이며 Alembic이 유효하다. 설치형 기본 메타 DB는 SQLite다([`backend/AGENTS.md`](backend/AGENTS.md) WHY 참고).
 - 백엔드 테스트: `docker compose exec -T backend python -m pytest -q`
 - 프론트 타입체크: `cd frontend && npx tsc --noEmit`
 - 프론트 린트: `cd frontend && npm run lint`
 
+**데모 DB (앱에서 일반 연결 폼으로 붙는 실제 PostgreSQL)**:
+
+- 기동: `docker compose up -d pg_erp pg_pagila` — 앱은 `localhost:5433`(ERP 92테이블) / `localhost:5434`(Pagila)에 붙는다.
+- `samples/`의 선언적 initdb SQL을 첫 기동에만 자동 적재 — 재적재하려면 volume 비우고 재생성: `docker compose down -v pg_erp pg_pagila && docker compose up -d pg_erp pg_pagila`.
+- 메타 DB(앱 인프라)와 물리 분리된 별도 컨테이너다 — 사용자 작업은 이쪽 target DB에서만 실행된다.
+
 **공통 명령어 가드** (모든 영역에 적용):
 
-- 메타 DB(`sqlpreshift`)에 사용자 마이그레이션 SQL 직접 실행 금지 — audit_log/migration_history/schema_embeddings 소유 인프라이며, 사용자 작업은 런타임 연결된 target DB에서만 실행된다. ([[sqlpreshift-runtime-db-connection]] 참고)
+<!-- prev: 메타 DB를 `sqlpreshift`(postgres) 단일로 명시 (init 2026-06-23) → 설치형 SQLite 전환으로 DB 종류 비의존 가드로 일반화 (2026-06-27) -->
+- 메타 DB에 사용자 마이그레이션 SQL 직접 실행 금지 — 설치형은 SQLite(`app_meta.db`), docker 개발 경로는 postgres(`sqlpreshift`)이며 둘 다 audit_log/migration_history/schema_embeddings 소유 인프라다. 사용자 작업은 런타임 연결된 target DB에서만 실행된다. ([[sqlpreshift-runtime-db-connection]] 참고)
 - UI에 노출되는 문자열은 전부 영어로 작성 — 코드 주석만 한국어. ([[sqlpreshift-ui-english]])
 - UI에 이모지 사용 금지.
 
