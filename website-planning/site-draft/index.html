@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SQLPreShift · PostgreSQL 스키마 마이그레이션을 위한 안전 게이트</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+:root{
+  /* 앱 테마 계승 - Calm Clarity graphite dark + teal accent + glow (frontend/src/styles/tokens.css) */
+  --bg-primary:#1A2024;--bg-canvas:#161B1F;--surface:#222A30;--surface-2:#2E373E;
+  --text-primary:#E6EBEC;--text-secondary:#9BA8AD;--text-tertiary:#6B767B;
+  --border:#313B41;--border-subtle:#2A333A;
+  --accent:#2BA8A0;--accent-hover:#34C2B8;--accent-soft:rgba(43,168,160,0.12);--accent-line:rgba(43,168,160,0.45);
+  --warning:#C4955A;--warning-soft:rgba(196,149,90,0.12);--warning-line:rgba(196,149,90,0.32);--danger:#C45B5B;--danger-soft:rgba(196,91,91,0.12);--info:#5A8FC4;--info-soft:rgba(90,143,196,0.12);--info-line:rgba(90,143,196,0.28);--success:#5B9A6F;
+  --shadow-sm:0 2px 8px rgba(0,0,0,0.45);--shadow-md:0 8px 24px rgba(0,0,0,0.5);--shadow-lg:0 12px 40px rgba(0,0,0,0.65);--shadow-glow:0 0 36px rgba(43,168,160,0.28);
+  --font-head:'Plus Jakarta Sans',system-ui,sans-serif;--font-body:'Plus Jakarta Sans',system-ui,sans-serif;--font-mono:'Fira Code','JetBrains Mono',ui-monospace,monospace;
+  --space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-6:24px;--space-8:32px;--space-12:48px;--space-16:64px;--space-24:96px;
+  --radius-sm:6px;--radius-md:10px;--radius-lg:16px;--radius-xl:22px;--radius-full:9999px;--ease:cubic-bezier(0.25,0.1,0.25,1);
+  /* 폭 3단 - 전폭 전략(Linear/Torii/Station). 페이지 전체를 넓게 써서 시원함을 만든다.
+     텍스트 섹션은 1320, 제품 화면/영상은 거의 전폭(1600), 순수 본문만 좁게(prose). 좌우 패딩도 키워 가장자리 숨통. */
+  --maxw:1320px;--maxw-prose:820px;--maxw-wide:1600px;--gutter:40px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+/* ===== 상단 히어로 스냅 =====
+   영상·메인문구는 각각 100vh. CSS proximity는 "절반(50%)을 넘겨야" 다음으로 당겨지는데,
+   사용자는 "30~40%만 넘겨도 바로 넘어가길" 원한다 → 임계값 조정이 불가능한 CSS 대신 커스텀 JS 스냅(아래)이 처리.
+   여기선 레이아웃 높이만 잡고, 스토리 이하는 자유 스크롤로 둔다(JS 스냅 대상도 두 풀스크린 구간 한정). */
+html{scroll-behavior:smooth}
+.snap-section{min-height:100vh}
+body{font-family:var(--font-body);background:var(--bg-primary);color:var(--text-primary);line-height:1.6;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;word-break:keep-all;overflow-wrap:break-word}
+code,.font-mono,[class*="mono"]{word-break:normal;overflow-wrap:anywhere}
+a{color:inherit;text-decoration:none}
+img{max-width:100%;display:block}
+.wrap{max-width:var(--maxw);margin:0 auto;padding:0 var(--gutter)}
+.wrap-prose{max-width:var(--maxw-prose);margin:0 auto;padding:0 var(--gutter)}
+.wrap-wide{max-width:var(--maxw-wide);margin:0 auto;padding:0 var(--gutter)}
+.nav{position:sticky;top:0;z-index:50;background:rgba(22,28,32,0.82);backdrop-filter:saturate(150%) blur(14px);border-bottom:1px solid var(--border-subtle)}
+.nav-inner{max-width:var(--maxw-wide);margin:0 auto;height:68px;padding:0 var(--gutter);display:flex;align-items:center;gap:var(--space-8)}
+.brand{display:flex;align-items:center;gap:10px;font-weight:600;font-size:17px;letter-spacing:-0.01em}
+.brand .mark{width:30px;height:30px;border-radius:9px;flex:none;background:linear-gradient(150deg,#34C2B8,#34C2B8);display:grid;place-items:center;box-shadow:var(--shadow-sm)}
+.brand .mark svg{width:17px;height:17px}
+.nav-links{display:flex;gap:var(--space-6);margin-left:var(--space-4)}
+.nav-links a{font-size:15px;color:var(--text-secondary);font-weight:500;padding:6px 2px;position:relative;transition:color .2s var(--ease)}
+.nav-links a:hover{color:var(--text-primary)}
+.nav-links a.active{color:var(--text-primary)}
+.nav-links a.active::after{content:"";position:absolute;left:0;right:0;bottom:-21px;height:2px;background:var(--accent);border-radius:2px}
+.nav-right{margin-left:auto;display:flex;align-items:center;gap:var(--space-4)}
+.nav-gh{display:flex;align-items:center;gap:7px;font-size:14px;color:var(--text-secondary);font-weight:500;transition:color .2s var(--ease)}
+.nav-gh:hover{color:var(--text-primary)}
+.nav-gh svg{width:18px;height:18px}
+.btn{display:inline-flex;align-items:center;gap:8px;font-family:var(--font-body);font-weight:600;font-size:15px;border-radius:var(--radius-full);border:none;cursor:pointer;transition:transform .15s var(--ease),box-shadow .2s var(--ease),background .2s var(--ease);white-space:nowrap}
+.btn-primary{background:var(--accent);color:#F2FBFA;padding:10px 20px;box-shadow:var(--shadow-glow)}
+.btn-primary:hover{background:var(--accent-hover);transform:translateY(-1px)}
+.btn-lg{padding:15px 30px;font-size:16px}
+.btn-ghost{background:transparent;color:var(--text-primary);padding:10px 18px;border:1px solid var(--border)}
+.btn-ghost:hover{background:var(--surface);border-color:var(--text-tertiary)}
+.menu-toggle{display:none;background:none;border:none;cursor:pointer;padding:6px;margin-left:auto}
+.menu-toggle span{display:block;width:22px;height:2px;background:var(--text-primary);border-radius:2px;margin:4px 0;transition:.2s}
+/* ===== hero 2분할: 영상 한 화면 → 스크롤 → 텍스트 한 화면 ===== */
+/* 1) 영상 풀스크린 — 첫 화면. 영상이 화면을 가득 채우고 짤리지 않게 contain. */
+.film-hero{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:88px var(--gutter) var(--space-16);overflow:hidden}
+.film-hero .hero-film{position:relative;width:100%;max-width:var(--maxw-wide);border-radius:var(--radius-lg);overflow:hidden;border:1px solid var(--border);box-shadow:0 0 0 1px rgba(43,168,160,.12),0 40px 120px -30px rgba(43,168,160,.35),var(--shadow-lg);background:var(--bg-canvas)}
+.film-hero .hero-film::after{content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}
+.hero-video{display:block;width:100%;height:auto;aspect-ratio:16/9;object-fit:cover}
+/* 스크롤 유도 힌트 */
+.scroll-hint{position:absolute;left:50%;bottom:32px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:8px;color:var(--text-tertiary);font-size:12px;font-family:var(--font-mono);letter-spacing:.05em;animation:hintbob 2s var(--ease) infinite}
+.scroll-hint svg{width:20px;height:20px}
+@keyframes hintbob{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(6px)}}
+/* 2) 텍스트 풀스크린 — 두 번째 화면. 메시지 중앙.
+   영상 슬라이드와 톤을 분리해 "다른 화면으로 넘어왔다"를 명확히(은은한 상단 발광 + 한 단계 어두운 캔버스). */
+.intro-hero{min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center;padding:var(--space-24) var(--gutter);background:radial-gradient(900px 480px at 50% 36%,rgba(43,168,160,0.07),transparent 70%),var(--bg-canvas)}
+.hero-stack{display:flex;flex-direction:column;align-items:center;max-width:1180px;margin:0 auto}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:13.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--accent);background:var(--accent-soft);padding:7px 15px;border-radius:var(--radius-full);margin-bottom:var(--space-8)}
+.eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--accent)}
+h1.display{font-family:var(--font-head);font-weight:500;font-size:clamp(44px,6.4vw,84px);line-height:1.06;letter-spacing:-0.03em;color:var(--text-primary);width:100%;max-width:none}
+h1.display .line{white-space:nowrap}
+.hero-sub{font-family:var(--font-head);font-weight:500;font-size:clamp(19px,1.9vw,26px);color:var(--text-primary);margin-top:var(--space-6);letter-spacing:-0.01em;line-height:1.3}
+p.lede{font-size:clamp(16px,1.4vw,19px);color:var(--text-secondary);margin-top:var(--space-5);max-width:40em;line-height:1.65}
+p.lede em{font-style:normal;color:var(--text-primary);font-weight:600}
+.hero-cta{display:flex;gap:var(--space-4);margin-top:var(--space-8);flex-wrap:wrap;justify-content:center}
+.hero-meta{margin-top:var(--space-6);font-size:14px;color:var(--text-tertiary);font-family:var(--font-mono)}
+.hero-meta b{color:var(--text-secondary);font-weight:500}
+/* CTA 풀스크린 슬라이드 — film/intro와 동일하게 100vh 중앙 정렬(스냅 안착면). 상단 발광으로 화면 전환 신호 */
+.cta-band{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:var(--space-16) 0;background:radial-gradient(900px 480px at 50% 40%,rgba(43,168,160,0.06),transparent 70%),var(--bg-canvas)}
+.cta-band .wrap{width:100%}
+/* 카드 표면 제거 — 영상/메인 문구처럼 콘텐츠만 풀스크린 위에 직접. 배경 글로우는 .cta-band가 담당 */
+.cta-card{text-align:center;position:relative}
+.cta-card>*{position:relative}
+.cta-card h2{font-family:var(--font-head);font-weight:500;font-size:clamp(27px,3.4vw,40px);color:var(--text-primary);letter-spacing:-0.025em;line-height:1.15;word-break:keep-all}
+.cta-card p{color:var(--text-secondary);font-size:clamp(15px,1.3vw,17px);margin-top:var(--space-6);max-width:42em;margin-inline:auto;word-break:keep-all}
+.cta-card .hero-cta{justify-content:center;margin-top:var(--space-8)}
+.cta-card .meta{margin-top:var(--space-6);font-family:var(--font-mono);font-size:13px;color:var(--text-tertiary)}
+/* ===== CTA 피날레 진입(반복형, JS가 IO+rAF로 구동) — 콘텐츠 lift → 배경 bloom → 제목 글자 wipe → 버튼 spring → 메타 fade ===== */
+.js .cta-card{opacity:0;transform:translateY(34px);transition:opacity .9s var(--ease),transform .9s var(--ease)}
+.js .cta-card.fin-in{opacity:1;transform:none}
+/* 배경 글로우 bloom — .cta-band 상단 라디얼을 --bloom(0~1)로 개화. teal spotlight가 풀스크린 위에 피어남 */
+.js .cta-band{--bloom:0;background:radial-gradient(900px 480px at 50% 40%,rgba(43,168,160,calc(0.04 + var(--bloom)*0.10)),transparent 70%),var(--bg-canvas)}
+/* 제목 글자: 아래서 차오르는 mask wipe. --cp(0~1)을 JS가 좌→오 stagger로 채움 */
+.js .cta-card h2 .ch{display:inline-block;white-space:pre;opacity:calc(.08 + var(--cp,0)*.92);transform:translateY(calc((1 - var(--cp,0))*0.5em))}
+/* 버튼 magnetic rise — 아래서 스프링 곡선으로 안착. --br(0|1)을 JS가 순차 토글 */
+.js .cta-card .hero-cta .btn{opacity:var(--br,0);transform:translateY(calc((1 - var(--br,0))*20px));transition:opacity .5s var(--ease),transform .55s cubic-bezier(.34,1.56,.64,1)}
+/* 메타: 마지막에 조용히 fade(피날레 마침표) */
+.js .cta-card .meta{opacity:0;transition:opacity .6s var(--ease)}
+.js .cta-card .meta.fin-in{opacity:1}
+@media(prefers-reduced-motion:reduce){.js .cta-card,.js .cta-card::before,.js .cta-card h2 .ch,.js .cta-card .hero-cta .btn,.js .cta-card .meta{opacity:1!important;transform:none!important}}
+.foot{background:var(--bg-canvas);border-top:1px solid var(--border-subtle);padding:var(--space-16) 0 var(--space-8)}
+.foot-grid{display:grid;grid-template-columns:1.6fr 1fr 1fr 1fr;gap:var(--space-8)}
+.foot-brand .brand{margin-bottom:var(--space-4)}
+.foot-brand p{font-size:14px;color:var(--text-secondary);max-width:26em;line-height:1.6}
+.foot-col h5{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text-tertiary);margin-bottom:var(--space-4)}
+.foot-col a{display:block;font-size:14.5px;color:var(--text-secondary);padding:5px 0;transition:color .2s var(--ease)}
+.foot-col a:hover{color:var(--accent)}
+.foot-bottom{margin-top:var(--space-12);padding-top:var(--space-6);border-top:1px solid var(--border-subtle);display:flex;justify-content:space-between;flex-wrap:wrap;gap:var(--space-3);font-size:13px;color:var(--text-tertiary)}
+.foot-bottom .badges{display:flex;gap:var(--space-3);flex-wrap:wrap}
+.foot-bottom .badge{font-family:var(--font-mono);font-size:12px;background:var(--surface);padding:3px 10px;border-radius:var(--radius-full);color:var(--text-secondary)}
+@media(max-width:980px){.hero-film-wrap{margin-top:var(--space-12)}.foot-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:680px){.nav-links,.nav-gh{display:none}.menu-toggle{display:block}.nav.open .nav-links{display:flex;position:absolute;top:64px;left:0;right:0;flex-direction:column;background:var(--bg-canvas);border-bottom:1px solid var(--border);padding:var(--space-4) var(--space-6);gap:0;margin:0}.nav.open .nav-links a{padding:12px 0;border-bottom:1px solid var(--border-subtle)}.nav.open .nav-links a.active::after{display:none}.foot-grid{grid-template-columns:1fr}.cta-card{padding:var(--space-12) var(--space-6)}.cta-band{min-height:100svh;padding:var(--space-12) var(--gutter)}.hero{padding:var(--space-16) 0 var(--space-12)}}
+
+/* ============ 스크롤 스토리 섹션 ("한 화면 = 한 메시지", Torii/Linear식) ============
+   각 정지점마다 큰 타이포 한 줄 + 큰 비주얼 하나 + 한 줄 설명. 좌우 교차 리듬. */
+/* 풀스크린 슬라이드 — film/intro/cta와 동일하게 100vh 중앙정렬. 세로 패딩 0(중앙정렬이 처리), border 없음(다른 슬라이드와 통일) */
+.story{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:0}
+.story-grid{width:100%;display:grid;grid-template-columns:1fr 1.1fr;gap:clamp(48px,7vw,128px);align-items:center}
+/* 짝수 섹션은 좌우 반전 — 비주얼이 좌, 텍스트가 우 */
+.story.alt .story-text{order:2}
+.story.alt .story-vis{order:1}
+.story-text .tag{display:inline-flex;align-items:center;gap:9px;font-family:var(--font-mono);font-size:13px;font-weight:500;color:var(--accent);margin-bottom:var(--space-6)}
+.story-text .tag .n{width:30px;height:30px;border-radius:50%;border:1.5px solid var(--accent-line);display:grid;place-items:center;font-size:13px}
+/* 큰 메시지 — 가능한 한 줄. 어중간한 줄바꿈을 막기 위해 폰트를 적정화하고 줄바꿈 단위를 직접 제어. */
+.story-text h2{font-family:var(--font-head);font-weight:500;font-size:clamp(27px,2.9vw,40px);line-height:1.15;letter-spacing:-0.025em;max-width:none;word-break:keep-all}
+/* 03 제목은 한 줄 유지 — 긴 문장이라 폰트를 살짝 줄여 화면 폭 안에 들어가게(좁은 화면에선 1단 전환 시 nowrap 해제) */
+.story-text h2.h2-1line{white-space:nowrap;font-size:clamp(22px,2.4vw,34px)}
+@media(max-width:880px){.story-text h2.h2-1line{white-space:normal;font-size:clamp(27px,2.9vw,40px)}}
+.story-text p{font-size:clamp(15px,1.25vw,17px);color:var(--text-secondary);margin-top:var(--space-5);max-width:34em;line-height:1.65;word-break:keep-all}
+.story-text .more{display:inline-flex;align-items:center;gap:7px;margin-top:var(--space-8);font-size:15px;font-weight:600;color:var(--accent)}
+.story-text .more svg{width:15px;height:15px;transition:transform .2s var(--ease)}
+.story-text .more:hover svg{transform:translateX(4px)}
+.story-vis{min-width:0}
+/* 큰 proof 숫자 띠 — 간소하게 3개. */
+/* ----- features에서 재활용한 비주얼 패널 자산 ----- */
+.panel{background:var(--bg-canvas);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);overflow:hidden}
+.panel-bar{display:flex;align-items:center;gap:7px;padding:13px 16px;background:var(--surface);border-bottom:1px solid var(--border-subtle)}
+.panel-bar .tl{width:11px;height:11px;border-radius:50%;background:var(--border)}
+.panel-bar .tl:nth-child(1){background:#2BA8A0}.panel-bar .tl:nth-child(2){background:#C4955A}.panel-bar .tl:nth-child(3){background:#5B9A6F}
+.panel-bar .title{margin-left:10px;font-family:var(--font-mono);font-size:12.5px;color:var(--text-tertiary)}
+.panel-body{padding:var(--space-8)}
+.stack{display:grid;gap:10px}
+.stack-item{display:flex;align-items:center;gap:12px;font-family:var(--font-mono);font-size:13px;background:var(--bg-canvas);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:13px 15px;color:var(--text-secondary)}
+.stack-item .num{width:22px;height:22px;border-radius:5px;background:var(--accent-soft);color:var(--accent);font-size:12px;font-weight:600;display:grid;place-items:center;flex:none}
+.stack-item .ok{margin-left:auto;font-size:10.5px;color:var(--success);text-transform:uppercase;letter-spacing:.04em}
+.stack-item .undo{margin-left:auto;font-size:10.5px;color:var(--text-tertiary);border:1px solid var(--border-subtle);padding:2px 9px;border-radius:var(--radius-full)}
+.applybar{margin-top:var(--space-6);padding-top:var(--space-6);border-top:1px solid var(--border-subtle);display:flex;align-items:center;gap:12px}
+.applybar .tx{font-family:var(--font-mono);font-size:12px;color:var(--text-tertiary)}
+.applybar .ab{margin-left:auto;font-family:var(--font-body);font-size:13px;font-weight:600;color:#F2FBFA;background:var(--accent);padding:8px 16px;border-radius:var(--radius-full)}
+/* 위험 카드 — 경고 톤(warning)으로 통일. golden-path는 안전(success) 표면으로 또렷하게 대비. */
+.riskcard{border:1px solid var(--warning-line);background:var(--bg-canvas);border-radius:var(--radius-lg);overflow:hidden;box-shadow:var(--shadow-lg)}
+.riskcard .rh{padding:15px 18px;display:flex;align-items:center;gap:10px;font-size:14px;font-weight:600;color:var(--warning);background:var(--warning-soft);border-bottom:1px solid var(--warning-line)}
+.riskcard .rh svg{width:17px;height:17px;flex:none}
+.riskcard .rh .badge{margin-left:auto;font-family:var(--font-mono);font-size:10.5px;color:var(--warning);background:rgba(196,149,90,0.18);padding:3px 10px;border-radius:var(--radius-full);letter-spacing:.03em}
+.riskcard .rb{padding:18px;display:grid;gap:16px}
+.riskcard .line{font-family:var(--font-mono);font-size:12.5px;color:var(--text-secondary);line-height:1.6}
+.riskcard .line b{color:var(--text-primary)}
+/* golden-path는 "권장 해결책" — 경고(주황) 카드와 색이 섞이지 않게 중립 표면 + 회색 키워드로 통일. */
+.riskcard .gp{background:var(--surface);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:13px 15px}
+.riskcard .gp .gl{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text-tertiary);margin-bottom:7px;display:flex;align-items:center;gap:6px}
+.riskcard .gp .gl::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--warning)}
+.riskcard .gp code{font-family:var(--font-mono);font-size:12px;color:var(--text-secondary);display:block;line-height:1.8}
+.riskcard .gp code .k{color:var(--text-primary);font-weight:500}
+/* NL->SQL 챗 — 버블 사이 충분한 간격, 다크 톤 통일. */
+.chat{display:grid;gap:18px;position:relative}
+.bubble{max-width:86%;border-radius:var(--radius-lg);padding:14px 17px;font-size:14px;line-height:1.55}
+.bubble.user{background:var(--accent-soft);border:1px solid var(--accent-line);justify-self:end;color:var(--text-primary)}
+.bubble.ai{background:var(--surface);border:1px solid var(--border);justify-self:start;width:100%;max-width:100%}
+.bubble.ai .label{font-family:var(--font-mono);font-size:10.5px;color:var(--accent);text-transform:uppercase;letter-spacing:.05em;margin-bottom:9px}
+.bubble.ai code{font-family:var(--font-mono);font-size:12.5px;color:var(--text-primary);display:block;line-height:1.85}
+.bubble.ai .kw{color:var(--accent)}
+/* 로컬 안내 — info(파랑) 대신 중립 표면으로 teal 테마와 충돌 방지. */
+.llm-note{margin-top:var(--space-6);display:flex;gap:11px;align-items:flex-start;background:var(--bg-canvas);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:13px 15px;font-size:12.5px;color:var(--text-tertiary);line-height:1.5}
+.llm-note svg{width:17px;height:17px;color:var(--accent);flex:none;margin-top:1px}
+@media(max-width:880px){
+  .story-grid{grid-template-columns:1fr;gap:var(--space-12)}
+  .story.alt .story-text{order:1}.story.alt .story-vis{order:2}
+  .story{min-height:100svh}  /* 모바일은 주소창 가변 높이 대응(svh). 스냅은 pointer:coarse에서 꺼지므로 일반 스크롤 */
+}
+
+/* ============ 스크롤 연동 모션 엔진 v5 — 섹션별 시각 축 분리 (ultracode 조사 종합) ============
+   거부된 기법(translateY-fade / clip-path 옆펼침 / blur-to-sharp 포커스 / sheen sweep / 3D tilt / 토큰 좌→우 sweep)은 전부 제거.
+   섹션마다 "서로 다른" 트렌디 모션을 1:1 배정해 페이지가 한 가지 인상으로 단조로워지지 않게 한다:
+     - hero(메인 문구): 글자 플리커 점등(위치 이동 0, 광량만) + lede 키워드 gradient text wipe.
+     - story-01 스택(흐름·청록): 스포트라이트 글로우 바 + 좌측 거터 타임라인(connector/node 체크) + status chip morph + traveling dot + panel lift.
+     - story-02 위험(계측·정지·적색): 위험도 게이지 임계 settle + 영향범위 카운터 롤업 + golden-path 첨삭 마킹 + 임계 셰이크.
+     - story-03 챗: 메시지 순차 + 타이핑 점 + 생성 SQL 타이핑(caret).
+   제목 텍스트(01·02·03): 전부 글자 순차 차오름(chars).
+   완성 타이밍: 요소가 화면 중앙에 올 때 완성+hold(가독성). JS가 매 프레임 rev(0~1) 재계산 → 스크롤 업 시 완전 역재생.
+   성능: dir/노드/자식은 init에서 1회 캐시(매 프레임 DOM 탐색·노드 생성 0). blur는 최대 4px(banding). */
+
+/* 공통: 모션 대상은 GPU 합성 힌트. clip-path/3D/perspective는 더 이상 쓰지 않는다. */
+.js [data-rev]{will-change:transform,opacity,filter}
+
+/* --- hero & 텍스트: 글자 단위 split 래퍼(.ch). init JS가 textContent를 코드포인트 단위로 감싼다. --- */
+.js .ch{display:inline-block;white-space:pre}                 /* pre로 공백 유지, inline-block로 opacity 독립 */
+.js [data-rev="hero"] .ch{opacity:.06;transition:opacity .1s linear}  /* 플리커 점등 초기(거의 꺼짐), 위치 이동 없음 */
+/* 03 제목 글자 순차 차오름 — 위치 이동 없이 opacity만 좌→우. 채워지기 전엔 흐릿하게(가독 사고 방지). */
+.js .story-text[data-text-motion="chars"] h2 .ch{opacity:.12;transition:opacity .12s linear}
+/* lede 키워드(em) gradient wipe — teal 잉크가 글자 안쪽을 좌→우로 칠함(박스 깎기 아님). */
+.js .lede em{font-style:normal;background:linear-gradient(90deg,var(--accent) 0 50%,var(--text-secondary) 50% 100%);background-size:200% 100%;background-position:100% 0;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
+
+/* --- story 텍스트(01·02·03): 제목 글자 순차 차오름(chars). 위치 이동 없이 opacity만 --- */
+
+/* --- story-01: 활성 스텝 스포트라이트(강화) — 활성 스텝은 배경 하이라이트 + 굵은 teal 글로우 바 --- */
+.js .story-vis[data-motion="stack"] .stack-item{position:relative;opacity:.3;transition:none;border-radius:8px;background:rgba(43,168,160,calc(var(--lit,0)*0.10))}
+.js .story-vis[data-motion="stack"] .stack-item::before{content:"";position:absolute;left:-2px;top:3px;bottom:3px;width:3px;border-radius:3px;background:var(--accent);box-shadow:0 0 calc(8px+var(--lit,0)*10px) var(--accent);transform:scaleY(var(--lit,0));transform-origin:top;z-index:1}
+/* --- story-02: 위험 카드 — 위험 토큰에 형광펜 칠하기. JS가 --hl(0~1)로 좌→우 sweep. 카드는 조용히 등장(opacity) --- */
+.js .story-vis[data-motion="risk"] .riskcard{opacity:.5}  /* 초기 등장 상태 — JS가 seq로 0.5→1. CSS가 초기값 담당(다른 섹션과 일관, FOUC 방지) */
+/* 형광펜 질감: 글자보다 약간 큰 높이 + 둥근 끝 + 살짝 기운 마커 자국(빨강 계열). background-size width를 --hl로 칠한다. */
+.js .story-vis[data-motion="risk"] .tok{position:relative;border-radius:2px;padding:0.05em 0.12em;box-decoration-break:clone;-webkit-box-decoration-break:clone;
+  background-image:linear-gradient(104deg,rgba(196,91,91,0) 0.2%,rgba(196,91,91,0.34) 2%,rgba(196,91,91,0.30) 96%,rgba(196,91,91,0) 99%);
+  background-repeat:no-repeat;background-size:calc(var(--hl,0)*100%) 88%;background-position:0 60%}
+
+/* --- story-03: 채팅 순차 + 타이핑 점 + 생성 SQL 타이핑 --- */
+.js .story-vis[data-motion="chat"] .bubble{opacity:0}
+/* 타이핑 점은 grid 흐름에서 빼 ai 버블 영역 상단(user 버블 직후=ai 응답 시작 자리)에 겹쳐 띄움 — 켜지고 꺼져도 .chat 높이 불변. opacity로만 제어. */
+.js .story-vis[data-motion="chat"] .typing{position:absolute;left:0;top:70px;display:flex;align-items:center;gap:5px;padding:10px 14px;opacity:0}
+.js .story-vis[data-motion="chat"] .typing .d{width:6px;height:6px;border-radius:50%;background:var(--text-secondary);opacity:.35;animation:dotPulse 1.1s var(--ease) infinite}
+.js .story-vis[data-motion="chat"] .typing .d:nth-child(2){animation-delay:.18s}
+.js .story-vis[data-motion="chat"] .typing .d:nth-child(3){animation-delay:.36s}
+@keyframes dotPulse{0%,60%,100%{opacity:.3;transform:translateY(0)}30%{opacity:1;transform:translateY(-2px)}}
+.js .story-vis[data-motion="chat"] .type-line{display:block;overflow:hidden;white-space:nowrap;width:0;border-right:1.5px solid var(--accent)}
+.js .story-vis[data-motion="chat"] .type-line.done{border-right-color:transparent}
+
+/* ============ 보조 reveal(hero-meta 등) — 스토리 외 1회성 등장. CTA 카드는 별도 피날레 엔진이 전담 ============ */
+.js [data-reveal]{opacity:0;transition:opacity .7s var(--ease),transform .7s var(--ease)}
+.js [data-reveal="up"]{transform:translateY(28px)}
+.js [data-reveal].in{opacity:1;transform:none}
+@media(prefers-reduced-motion:reduce){
+  .js [data-reveal],.js [data-reveal="up"]{opacity:1!important;transform:none!important;transition:none!important}
+}
+/* 모션 최소화 선호 시 — 스크롤 연동 요소도 즉시 최종 상태(콘텐츠 숨김 사고 방지) */
+@media(prefers-reduced-motion:reduce){
+  .js .ch{opacity:1!important}
+  .js .lede em,.js .story-text[data-text-motion] h2{background:none!important;-webkit-text-fill-color:initial!important;color:var(--text-primary)!important}
+  .js .story-vis[data-motion] .stack-item,.js .story-vis[data-motion] .bubble{opacity:1!important}
+  .js .story-vis[data-motion="chat"] .type-line{width:auto!important;border:none!important}
+  .js .story-vis[data-motion="chat"] .typing{display:none!important}
+}
+</style>
+<!-- 새로고침 시 항상 최상단에서 시작 — 브라우저 기본 스크롤 복원을 끄고 즉시 맨 위로. -->
+<script>if('scrollRestoration' in history)history.scrollRestoration='manual';window.scrollTo(0,0);</script>
+</head>
+<body>
+<header class="nav" id="nav">
+  <div class="nav-inner">
+    <a href="./index.html" class="brand"><span class="mark"><svg viewBox="0 0 24 24" fill="none"><path d="M5 7c0-1.7 3.1-3 7-3s7 1.3 7 3-3.1 3-7 3-7-1.3-7-3Z" stroke="#F2FBFA" stroke-width="1.6"/><path d="M5 7v10c0 1.7 3.1 3 7 3s7-1.3 7-3V7" stroke="#F2FBFA" stroke-width="1.6"/><path d="M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3" stroke="#F2FBFA" stroke-width="1.6"/></svg></span>SQLPreShift</a>
+    <nav class="nav-links"><a href="./index.html" class="active">홈</a><a href="./features.html">기능</a><a href="./download.html">다운로드</a><a href="./guide.html">가이드</a></nav>
+    <div class="nav-right"><a href="https://github.com/taehyunan-99/sql-preshift" class="nav-gh"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.58 2 12.25c0 4.53 2.87 8.37 6.84 9.73.5.1.68-.22.68-.49 0-.24-.01-.88-.01-1.73-2.78.62-3.37-1.37-3.37-1.37-.45-1.18-1.11-1.49-1.11-1.49-.91-.63.07-.62.07-.62 1 .07 1.53 1.06 1.53 1.06.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.63-1.37-2.22-.26-4.56-1.14-4.56-5.06 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.7 0 0 .84-.28 2.75 1.05a9.3 9.3 0 0 1 5 0c1.91-1.33 2.75-1.05 2.75-1.05.55 1.4.2 2.44.1 2.7.64.72 1.03 1.63 1.03 2.75 0 3.93-2.34 4.8-4.57 5.05.36.32.68.94.68 1.9 0 1.37-.01 2.48-.01 2.82 0 .27.18.6.69.49A10.02 10.02 0 0 0 22 12.25C22 6.58 17.52 2 12 2Z"/></svg>GitHub</a><a href="./download.html" class="btn btn-primary">다운로드</a></div>
+    <button class="menu-toggle" id="menuToggle" aria-label="Menu"><span></span><span></span><span></span></button>
+  </div>
+</header>
+<!-- 1) 영상 풀스크린 — 첫 화면 -->
+<section class="film-hero snap-section">
+  <div class="hero-film" aria-hidden="true">
+    <video class="hero-video" autoplay muted loop playsinline poster="./assets/hero-poster-v2.jpg">
+      <!-- H.264 8bit + gradfun 평활. VP9는 다크 발광 영역에 블록 얼룩이 생겨 MP4 단일로 통일.
+           모든 브라우저가 H.264를 재생하므로 WebM 없이 충분하다. -->
+      <source src="./assets/hero-demo-v2.mp4" type="video/mp4">
+    </video>
+  </div>
+  <div class="scroll-hint" aria-hidden="true">SCROLL<svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14m-6-6 6 6 6-6" stroke="currentColor" stroke-width="1.6"/></svg></div>
+</section>
+<!-- 2) 텍스트 풀스크린 — 두 번째 화면 -->
+<section class="intro-hero snap-section">
+  <!-- data-rev="hero": 스크롤 가역 글자 플리커 점등(1회성 아님). data-ch 자식의 텍스트를 JS가 글자 span으로 split. -->
+  <div class="hero-stack" data-rev="hero">
+    <span class="eyebrow" data-ch><span class="dot"></span> PostgreSQL 마이그레이션 안전장치</span>
+    <h1 class="display"><span class="line" data-ch>적용한 뒤에 후회하지 말고,</span><span class="line" data-ch>적용하기 전에 막는다.</span></h1>
+    <p class="hero-sub" data-ch>PostgreSQL 스키마 마이그레이션을 위한 안전 게이트.</p>
+    <p class="lede">모든 변경을 적용하기 <em>전에</em> 실제 데이터베이스에 대조해 검사하고, dry-run으로 검토한 뒤 단일 트랜잭션으로 적용합니다.</p>
+    <p class="hero-meta" data-reveal="up"><b>Apple Silicon</b> &middot; 약 122 MiB &middot; PostgreSQL 16 &middot; 로컬 LLM(Ollama, 선택) &middot; MIT</p>
+  </div>
+</section>
+<!-- ===== 스토리 슬라이드: 한 화면 = 한 메시지. 좌우 교차 리듬. 풀스크린 스냅 + 진입 시 모션 재생. ===== -->
+<section class="story snap-section">
+  <div class="wrap-wide story-grid">
+    <div class="story-text" data-rev="text" data-text-motion="chars">
+      <span class="tag"><span class="n">01</span> dry-run 스택</span>
+      <h2 data-ch>절반만 적용되는 마이그레이션은 없습니다.</h2>
+      <p>각 변경을 실제 DB에 미리 돌려 스택에 쌓고, Apply All이 전체를 단일 트랜잭션으로 감쌉니다. 전부 커밋되거나, 전혀 커밋되지 않습니다.</p>
+      <a href="./features.html#dry-run" class="more">작동 방식 보기 <svg viewBox="0 0 24 24" fill="none"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="2"/></svg></a>
+    </div>
+    <div class="story-vis" data-rev="vis" data-motion="stack">
+      <div class="panel">
+        <div class="panel-bar"><span class="tl"></span><span class="tl"></span><span class="tl"></span><span class="title">dry-run 스택</span></div>
+        <div class="panel-body">
+          <div class="stack">
+            <div class="stack-item"><span class="num">1</span> ALTER TABLE orders ADD status text <span class="ok">dry-run 정상</span></div>
+            <div class="stack-item"><span class="num">2</span> UPDATE orders SET status='new' <span class="ok">dry-run 정상</span></div>
+            <div class="stack-item"><span class="num">3</span> CREATE INDEX CONCURRENTLY idx_st <span class="undo">Undo</span></div>
+          </div>
+          <div class="applybar"><span class="tx">3개 구문 · 1개 트랜잭션으로 묶임</span><span class="ab">Apply All</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<section class="story alt snap-section">
+  <div class="wrap-wide story-grid">
+    <div class="story-text" data-rev="text" data-text-motion="chars">
+      <span class="tag"><span class="n">02</span> 위험 규칙</span>
+      <h2 data-ch>막는 데 그치지 않고, 더 안전한 길을 보여줍니다.</h2>
+      <p>lock-queue를 유발하는 17개 작업을 적용 전에 잡아냅니다. 그냥 빨간 X가 아니라, 무중단으로 우회하는 golden-path를 함께 제시합니다.</p>
+      <a href="./features.html#risk-rules" class="more">위험 검사 알아보기 <svg viewBox="0 0 24 24" fill="none"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="2"/></svg></a>
+    </div>
+    <div class="story-vis" data-rev="vis" data-motion="risk">
+      <div class="riskcard">
+        <div class="rh"><svg viewBox="0 0 24 24" fill="none"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" stroke="currentColor" stroke-width="1.6"/></svg> 위험 검사 · ADD_CHECK_VALIDATING <span class="badge">LOCK QUEUE</span></div>
+        <div class="rb">
+          <div class="line"><span class="tok">NOT VALID 없는 ADD CHECK</span>는 <b>orders</b>에 <span class="tok">ACCESS EXCLUSIVE</span> 락을 잡고 전체 행을 스캔합니다.</div>
+          <div class="gp"><div class="gl">권장 해결책 · golden-path</div><code><span class="k">ALTER TABLE</span> orders ADD CONSTRAINT chk NOT VALID;<br><span class="k">ALTER TABLE</span> orders VALIDATE CONSTRAINT chk;</code></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<section class="story snap-section">
+  <div class="wrap-wide story-grid">
+    <div class="story-text" data-rev="text" data-text-motion="chars">
+      <span class="tag"><span class="n">03</span> Ollama 기반 로컬 AI</span>
+      <h2 data-ch class="h2-1line">말로 적어도, 모든 처리는 이 기기 안에서 끝납니다.</h2>
+      <p>로컬 Ollama가 자연어를 SQL로 바꾸고, 스키마를 근거로 RAG 검색을 합니다. 프롬프트도 결과도 기기를 떠나지 않으며, Ollama가 없어도 SQL을 직접 입력하면 안전 코어는 그대로 작동합니다.</p>
+      <a href="./features.html#local-llm" class="more">로컬 AI 알아보기 <svg viewBox="0 0 24 24" fill="none"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="2"/></svg></a>
+    </div>
+    <div class="story-vis" data-rev="vis" data-motion="chat">
+      <div class="panel">
+        <div class="panel-bar"><span class="tl"></span><span class="tl"></span><span class="tl"></span><span class="title">NL → SQL · Ollama (로컬)</span></div>
+        <div class="panel-body">
+          <div class="chat">
+            <div class="bubble user">orders에 status 컬럼을 추가하고 락 없이 인덱스를 만들어줘.</div>
+            <!-- 타이핑 인디케이터 — user 버블 뒤·ai 버블 앞 구간에서만 표시(JS가 opacity 제어). -->
+            <div class="typing"><span class="d"></span><span class="d"></span><span class="d"></span></div>
+            <div class="bubble ai"><div class="label">생성된 SQL · 스키마 RAG로 근거 확보</div><code><span class="kw">ALTER TABLE</span> orders <span class="kw">ADD COLUMN</span> status text;<br><span class="kw">CREATE INDEX CONCURRENTLY</span> idx_orders_status<br>&nbsp;&nbsp;<span class="kw">ON</span> orders (status);</code></div>
+          </div>
+          <div class="llm-note"><svg viewBox="0 0 24 24" fill="none"><path d="M12 16v-4m0-4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" stroke="currentColor" stroke-width="1.6"/></svg><span>추론은 로컬 Ollama에서 실행됩니다. 프롬프트도 결과도 기기를 떠나지 않습니다.</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<section class="cta-band snap-section">
+  <div class="wrap">
+    <div class="cta-card"><h2>적용한 뒤에 후회하지 말고, 적용하기 전에 막으세요.</h2><p>무료 오픈소스. 모든 작업이 로컬에서 동작합니다. 운영 DB에 ALTER를 던지는 순간을 위해 만들었습니다.</p><div class="hero-cta"><a href="./download.html" class="btn btn-primary btn-lg">macOS용 다운로드</a><a href="./guide.html" class="btn btn-ghost btn-lg">가이드 읽기</a></div><p class="meta">v0.1.0 &middot; Apple Silicon &middot; 약 122 MiB &middot; MIT</p></div>
+  </div>
+</section>
+<footer class="foot">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div class="foot-brand"><a href="./index.html" class="brand"><span class="mark"><svg viewBox="0 0 24 24" fill="none"><path d="M5 7c0-1.7 3.1-3 7-3s7 1.3 7 3-3.1 3-7 3-7-1.3-7-3Z" stroke="#F2FBFA" stroke-width="1.6"/><path d="M5 7v10c0 1.7 3.1 3 7 3s7-1.3 7-3V7" stroke="#F2FBFA" stroke-width="1.6"/><path d="M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3" stroke="#F2FBFA" stroke-width="1.6"/></svg></span>SQLPreShift</a><p>PostgreSQL 스키마 마이그레이션을 위한 안전 게이트. 호스팅 서비스가 아닌 포트폴리오 데모로, 위험한 마이그레이션을 실수로 적용하는 일이 불가능하도록 만들었습니다.</p></div>
+      <div class="foot-col"><h5>제품</h5><a href="./index.html">홈</a><a href="./features.html">기능</a><a href="./download.html">다운로드</a><a href="./guide.html">가이드</a></div>
+      <div class="foot-col"><h5>리소스</h5><a href="./guide.html#install">설치 &amp; Gatekeeper</a><a href="./guide.html#workflow">핵심 워크플로</a><a href="./download.html#source">소스에서 실행</a><a href="https://github.com/taehyunan-99/sql-preshift">GitHub 저장소</a></div>
+      <div class="foot-col"><h5>정보</h5><a href="https://github.com/taehyunan-99/sql-preshift">릴리즈</a><a href="https://github.com/taehyunan-99/sql-preshift/blob/main/LICENSE">MIT 라이선스</a><a href="./download.html#source">소스에서 빌드</a></div>
+    </div>
+    <div class="foot-bottom"><span>&copy; 2026 SQLPreShift &middot; MIT 라이선스 &middot; 완전히 로컬에서 동작.</span><span class="badges"><span class="badge">PostgreSQL 16</span><span class="badge">macOS Apple Silicon</span><span class="badge">텔레메트리 없음</span></span></div>
+  </div>
+</footer>
+<script>(function(){var t=document.getElementById('menuToggle'),n=document.getElementById('nav');if(t)t.addEventListener('click',function(){n.classList.toggle('open');});})();</script>
+<script>
+/* 스토리 외 요소(hero-meta 등)의 1회성 fade-in(data-reveal) + .js 부트스트랩 — 의존성 0. */
+(function(){
+  document.documentElement.classList.add('js'); // JS-on → CSS가 모션 초기 상태 활성화. JS-off면 전부 보임.
+  var io=new IntersectionObserver(function(entries){
+    entries.forEach(function(en){ if(en.isIntersecting){ en.target.classList.add('in'); io.unobserve(en.target); } });
+  },{threshold:0.12,rootMargin:'0px 0px -6% 0px'});
+  document.querySelectorAll('[data-reveal]').forEach(function(el){io.observe(el);});
+})();
+
+/* ===== 스토리 모션 엔진 v5 — 섹션별 시각 축 분리 + 시간 기반 반복 재생 =====
+   섹션마다 다른 모션: stack=활성 스텝 스포트라이트, risk=형광펜 sweep, chat=메시지 순차+입력 대기중+SQL 타이핑.
+   모든 모션은 seq(0~1) 하나로 구동된다. 이전엔 seq를 스크롤 위치에서 계산했으나, 이제 섹션이 화면에 진입하면(IO 0.45)
+   시간 rAF 타임라인이 seq를 0→1로 흘려 단계가 또렷이 펼쳐진다. 화면 밖으로 나가면 0으로 리셋 → 다시 들어오면 처음부터 재생(반복형, hero/CTA와 일관).
+   성능: 글자 split·노드 캐싱은 init 1회. 매 프레임은 transform/opacity/CSS변수만 갱신(DOM 탐색·노드 생성 0). */
+(function(){
+  var reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion:reduce)').matches;
+  var items=[].slice.call(document.querySelectorAll('[data-rev]'));
+  if(!items.length||reduce) return; // reduced-motion은 CSS가 최종 상태로 강제(@media reduce)
+
+  function clamp(v,a,b){return v<a?a:v>b?b:v;}
+  function easeOutCubic(t){return 1-Math.pow(1-t,3);}
+  function easeOutBack(t){var c=1.70158;return 1+(c+1)*Math.pow(t-1,3)+c*Math.pow(t-1,2);}
+  // 의사난수(결정적) — 글자 인덱스마다 명멸 위상을 흩되 매 프레임 동일(가역 보장).
+  function rnd(i){var x=Math.sin(i*12.9898)*43758.5453;return x-Math.floor(x);}
+
+  // 텍스트 노드를 코드포인트 단위 <span class="ch">로 split(한글 자모 분해 방지: [...str]). init 1회만.
+  function splitChars(host){
+    var out=[];
+    [].slice.call(host.childNodes).forEach(function(node){
+      if(node.nodeType===3){ // 텍스트 노드만 글자 분해, 자식 엘리먼트(.dot 등)는 그대로 둠
+        var frag=document.createDocumentFragment();
+        [].concat.apply([],[...node.nodeValue]).forEach(function(c){
+          var s=document.createElement('span'); s.className='ch'; s.textContent=c; frag.appendChild(s); out.push(s);
+        });
+        host.replaceChild(frag,node);
+      }
+    });
+    return out;
+  }
+
+  // ===== init 1회 — 섹션 종류 판별 + 노드 캐시 + 글자/타이핑 구조 생성 =====
+  items.forEach(function(el){
+    var rev=el.getAttribute('data-rev');
+    if(rev==='hero'){
+      el._kind='hero';
+      el._chars=[];
+      [].slice.call(el.querySelectorAll('[data-ch]')).forEach(function(h){ el._chars=el._chars.concat(splitChars(h)); });
+      el._em=el.querySelector('.lede em');
+      el._sect=el.closest('.intro-hero'); // hero 점등은 이 섹션이 화면 top에 안착한 뒤 스크롤량 기준(아래 heroP)
+    } else if(rev==='text'){
+      el._kind='text';
+      el._tm=el.getAttribute('data-text-motion'); // chars(글자 차오름)
+      el._h2=el.querySelector('h2');
+      if(el._tm==='chars' && el._h2) el._chars=splitChars(el._h2); // 03 제목 글자 차오름용 split
+    } else { // vis
+      var m=el.getAttribute('data-motion');
+      el._kind='vis-'+m;
+      if(m==='stack'){
+        el._spots=[].slice.call(el.querySelectorAll('.stack-item'));
+        el._apply=el.querySelector('.applybar');
+      } else if(m==='risk'){
+        el._card=el.querySelector('.riskcard');
+        el._toks=[].slice.call(el.querySelectorAll('.tok')); // 형광펜 sweep 대상
+      } else if(m==='chat'){
+        el._uBub=el.querySelector('.bubble.user');
+        el._aBub=el.querySelector('.bubble.ai');
+        el._typing=el.querySelector('.typing');
+        el._note=el.querySelector('.llm-note');
+        // 생성 SQL code를 <br> 기준 줄로 분리해 각 줄 .type-line으로 재구성(타이핑 width 제어).
+        var code=el._aBub&&el._aBub.querySelector('code');
+        el._lines=[];
+        if(code){
+          var html=code.innerHTML.split(/<br\s*\/?>/i);
+          code.innerHTML='';
+          html.forEach(function(seg){
+            var ln=document.createElement('span'); ln.className='type-line'; ln.innerHTML=seg;
+            code.appendChild(ln);
+            ln._chN=Math.max(1,ln.textContent.length); // steps 양자화용 글자수
+            el._lines.push(ln);
+          });
+        }
+      }
+    }
+  });
+
+  // ===== 모션 적용 — seq(0~1) 하나로 각 요소를 그림. 스크롤 위치가 아니라 시간 타임라인이 seq를 공급한다. =====
+  // (분기 본문은 기존 스크롤 연동 시절 코드 그대로 — seq의 출처만 위치→시간으로 바뀜)
+  function applyMotion(el,seq){
+    var k=el._kind, j;
+    if(k==='hero'){
+      // hero는 별도 시간 IIFE 소관 — 여기선 아무것도 안 함.
+
+    } else if(k==='text'){
+      // 제목 글자 순차 차오름 — 좌→오 또렷이, 위치 이동 없이 opacity만.
+      if(el._tm==='chars'){
+        var tchs=el._chars, TN=tchs.length;
+        for(j=0;j<TN;j++){ var tcp=clamp((seq-(j/TN)*0.6)/0.18,0,1); tchs[j].style.opacity=(0.12+0.88*tcp).toFixed(3); }
+      }
+
+    } else if(k==='vis-stack'){
+      // 활성 스텝 스포트라이트 — af가 스텝을 타고 내려감. 명암/배경/미세 scale + 좌측 글로우 바(--lit).
+      var spots=el._spots, S=spots.length, af=seq*S;
+      for(j=0;j<S;j++){
+        var on=clamp((af-j)/0.35,0,1);
+        var oe=easeOutCubic(on);
+        spots[j].style.opacity=(0.3+0.7*oe).toFixed(3);
+        spots[j].style.setProperty('--lit',oe.toFixed(3));
+        spots[j].style.transform='scale('+(0.97+0.03*oe).toFixed(4)+')';
+      }
+      if(el._apply){ var ao=clamp((af-(S-1))/0.4,0,1); el._apply.style.opacity=(0.4+0.6*ao).toFixed(3); el._apply.style.transform='scale('+(0.97+0.03*ao).toFixed(3)+')'; }
+
+    } else if(k==='vis-risk'){
+      // 위험 카드 — 조용히 등장(opacity) + 위험 토큰을 형광펜으로 좌→우 칠하기(--hl). 토큰마다 시차.
+      if(el._card) el._card.style.opacity=(0.5+0.5*clamp(seq/0.4,0,1)).toFixed(3);
+      var rtoks=el._toks, RT=rtoks.length;
+      for(j=0;j<RT;j++){
+        var hl=clamp((seq-0.62-j*0.16)/0.16,0,1);  // 제목 글자 차오름(seq≈0.76 완성) 이후 시작 → 형광펜이 텍스트 다음에 그어짐
+        rtoks[j].style.setProperty('--hl',easeOutCubic(hl).toFixed(3));
+      }
+
+    } else if(k==='vis-chat'){
+      // 대화 시간순 재생 — user → 타이핑 점(입력 대기중) → ai 버블 → SQL 줄별 타이핑. seq 구간이 넓게 퍼져 단계가 또렷이 보임.
+      var u=clamp(seq/0.18,0,1);
+      if(el._uBub){ el._uBub.style.opacity=u.toFixed(3); }  // 버블은 크기 변동 없이 opacity로만 등장(scale 제거)
+      // 타이핑 점 — user 다음, ai 직전 구간(seq 0.2~0.42)에서만 표시. absolute라 켜져도 박스 높이 불변. opacity로만 제어.
+      if(el._typing){ var dn=clamp((seq-0.2)/0.06,0,1)*clamp((0.42-seq)/0.06,0,1); el._typing.style.opacity=dn.toFixed(3); }
+      var a=clamp((seq-0.42)/0.13,0,1);
+      if(el._aBub){ el._aBub.style.opacity=a.toFixed(3); }   // ai 박스도 크기 유지 — opacity로만 등장
+      // 생성 SQL — ai 버블 등장 후 줄별로 타이핑(steps 양자화). 마지막 줄은 seq≈0.9에서 완료.
+      var lns=el._lines, L=lns.length;
+      for(j=0;j<L;j++){
+        var tl=clamp((seq-0.5-j*0.13)/0.13,0,1);
+        var q=Math.round(tl*lns[j]._chN)/lns[j]._chN;       // steps 양자화(글자 경계)
+        lns[j].style.width=(q*100).toFixed(2)+'%';
+        if(tl>=1) lns[j].classList.add('done'); else lns[j].classList.remove('done');
+      }
+      if(el._note) el._note.style.opacity=clamp((seq-0.9)/0.1,0,1).toFixed(3);
+    }
+  }
+
+  // ===== 섹션별 시간 타임라인 — 진입(IO 0.45)하면 seq 0→1 재생, 이탈하면 0으로 리셋(반복형). hero/CTA와 동일 골격. =====
+  // 사용자 요청대로 넉넉히 길게: stack/risk는 단계가 적어 2.8초, chat은 user→대기→ai→SQL까지 단계가 많아 4초(입력 대기중 약 2초 확보).
+  var DURS={stack:2800, risk:2800, chat:4000};
+  [].slice.call(document.querySelectorAll('.story')).forEach(function(sect){
+    var els=[].slice.call(sect.querySelectorAll('[data-rev]'));  // 이 섹션의 text+vis 두 요소(같은 seq 공유)
+    if(!els.length) return;
+    var visEl=sect.querySelector('[data-rev="vis"]');
+    var m=visEl?visEl.getAttribute('data-motion'):'stack';
+    var DUR=DURS[m]||2800;
+
+    function paint(t){ for(var i=0;i<els.length;i++) applyMotion(els[i],t); }  // t가 곧 seq
+    paint(0);                                                   // 초기: 꺼진 상태(CSS 초기값과 일치)
+
+    var running=false, raf=0, start=0, lastT=0;
+    function frame(now){
+      if(!start) start=now;
+      var t=Math.min(1,(now-start)/DUR);
+      paint(t); lastT=t;
+      if(t<1) raf=requestAnimationFrame(frame); else running=false;
+    }
+    var io=new IntersectionObserver(function(entries){
+      entries.forEach(function(en){
+        if(en.isIntersecting){                                  // 진입 → (재)재생
+          if(!running){ running=true; start=0; raf=requestAnimationFrame(frame); }
+        }else{                                                  // 이탈 → 취소 + 0으로 리셋(이미 0이면 재paint 생략 — 경계 깜빡임 억제)
+          if(raf) cancelAnimationFrame(raf);
+          running=false;
+          if(lastT!==0){ paint(0); lastT=0; }
+        }
+      });
+    },{threshold:0.45});
+    io.observe(sect);
+  });
+})();
+
+/* ===== 풀스크린 스냅 — N개 슬라이드(영상·메인문구·01·02·03·CTA)를 방향 기반으로 한 칸씩 안착 =====
+   stateless: 매 판정마다 getBoundingClientRect로 "현재 화면 중심에 가장 가까운 슬라이드(cur)"를 도출하고,
+   두 슬라이드 사이에 걸쳐 멈췄으면 마지막 이동 방향(dir)대로 정확히 한 칸 settle(dir>0→cur+1, dir<0→cur).
+   footer는 슬라이드가 아니라, 마지막 슬라이드(CTA) 아래는 어떤 쌍도 없어 구조적으로 자유 스크롤.
+   reduced-motion/터치 디바이스에서는 전체 비활성. 전역 smooth와 scrollIntoView smooth 중첩을 피해 JS가 html smooth를 끈다. */
+(function(){
+  var reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion:reduce)').matches;
+  var coarse=window.matchMedia&&window.matchMedia('(pointer:coarse)').matches; // 터치: scrollIntoView가 주소창/관성과 충돌 → 스냅 끔
+  var slides=[].slice.call(document.querySelectorAll('.snap-section'));         // film·intro·01·02·03·CTA(문서순)
+  if(reduce||coarse||slides.length<2) return;
+  document.documentElement.style.scrollBehavior='auto';                        // 전역 CSS smooth 해제 — 부드러움은 scrollIntoView가 전담(중첩 시 핑퐁 방지)
+  var DEAD=8;                    // 미세 떨림 무시(px)
+  var snapping=false, timer=null, lastY=window.scrollY, dir=0, cooldownUntil=0;
+
+  function snapTo(el){
+    snapping=true;
+    el.scrollIntoView({behavior:'smooth',block:'start'});
+    setTimeout(function(){ snapping=false; lastY=window.scrollY; dir=0; cooldownUntil=Date.now()+120; }, 620); // 안착 후 방향 리셋 + 짧은 쿨다운(관성 잔여가 dir 뒤집어 핑퐁 만드는 것 차단)
+  }
+
+  // 화면 top에 가장 가까운 슬라이드 인덱스(|top| 최소) — 현재 점유 슬라이드.
+  function currentIndex(){
+    var best=0, bestD=Infinity;
+    for(var i=0;i<slides.length;i++){
+      var d=Math.abs(slides[i].getBoundingClientRect().top);
+      if(d<bestD){ bestD=d; best=i; }
+    }
+    return best;
+  }
+
+  function decide(){
+    if(snapping||Date.now()<cooldownUntil) return;
+    var last=slides.length-1;
+    var lastTop=slides[last].getBoundingClientRect().top;
+    // [좌표(부호) 기반 footer 자유 구간] 마지막 슬라이드(CTA)가 뷰포트 top에 안착(top≈0)했거나 위로 빠짐(top<0) → 그 아래는 footer뿐.
+    // 이 구간에선 스냅을 일절 걸지 않아 footer로 자유 스크롤 가능. 매 프레임 좌표로 판정하므로 안착 순간 포착 실패(620ms lock)와 무관 — lock 해제 직후 즉시 아래 스크롤도 견고.
+    // vh*0.5가 아니라 부호(<=2)로 판정해야 '하강 진입 중(top>0)'을 자유로 오인하지 않는다(top>0 하강 진입은 아래 일반 로직에서 CTA로 정상 스냅).
+    if(lastTop<=2) return;
+    // 여기 도달 = CTA.top>2 (아직 CTA 안착 전 하강 진입 중이거나, footer에서 위로 충분히 끌어올림).
+    var cur=currentIndex();
+    var curTop=slides[cur].getBoundingClientRect().top;
+    if(Math.abs(curTop)<=2) return;                  // 이미 안착이면 스냅 안 함(데드존 지터 흡수)
+    // 슬라이드 격자에서 벗어나 걸쳐 멈춤 → 방향대로 한 칸.
+    var target;
+    if(dir>0) target=(curTop<0?cur+1:cur);            // 하강: 부분적으로 위로 빠졌으면 다음, 아니면 끌어내려 안착(CTA 진입 포함)
+    else if(dir<0) target=(curTop>0?cur-1:cur);       // 상승: 아래로 내려와 있으면 이전(03 복귀)
+    else target=cur;
+    target=Math.max(0,Math.min(last,target));
+    snapTo(slides[target]);
+  }
+
+  window.addEventListener('scroll',function(){
+    if(snapping) return;
+    var y=window.scrollY, d=y-lastY;
+    if(Math.abs(d)>DEAD) dir=d>0?1:-1;              // 데드존 밖일 때만 방향 갱신
+    lastY=y;
+    if(y<=2){ dir=0; }                              // 첫 화면 맨 위 보호
+    if(timer) clearTimeout(timer);
+    timer=setTimeout(decide,120);                   // 멈춤 디바운스
+  },{passive:true});
+})();
+
+/* ===== 메인 문구 글자 점등 — 도착할 때마다 재생되는 시간 기반 타임라인(반복형) =====
+   스크롤에 묶으면 스냅이 확 넘길 때 점등이 덜 끝난 채 멈춰 보였다. 대신 intro-hero가 화면에 들어오면(IntersectionObserver)
+   글자가 좌→오 순차 점등(약하게 명멸)되고 약 1.0초 뒤 완성. 화면 밖으로 나가면 리셋되어 다시 들어오면 처음부터 재생(unobserve 안 함). */
+(function(){
+  var reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion:reduce)').matches;
+  var sect=document.querySelector('.intro-hero');
+  if(!sect) return;
+  // 글자 split — 모션 엔진이 이미 .ch로 쪼갰으면 재사용, 아니면(reduce 등) 여기서 쪼갠다.
+  var chars=[].slice.call(sect.querySelectorAll('.ch'));
+  if(!chars.length){
+    [].slice.call(sect.querySelectorAll('[data-ch]')).forEach(function(host){
+      [].slice.call(host.childNodes).forEach(function(node){
+        if(node.nodeType===3){
+          var frag=document.createDocumentFragment();
+          [].concat.apply([],[].slice.call(node.nodeValue).length?[...node.nodeValue]:[]).forEach(function(c){
+            var s=document.createElement('span'); s.className='ch'; s.textContent=c; frag.appendChild(s); chars.push(s);
+          });
+          host.replaceChild(frag,node);
+        }
+      });
+    });
+  }
+  var em=sect.querySelector('.lede em'), N=chars.length;
+  if(!N) return;
+  function rnd(i){var x=Math.sin(i*12.9898)*43758.5453;return x-Math.floor(x);}
+  function paint(t){ // t: 0~1 타임라인. stagger 0.5 + window 0.5 → t=1에서 마지막 글자까지 완성.
+    for(var j=0;j<N;j++){
+      var cp=Math.max(0,Math.min(1,(t-(j/N)*0.5)/0.5));        // 글자별 좌→오 지연(끝글자도 t=1에서 cp=1)
+      var flick=cp<1?(0.6+0.4*rnd(j+Math.floor(cp*6)))*cp+0.06:1; // 채워지며 약하게 명멸, cp=1에서 1.0
+      chars[j].style.opacity=Math.max(0.06,Math.min(1,flick)).toFixed(3);
+    }
+    if(em) em.style.backgroundPosition=(100-t*100).toFixed(1)+'% 0';
+  }
+  if(reduce){ paint(1); return; }                              // 모션 최소화: 즉시 완성
+  paint(0);                                                    // 초기: 거의 꺼짐
+
+  var DUR=1050, running=false, raf=0, start=0;
+  function frame(now){
+    if(!start) start=now;
+    var t=Math.min(1,(now-start)/DUR);
+    paint(t);
+    if(t<1) raf=requestAnimationFrame(frame); else running=false;
+  }
+  var io=new IntersectionObserver(function(entries){
+    entries.forEach(function(en){
+      if(en.isIntersecting){                                  // 화면 진입 → (재)재생
+        if(!running){ running=true; start=0; raf=requestAnimationFrame(frame); }
+      }else{                                                   // 화면 이탈 → 진행 취소 + 초기로 리셋(다음 진입 때 처음부터)
+        if(raf) cancelAnimationFrame(raf);
+        running=false; paint(0);
+      }
+    });
+  },{threshold:0.45});                                          // intro-hero가 45% 보이면 트리거(안착 직후)
+  io.observe(sect);
+})();
+
+/* ===== CTA 피날레 진입 — 풀스크린 안착할 때마다 재생되는 오케스트레이션 등장(반복형) =====
+   콘텐츠 lift + 배경 bloom → 제목 글자 좌→오 mask wipe → 버튼 2개 순차 spring rise → 메타 fade.
+   메인문구 점등과 같은 rAF 타임라인이되, 화면 밖으로 나가면 리셋되어 다시 들어오면 처음부터 재생(unobserve 안 함). */
+(function(){
+  var reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion:reduce)').matches;
+  var card=document.querySelector('.cta-card'), band=document.querySelector('.cta-band'); if(!card||!band) return;
+  var h2=card.querySelector('h2'), btns=[].slice.call(card.querySelectorAll('.hero-cta .btn')), meta=card.querySelector('.meta');
+  // 제목 글자 split — 코드포인트 분할([...str]로 한글 자모 분해 방지). hero split과 동일 관례.
+  var chars=[];
+  if(h2){
+    [].slice.call(h2.childNodes).forEach(function(node){
+      if(node.nodeType===3){
+        var frag=document.createDocumentFragment();
+        [...node.nodeValue].forEach(function(c){
+          var s=document.createElement('span'); s.className='ch'; s.textContent=c; frag.appendChild(s); chars.push(s);
+        });
+        h2.replaceChild(frag,node);
+      }
+    });
+  }
+  var N=chars.length;
+  function paint(p){ // p: 0~1 단일 타임라인. 구간 겹침: lift+bloom(0~.40) / 제목 wipe(.15~.78) / 버튼(.55~.66) / 메타(.85~). 양방향(리셋 대응)
+    band.style.setProperty('--bloom',Math.max(0,Math.min(1,p/0.40)).toFixed(3));
+    card.classList.toggle('fin-in',p>0);                        // 콘텐츠 lift — p=0이면 해제(리셋)
+    var wipe=Math.max(0,Math.min(1,(p-0.15)/0.63));
+    for(var j=0;j<N;j++){
+      var cp=Math.max(0,Math.min(1,(wipe-(j/N)*0.55)/0.45));    // 글자별 좌→오 지연(끝글자도 wipe=1에서 cp=1)
+      chars[j].style.setProperty('--cp',cp.toFixed(3));
+    }
+    if(btns[0]) btns[0].style.setProperty('--br',p>=0.55?'1':'0');
+    if(btns[1]) btns[1].style.setProperty('--br',p>=0.66?'1':'0');
+    if(meta) meta.classList.toggle('fin-in',p>=0.85);
+  }
+  if(reduce){ paint(1); return; }                               // 모션 최소화: 즉시 완성(IO/리셋 미가동)
+  paint(0);                                                     // 초기: 숨김 상태
+  var DUR=1400, running=false, raf=0, start=0;
+  function frame(now){
+    if(!start) start=now;
+    var p=Math.min(1,(now-start)/DUR);
+    paint(p);
+    if(p<1) raf=requestAnimationFrame(frame); else running=false;
+  }
+  var io=new IntersectionObserver(function(entries){
+    entries.forEach(function(en){
+      if(en.isIntersecting){                                    // 화면 진입 → (재)재생
+        if(!running){ running=true; start=0; raf=requestAnimationFrame(frame); }
+      }else{                                                     // 화면 이탈 → 진행 취소 + 초기로 리셋(다음 진입 때 처음부터)
+        if(raf) cancelAnimationFrame(raf);
+        running=false; paint(0);
+      }
+    });
+  },{threshold:0.45});
+  io.observe(card);
+})();
+</script>
+</body>
+</html>

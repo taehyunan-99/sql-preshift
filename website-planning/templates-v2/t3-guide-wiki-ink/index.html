@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SQLPreShift Wiki — A safety gate for PostgreSQL schema migrations</title>
+<meta name="description" content="SQLPreShift stops risky PostgreSQL schema migrations before you apply them. Cumulative dry-run stack, single-transaction apply, 18 risk rules, read-only integrity diagnostics, and an optional local LLM." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+*, *::before, *::after { box-sizing: border-box; }
+:root {
+  --ink-900: #0E0E10; --ink-850: #131316; --ink-800: #18181B; --ink-750: #1E1E22;
+  --ink-700: #27272B; --ink-600: #3A3A40; --ink-500: #52525B;
+  --fg-0: #FAFAFA; --fg-1: #C8C8CE; --fg-2: #9A9AA2; --fg-3: #6E6E76;
+  --violet: #7C5CFF; --violet-hi: #9B82FF; --violet-dim: #5B43C9;
+  --violet-08: rgba(124,92,255,0.08); --violet-12: rgba(124,92,255,0.12);
+  --violet-18: rgba(124,92,255,0.18); --violet-30: rgba(124,92,255,0.30);
+  --danger: #F0616D; --danger-bg: rgba(240,97,109,0.10);
+  --warn: #E6B450; --warn-bg: rgba(230,180,80,0.10);
+  --ok: #5BC98A; --ok-bg: rgba(91,201,138,0.10);
+  --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --mono: "JetBrains Mono", "SF Mono", ui-monospace, Menlo, Monaco, Consolas, monospace;
+  --s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:20px;--s6:24px;--s7:32px;--s8:40px;--s9:56px;--s10:72px;--s11:96px;
+  --radius:10px;--radius-sm:6px;--maxw:1240px;
+}
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+body { margin:0; font-family:var(--sans); background:var(--ink-900); color:var(--fg-0); font-size:15.5px; line-height:1.65; letter-spacing:-0.006em; -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; }
+a { color:inherit; text-decoration:none; }
+::selection { background:var(--violet-30); color:#fff; }
+.topbar { position:sticky; top:0; z-index:60; background:rgba(14,14,16,0.86); backdrop-filter:saturate(140%) blur(14px); -webkit-backdrop-filter:saturate(140%) blur(14px); border-bottom:1px solid var(--ink-700); }
+.topbar-inner { max-width:var(--maxw); margin:0 auto; display:flex; align-items:center; gap:var(--s6); padding:0 var(--s6); height:58px; }
+.brand { display:flex; align-items:center; gap:10px; font-weight:640; letter-spacing:-0.02em; font-size:15px; }
+.brand .glyph { width:26px; height:26px; border-radius:7px; flex:none; background:linear-gradient(150deg,var(--violet) 0%,var(--violet-dim) 100%); display:grid; place-items:center; box-shadow:0 0 0 1px rgba(124,92,255,0.4),0 6px 18px -8px var(--violet); }
+.brand .glyph svg { width:15px; height:15px; }
+.brand .tag { color:var(--fg-3); font-weight:500; font-size:11px; border:1px solid var(--ink-700); padding:1px 7px; border-radius:100px; letter-spacing:0.02em; }
+.nav-main { display:flex; align-items:center; gap:2px; margin-left:var(--s3); }
+.nav-main a { color:var(--fg-2); font-size:13.5px; font-weight:500; padding:7px 12px; border-radius:7px; transition:color .15s, background .15s; }
+.nav-main a:hover { color:var(--fg-0); background:var(--ink-800); }
+.nav-main a.active { color:var(--fg-0); background:var(--ink-800); }
+.topbar-right { margin-left:auto; display:flex; align-items:center; gap:var(--s3); }
+.ghlink { color:var(--fg-2); display:grid; place-items:center; width:34px; height:34px; border-radius:8px; transition:color .15s, background .15s; }
+.ghlink:hover { color:var(--fg-0); background:var(--ink-800); }
+.ghlink svg { width:18px; height:18px; }
+.btn { display:inline-flex; align-items:center; gap:8px; cursor:pointer; font-family:inherit; font-size:13.5px; font-weight:600; letter-spacing:-0.01em; padding:8px 16px; border-radius:8px; border:1px solid transparent; transition:transform .12s, box-shadow .2s, background .15s, border-color .15s; }
+.btn-primary { background:var(--violet); color:#fff; box-shadow:0 0 0 1px rgba(124,92,255,0.5),0 8px 24px -10px var(--violet); }
+.btn-primary:hover { background:var(--violet-hi); box-shadow:0 0 0 1px rgba(124,92,255,0.6),0 12px 30px -10px var(--violet); }
+.btn-ghost { background:var(--ink-800); color:var(--fg-0); border-color:var(--ink-700); }
+.btn-ghost:hover { border-color:var(--ink-600); background:var(--ink-750); }
+.btn-lg { padding:12px 22px; font-size:15px; border-radius:9px; }
+.navtoggle { display:none; background:none; border:1px solid var(--ink-700); color:var(--fg-1); width:36px; height:34px; border-radius:8px; cursor:pointer; }
+.navtoggle svg { width:18px; height:18px; }
+.content code:not(pre code) { font-family:var(--mono); font-size:0.88em; background:var(--ink-800); border:1px solid var(--ink-700); border-radius:5px; padding:1px 6px; color:var(--violet-hi); }
+.wl { color:var(--violet-hi); font-weight:540; border-bottom:1px solid var(--violet-30); padding-bottom:0.5px; white-space:nowrap; transition:border-color .15s, background .15s; }
+.wl::before { content:"[["; color:var(--violet-dim); font-weight:600; }
+.wl::after { content:"]]"; color:var(--violet-dim); font-weight:600; }
+.wl:hover { border-bottom-color:var(--violet-hi); background:var(--violet-08); }
+.card { background:var(--ink-800); border:1px solid var(--ink-700); border-radius:var(--radius); padding:var(--s5); transition:border-color .16s, transform .16s, box-shadow .2s; }
+.card-k { font-family:var(--mono); font-size:11px; color:var(--violet); letter-spacing:0.04em; margin-bottom:10px; }
+.card h3 { margin:0 0 6px; font-size:16px; letter-spacing:-0.01em; }
+.card p { font-size:13.5px; color:var(--fg-2); margin:0; max-width:none; }
+.grid { display:grid; gap:var(--s4); }
+.g3 { grid-template-columns:repeat(3,1fr); }
+footer.site { border-top:1px solid var(--ink-700); margin-top:var(--s11); background:var(--ink-850); }
+.footer-inner { max-width:var(--maxw); margin:0 auto; padding:var(--s9) var(--s6) var(--s7); display:grid; grid-template-columns:1.6fr 1fr 1fr 1fr; gap:var(--s7); }
+.footer-inner .fcol h4 { font-size:11px; text-transform:uppercase; letter-spacing:0.1em; color:var(--fg-3); margin:0 0 var(--s4); font-weight:680; }
+.footer-inner .fcol a { display:block; color:var(--fg-2); font-size:13.5px; padding:4px 0; transition:color .14s; }
+.footer-inner .fcol a:hover { color:var(--violet-hi); }
+.footer-inner .fbrand p { color:var(--fg-3); font-size:13px; margin:12px 0 0; max-width:34ch; }
+.footer-bottom { max-width:var(--maxw); margin:0 auto; padding:var(--s5) var(--s6); border-top:1px solid var(--ink-700); display:flex; flex-wrap:wrap; gap:var(--s4); justify-content:space-between; color:var(--fg-3); font-size:12.5px; }
+.footer-bottom .badges { display:flex; gap:var(--s3); flex-wrap:wrap; }
+.footer-bottom .badge { border:1px solid var(--ink-700); border-radius:100px; padding:2px 10px; font-family:var(--mono); font-size:11px; color:var(--fg-2); }
+.mock { background:var(--ink-850); border:1px solid var(--ink-700); border-radius:12px; overflow:hidden; box-shadow:0 30px 80px -40px rgba(0,0,0,0.9),0 0 0 1px rgba(124,92,255,0.06); }
+.mock-bar { display:flex; align-items:center; gap:7px; padding:9px 13px; border-bottom:1px solid var(--ink-700); background:var(--ink-800); }
+.mock-bar .tl { width:11px; height:11px; border-radius:50%; background:var(--ink-600); }
+.mock-bar .mb-title { margin-left:8px; font-family:var(--mono); font-size:11.5px; color:var(--fg-3); }
+.mock-bar .mb-conn { margin-left:auto; display:flex; align-items:center; gap:6px; font-family:var(--mono); font-size:11px; color:var(--fg-2); border:1px solid var(--ink-700); padding:2px 9px; border-radius:100px; }
+.mock-bar .mb-conn .pulse { width:7px; height:7px; border-radius:50%; background:var(--ok); box-shadow:0 0 0 3px rgba(91,201,138,0.18); }
+.hero { max-width:var(--maxw); margin:0 auto; padding:var(--s10) var(--s6) var(--s8); }
+.hero-grid { display:grid; grid-template-columns:1.05fr 1fr; gap:var(--s9); align-items:center; }
+.hero .kicker { display:inline-flex; align-items:center; gap:8px; font-family:var(--mono); font-size:12px; color:var(--fg-2); border:1px solid var(--ink-700); background:var(--ink-850); padding:4px 12px; border-radius:100px; margin-bottom:var(--s5); }
+.hero .kicker .d { width:6px; height:6px; border-radius:50%; background:var(--violet); box-shadow:0 0 0 3px var(--violet-18); }
+.hero h1 { font-size:52px; line-height:1.04; letter-spacing:-0.035em; font-weight:740; margin:0 0 var(--s4); }
+.hero h1 .accent { color:var(--violet-hi); }
+.hero .sub { font-size:18.5px; color:var(--fg-1); line-height:1.55; margin:0 0 var(--s7); max-width:46ch; }
+.hero .sub .quote { color:var(--fg-2); font-style:italic; }
+.hero-cta { display:flex; gap:var(--s3); flex-wrap:wrap; align-items:center; }
+.hero-meta { margin-top:var(--s5); font-family:var(--mono); font-size:12px; color:var(--fg-3); display:flex; gap:10px; flex-wrap:wrap; }
+.hero-meta .dot { color:var(--ink-600); }
+.trustbar { max-width:var(--maxw); margin:0 auto; padding:0 var(--s6) var(--s9); }
+.trust-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:var(--s4); border-top:1px solid var(--ink-700); border-bottom:1px solid var(--ink-700); padding:var(--s6) 0; }
+.trust-item { padding:0 var(--s2); }
+.trust-item .ti-k { font-family:var(--mono); font-size:11px; color:var(--violet); letter-spacing:0.05em; margin-bottom:6px; }
+.trust-item .ti-t { font-weight:620; font-size:15px; margin-bottom:3px; }
+.trust-item .ti-d { font-size:13px; color:var(--fg-2); }
+.section { max-width:var(--maxw); margin:0 auto; padding:var(--s9) var(--s6); }
+.section-head { margin-bottom:var(--s7); }
+.section-head .eyebrow { margin-bottom:var(--s3); font-size:12px; font-weight:680; text-transform:uppercase; letter-spacing:0.12em; color:var(--violet-hi); }
+.section-head h2 { font-size:30px; letter-spacing:-0.025em; font-weight:700; margin:0 0 10px; }
+.section-head p { color:var(--fg-2); font-size:16px; max-width:60ch; margin:0; }
+.quickstart { background:linear-gradient(180deg,var(--violet-08),transparent 60%), var(--ink-850); border:1px solid var(--violet-30); border-radius:14px; padding:var(--s7); position:relative; overflow:hidden; }
+.quickstart::before { content:""; position:absolute; inset:0; background:radial-gradient(600px 200px at 12% -20%, var(--violet-12), transparent 70%); pointer-events:none; }
+.qs-head { display:flex; align-items:center; gap:12px; margin-bottom:var(--s3); position:relative; }
+.qs-head .badge { font-family:var(--mono); font-size:11px; color:var(--violet-hi); border:1px solid var(--violet-30); padding:2px 9px; border-radius:100px; letter-spacing:0.04em; }
+.qs-head h3 { font-size:22px; letter-spacing:-0.02em; margin:0; }
+.qs-sub { color:var(--fg-2); font-size:14.5px; margin:0 0 var(--s6); position:relative; max-width:62ch; }
+.qs-steps { display:grid; grid-template-columns:repeat(4,1fr); gap:var(--s3); position:relative; margin-bottom:var(--s6); }
+.qs-step { background:var(--ink-900); border:1px solid var(--ink-700); border-radius:var(--radius); padding:var(--s4); }
+.qs-step .n { font-family:var(--mono); font-size:11px; color:var(--violet); margin-bottom:8px; }
+.qs-step .t { font-weight:600; font-size:14px; margin-bottom:4px; }
+.qs-step .d { font-size:12.5px; color:var(--fg-3); line-height:1.5; }
+.popular-list { display:grid; grid-template-columns:1fr 1fr; gap:var(--s3); }
+.pop-item { display:flex; gap:14px; align-items:flex-start; padding:var(--s4) var(--s5); border:1px solid var(--ink-700); border-radius:var(--radius); background:var(--ink-800); transition:border-color .15s, background .15s; }
+.pop-item:hover { border-color:var(--violet-30); background:var(--ink-750); }
+.pop-item .rank { font-family:var(--mono); font-size:12px; color:var(--violet); border:1px solid var(--violet-30); border-radius:6px; width:26px; height:26px; display:grid; place-items:center; flex:none; }
+.pop-item .pt { font-weight:600; font-size:14.5px; margin-bottom:2px; display:block; }
+.pop-item .pd { font-size:12.5px; color:var(--fg-3); line-height:1.45; display:block; }
+.pop-item .pg { font-family:var(--mono); font-size:10.5px; color:var(--fg-3); margin-top:6px; display:block; }
+.feat-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:var(--s4); }
+.feat { background:var(--ink-800); border:1px solid var(--ink-700); border-radius:var(--radius); padding:var(--s6); transition:border-color .16s; }
+.feat:hover { border-color:var(--violet-30); }
+.feat .fnum { font-family:var(--mono); font-size:12px; color:var(--violet); margin-bottom:14px; display:flex; align-items:center; gap:8px; }
+.feat .fnum::after { content:""; height:1px; flex:1; background:var(--ink-700); }
+.feat h3 { font-size:16.5px; letter-spacing:-0.01em; margin:0 0 8px; }
+.feat p { font-size:13.5px; color:var(--fg-2); margin:0; }
+.feat .opt { font-family:var(--mono); font-size:10.5px; color:var(--warn); border:1px solid rgba(230,180,80,0.3); padding:1px 7px; border-radius:100px; }
+.flow-strip { display:flex; flex-wrap:wrap; gap:8px; align-items:stretch; margin-top:var(--s6); }
+.flow-chip { background:var(--ink-800); border:1px solid var(--ink-700); border-radius:8px; padding:10px 14px; font-size:13px; color:var(--fg-1); display:flex; flex-direction:column; gap:2px; min-width:120px; flex:1; transition:border-color .15s; }
+.flow-chip:hover { border-color:var(--violet-30); }
+.flow-chip .fn { font-family:var(--mono); font-size:10px; color:var(--violet); }
+.flow-chip.tx { border-color:var(--violet-30); background:var(--violet-08); }
+.bigcta { max-width:var(--maxw); margin:0 auto; padding:0 var(--s6) var(--s11); }
+.bigcta-inner { border:1px solid var(--ink-700); border-radius:16px; padding:var(--s9) var(--s8); text-align:center; background:radial-gradient(700px 240px at 50% -30%, var(--violet-12), transparent 70%), var(--ink-850); position:relative; }
+.bigcta-inner h2 { font-size:32px; letter-spacing:-0.025em; margin:0 0 10px; font-weight:720; }
+.bigcta-inner p { color:var(--fg-2); margin:0 auto var(--s6); max-width:48ch; }
+.bigcta-inner .meta { margin-top:var(--s5); font-family:var(--mono); font-size:12px; color:var(--fg-3); }
+.erd { padding:var(--s5); display:grid; grid-template-columns:1fr 1fr; gap:var(--s4); background:radial-gradient(500px 300px at 80% 10%, var(--violet-08), transparent 70%); }
+.erd-side { font-family:var(--mono); }
+.erd-side .lab { font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:var(--fg-3); margin-bottom:8px; display:flex; align-items:center; gap:6px; }
+.erd-side .lab .pill { font-size:9px; padding:0 6px; border-radius:100px; border:1px solid var(--ink-700); }
+.erd-side.after .lab .pill { color:var(--violet-hi); border-color:var(--violet-30); }
+.erd-node { background:var(--ink-800); border:1px solid var(--ink-700); border-radius:8px; margin-bottom:8px; overflow:hidden; }
+.erd-node .nh { background:var(--ink-750); padding:5px 9px; font-size:11px; color:var(--fg-1); border-bottom:1px solid var(--ink-700); font-weight:600; }
+.erd-node .nr { padding:4px 9px; font-size:10.5px; color:var(--fg-3); border-bottom:1px solid var(--ink-800); display:flex; justify-content:space-between; }
+.erd-node .nr:last-child { border-bottom:none; }
+.erd-node .nr .k { color:var(--violet); font-size:9px; }
+.erd-node.added { border-color:var(--violet-30); box-shadow:0 0 0 1px var(--violet-18); }
+.erd-node .nr.added { color:var(--ok); background:rgba(91,201,138,0.06); }
+.erd-node .nr.removed { color:var(--danger); text-decoration:line-through; opacity:0.7; }
+@media (max-width:1080px) { .footer-inner { grid-template-columns:1fr 1fr; } }
+@media (max-width:980px) { .hero-grid { grid-template-columns:1fr; gap:var(--s7); } .hero h1 { font-size:40px; } .trust-grid { grid-template-columns:1fr; } .qs-steps { grid-template-columns:1fr 1fr; } .feat-grid { grid-template-columns:1fr; } .popular-list { grid-template-columns:1fr; } .g3 { grid-template-columns:1fr; } }
+@media (max-width:860px) { .nav-main { display:none; } .navtoggle { display:grid; place-items:center; } .footer-inner { grid-template-columns:1fr; gap:var(--s6); } }
+@media (max-width:560px) { .hero h1 { font-size:32px; } .qs-steps { grid-template-columns:1fr; } .section { padding:var(--s8) var(--s5); } .hero { padding:var(--s8) var(--s5) var(--s7); } .topbar-inner { gap:var(--s3); padding:0 var(--s4); } .brand .tag { display:none; } }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <a href="./index.html" class="brand">
+      <span class="glyph"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3 4 7v5c0 4.5 3.4 7.6 8 9 4.6-1.4 8-4.5 8-9V7l-8-4Z" fill="#fff" fill-opacity="0.15"/><path d="M12 3 4 7v5c0 4.5 3.4 7.6 8 9 4.6-1.4 8-4.5 8-9V7l-8-4Z" stroke="#fff" stroke-width="1.4"/><path d="m8.5 12 2.4 2.4 4.6-4.8" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      SQLPreShift <span class="tag">Wiki</span>
+    </a>
+    <nav class="nav-main">
+      <a href="./index.html" class="active">Home</a>
+      <a href="./getting-started.html">Get started</a>
+      <a href="./workflow.html">Core workflow</a>
+      <a href="./risk-safety.html">Risk &amp; safety</a>
+    </nav>
+    <div class="topbar-right">
+      <a class="ghlink" href="https://github.com/taehyunan-99/sql-preshift" aria-label="GitHub repository">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.58 2 12.25c0 4.53 2.87 8.37 6.84 9.73.5.1.68-.22.68-.49v-1.7c-2.78.62-3.37-1.21-3.37-1.21-.45-1.18-1.11-1.49-1.11-1.49-.91-.64.07-.62.07-.62 1 .07 1.53 1.05 1.53 1.05.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.63-1.37-2.22-.26-4.55-1.14-4.55-5.06 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.7 0 0 .84-.28 2.75 1.05a9.4 9.4 0 0 1 5 0c1.91-1.33 2.75-1.05 2.75-1.05.55 1.4.2 2.44.1 2.7.64.72 1.03 1.63 1.03 2.75 0 3.93-2.34 4.79-4.57 5.05.36.32.68.94.68 1.9v2.82c0 .27.18.59.69.49A10.27 10.27 0 0 0 22 12.25C22 6.58 17.52 2 12 2Z"/></svg>
+      </a>
+      <a class="btn btn-primary" href="https://github.com/taehyunan-99/sql-preshift/releases">Download .dmg</a>
+      <button class="navtoggle" id="navToggle" aria-label="Toggle navigation"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    </div>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="hero-grid">
+    <div>
+      <span class="kicker"><span class="d"></span> macOS · Apple Silicon · PostgreSQL 16 · MIT</span>
+      <h1>A <span class="accent">safety gate</span> for PostgreSQL schema migrations.</h1>
+      <p class="sub"><span class="quote">"Don't regret after applying — stop it before."</span> SQLPreShift dry-runs every change against your real database, stacks it for review, and blocks lock-queue hazards before a single transaction commits.</p>
+      <div class="hero-cta">
+        <a class="btn btn-primary btn-lg" href="https://github.com/taehyunan-99/sql-preshift/releases">Download for macOS</a>
+        <a class="btn btn-ghost btn-lg" href="./getting-started.html">Read the Quickstart</a>
+      </div>
+      <div class="hero-meta">
+        <span>v0.x</span><span class="dot">·</span><span>~122 MiB</span><span class="dot">·</span><span>Apple Silicon (M1+)</span><span class="dot">·</span><span>Unsigned build</span>
+      </div>
+    </div>
+    <div class="mock" aria-hidden="true">
+      <div class="mock-bar">
+        <span class="tl"></span><span class="tl"></span><span class="tl"></span>
+        <span class="mb-title">erd-diff · public schema</span>
+        <span class="mb-conn"><span class="pulse"></span> erp_demo · 92 tables</span>
+      </div>
+      <div class="erd">
+        <div class="erd-side before">
+          <div class="lab">Before <span class="pill">current</span></div>
+          <div class="erd-node">
+            <div class="nh">orders</div>
+            <div class="nr"><span class="k">PK</span> id</div>
+            <div class="nr">customer_id</div>
+            <div class="nr">total_amount</div>
+          </div>
+          <div class="erd-node">
+            <div class="nh">customers</div>
+            <div class="nr"><span class="k">PK</span> id</div>
+            <div class="nr">email</div>
+          </div>
+        </div>
+        <div class="erd-side after">
+          <div class="lab">After <span class="pill">staged</span></div>
+          <div class="erd-node added">
+            <div class="nh">orders</div>
+            <div class="nr"><span class="k">PK</span> id</div>
+            <div class="nr">customer_id</div>
+            <div class="nr">total_amount</div>
+            <div class="nr added"><span class="k">FK</span> status_id</div>
+          </div>
+          <div class="erd-node">
+            <div class="nh">customers</div>
+            <div class="nr"><span class="k">PK</span> id</div>
+            <div class="nr">email</div>
+            <div class="nr removed">legacy_flag</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="trustbar">
+  <div class="trust-grid">
+    <div class="trust-item">
+      <div class="ti-k">SINGLE TRANSACTION</div>
+      <div class="ti-t">No half-applied migrations</div>
+      <div class="ti-d">Apply All wraps the whole stack in one transaction. It all lands, or none of it does.</div>
+    </div>
+    <div class="trust-item">
+      <div class="ti-k">100% LOCAL</div>
+      <div class="ti-t">Credentials never persisted</div>
+      <div class="ti-d">Stateless, one-shot. Connection details and LLM inference stay on your machine.</div>
+    </div>
+    <div class="trust-item">
+      <div class="ti-k">READ-ONLY ON CONNECT</div>
+      <div class="ti-t">Diagnostics change nothing</div>
+      <div class="ti-d">Four integrity checks run the moment you connect. They never write to your database.</div>
+    </div>
+  </div>
+</div>
+
+<section class="section">
+  <div class="section-head">
+    <div class="eyebrow">Start here</div>
+    <h2>Quickstart: Connect to your first dry-run</h2>
+    <p>The shortest path from an empty window to a reviewed, staged change. Four moves, no commits until you choose Apply All.</p>
+  </div>
+
+  <div class="quickstart">
+    <div class="qs-head">
+      <span class="badge">QUICKSTART</span>
+      <h3>Connect to first dry-run</h3>
+    </div>
+    <p class="qs-sub">Point SQLPreShift at a database, type a change in plain English or raw SQL, and watch it dry-run against the live schema without touching your data.</p>
+    <div class="qs-steps">
+      <div class="qs-step"><div class="n">01</div><div class="t">Connect</div><div class="d">Open the sample ERP/Pagila DB or your own PostgreSQL 16 instance.</div></div>
+      <div class="qs-step"><div class="n">02</div><div class="t">Input</div><div class="d">Describe the change in natural language, or paste SQL directly.</div></div>
+      <div class="qs-step"><div class="n">03</div><div class="t">Dry-run</div><div class="d">SQLPreShift validates against the real schema and stacks the change.</div></div>
+      <div class="qs-step"><div class="n">04</div><div class="t">Review</div><div class="d">Inspect the ERD diff and risk findings. Undo, or Apply All in one TX.</div></div>
+    </div>
+    <a class="btn btn-primary" href="./getting-started.html">Open the full Quickstart</a>
+  </div>
+
+  <h3 style="font-size:15px;text-transform:uppercase;letter-spacing:0.1em;color:var(--fg-3);font-weight:680;margin:40px 0 16px;">Popular articles</h3>
+  <div class="popular-list">
+    <a class="pop-item" href="./getting-started.html#install">
+      <span class="rank">1</span>
+      <span><span class="pt">Install &amp; first launch on macOS</span><span class="pd">Drag to Applications, then get past Gatekeeper on an unsigned build.</span><span class="pg">Get started / getting-started.html</span></span>
+    </a>
+    <a class="pop-item" href="./risk-safety.html#rules">
+      <span class="rank">2</span>
+      <span><span class="pt">The 18 risk rules</span><span class="pd">What gets flagged, why lock queues are the real danger, and the golden-path fix.</span><span class="pg">Risk &amp; safety / risk-safety.html</span></span>
+    </a>
+    <a class="pop-item" href="./workflow.html#apply-all">
+      <span class="rank">3</span>
+      <span><span class="pt">Apply All in a single transaction</span><span class="pd">How the cumulative stack commits atomically — and how to roll back.</span><span class="pg">Core workflow / workflow.html</span></span>
+    </a>
+    <a class="pop-item" href="./getting-started.html#gatekeeper">
+      <span class="rank">4</span>
+      <span><span class="pt">Gatekeeper: right-click Open or xattr</span><span class="pd">Two ways to open an unsigned app once, then double-click forever after.</span><span class="pg">Get started / getting-started.html</span></span>
+    </a>
+    <a class="pop-item" href="./risk-safety.html#llm">
+      <span class="rank">5</span>
+      <span><span class="pt">Set up the local LLM (Ollama)</span><span class="pd">Pull gemma4 and bge-m3 for natural-language to SQL with local RAG.</span><span class="pg">Local LLM / risk-safety.html</span></span>
+    </a>
+    <a class="pop-item" href="./risk-safety.html#diagnostics">
+      <span class="rank">6</span>
+      <span><span class="pt">Read-only integrity diagnostics</span><span class="pd">The four checks that run on connect, including broken referential integrity.</span><span class="pg">Risk &amp; safety / risk-safety.html</span></span>
+    </a>
+  </div>
+</section>
+
+<section class="section" style="padding-top:0;">
+  <div class="section-head">
+    <div class="eyebrow">Why it exists</div>
+    <h2>Not a daily tool. A gate you hit before the dangerous ones.</h2>
+    <p>A migration that locks a 100-million-row table at peak traffic is not a bug you fix afterward — it is an outage. SQLPreShift is the checkpoint that reads the change against your real database first, so the regret never happens.</p>
+  </div>
+  <div class="grid g3">
+    <div class="card">
+      <div class="card-k">THE PROBLEM</div>
+      <h3>Apply, then regret</h3>
+      <p>Schema migrations look harmless in a text editor. The lock queue, the full table rewrite, the unvalidated constraint — none of it shows until it is already running in production.</p>
+    </div>
+    <div class="card">
+      <div class="card-k">THE GATE</div>
+      <h3>Stop it before</h3>
+      <p>Every change is dry-run against the live schema, weighed against 18 risk rules with estimated row counts, and stacked for review. Nothing commits until Apply All.</p>
+    </div>
+    <div class="card">
+      <div class="card-k">THE SCOPE</div>
+      <h3>Honest about limits</h3>
+      <p>PostgreSQL 16 only. Stateless and one-shot. A portfolio-grade demo, not a managed service — and it says so. Natural language is optional; the core works without an LLM.</p>
+    </div>
+  </div>
+</section>
+
+<section class="section" style="padding-top:0;">
+  <div class="section-head">
+    <div class="eyebrow">Core features</div>
+    <h2>Five things SQLPreShift does</h2>
+    <p>The whole product is built so you read the consequences of a migration before you commit it.</p>
+  </div>
+  <div class="feat-grid">
+    <div class="feat">
+      <div class="fnum">01</div>
+      <h3>Cumulative dry-run stack + single-transaction apply</h3>
+      <p>Each change is dry-run against the live DB, pushed onto a stack, and reviewed with Undo. Apply All wraps the stack in one transaction — no half-applied migrations.</p>
+    </div>
+    <div class="feat">
+      <div class="fnum">02</div>
+      <h3>18 risk rules + golden-path alternatives</h3>
+      <p>Detects lock-queue operations: DELETE/UPDATE without WHERE, DROP, full rewrites, constraint validation. It doesn't just block — it offers a zero-downtime path (ADD CONSTRAINT … NOT VALID then VALIDATE).</p>
+    </div>
+    <div class="feat">
+      <div class="fnum">03</div>
+      <h3>Size-aware impact</h3>
+      <p>Every risk warning carries the target table's estimated row count and size. 100 rows and 100 million rows read very differently.</p>
+    </div>
+    <div class="feat">
+      <div class="fnum">04</div>
+      <h3>Read-only integrity diagnostics on connect</h3>
+      <p>The moment you connect, four read-only diagnostics run — including broken referential integrity. Nothing is changed.</p>
+    </div>
+    <div class="feat">
+      <div class="fnum">05 <span class="opt">OPTIONAL</span></div>
+      <h3>Local LLM for NL&#8202;to&#8202;SQL + RAG</h3>
+      <p>A local Ollama turns natural language into SQL. Credentials and inference stay local. No Ollama? You're guided to enter SQL directly — the core works without the LLM.</p>
+    </div>
+    <div class="feat" style="display:flex;flex-direction:column;justify-content:center;background:var(--violet-08);border-color:var(--violet-30);">
+      <h3 style="margin-bottom:10px;">See each feature in detail</h3>
+      <p style="margin-bottom:16px;">Full write-ups, screenshots and the golden-path rules live in <span class="wl">Risk Rules</span> and the workflow pages.</p>
+      <a class="btn btn-ghost" href="./risk-safety.html">Open Risk &amp; safety</a>
+    </div>
+  </div>
+</section>
+
+<section class="section" style="padding-top:0;">
+  <div class="section-head">
+    <div class="eyebrow">How it works</div>
+    <h2>One flow, end to end</h2>
+    <p>The product is the path from Connect to Rollback. Each stop is its own wiki page under <span class="wl">Core workflow</span>.</p>
+  </div>
+  <div class="flow-strip">
+    <a class="flow-chip" href="./getting-started.html#connect"><span class="fn">01</span> Connect</a>
+    <a class="flow-chip" href="./workflow.html#input"><span class="fn">02</span> Input (NL / SQL)</a>
+    <a class="flow-chip" href="./workflow.html#diff"><span class="fn">03</span> ERD Diff</a>
+    <a class="flow-chip" href="./workflow.html#risk"><span class="fn">04</span> Risk Check</a>
+    <a class="flow-chip" href="./workflow.html#stack"><span class="fn">05</span> Dry-run Stack</a>
+    <a class="flow-chip tx" href="./workflow.html#apply-all"><span class="fn">06</span> Apply All (1 TX)</a>
+    <a class="flow-chip" href="./workflow.html#rollback"><span class="fn">07</span> Rollback</a>
+  </div>
+</section>
+
+<div class="bigcta">
+  <div class="bigcta-inner">
+    <h2>Stop the migration you'd regret.</h2>
+    <p>Download the macOS build, or read the Quickstart first. Either way, nothing touches your database until you choose Apply All.</p>
+    <div class="hero-cta" style="justify-content:center;">
+      <a class="btn btn-primary btn-lg" href="https://github.com/taehyunan-99/sql-preshift/releases">Download .dmg</a>
+      <a class="btn btn-ghost btn-lg" href="./getting-started.html">Install guide</a>
+    </div>
+    <div class="meta">~122 MiB · macOS (Apple Silicon) · PostgreSQL 16 · MIT licensed · runs fully local</div>
+  </div>
+</div>
+
+<footer class="site">
+  <div class="footer-inner">
+    <div class="fcol fbrand">
+      <a href="./index.html" class="brand"><span class="glyph"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3 4 7v5c0 4.5 3.4 7.6 8 9 4.6-1.4 8-4.5 8-9V7l-8-4Z" stroke="#fff" stroke-width="1.4"/><path d="m8.5 12 2.4 2.4 4.6-4.8" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span> SQLPreShift</a>
+      <p>A safety gate for PostgreSQL schema migrations. Stop the dangerous ones before they apply.</p>
+    </div>
+    <div class="fcol">
+      <h4>Get started</h4>
+      <a href="./getting-started.html#install">Install</a>
+      <a href="./getting-started.html#gatekeeper">Gatekeeper</a>
+      <a href="./getting-started.html#connect">Connect a database</a>
+      <a href="./getting-started.html#source">Run from source</a>
+    </div>
+    <div class="fcol">
+      <h4>Workflow</h4>
+      <a href="./workflow.html#input">Input</a>
+      <a href="./workflow.html#diff">ERD Diff</a>
+      <a href="./workflow.html#stack">Dry-run Stack</a>
+      <a href="./workflow.html#apply-all">Apply All</a>
+    </div>
+    <div class="fcol">
+      <h4>Risk &amp; safety</h4>
+      <a href="./risk-safety.html#rules">18 risk rules</a>
+      <a href="./risk-safety.html#diagnostics">Integrity diagnostics</a>
+      <a href="./risk-safety.html#llm">Local LLM</a>
+      <a href="https://github.com/taehyunan-99/sql-preshift">GitHub</a>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <span>MIT licensed · runs fully local · no telemetry</span>
+    <div class="badges">
+      <span class="badge">18 RULES</span>
+      <span class="badge">1 TX</span>
+      <span class="badge">100% LOCAL</span>
+      <span class="badge">ERP 92-TABLE</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+  (function(){
+    var t = document.getElementById('navToggle');
+    if(t){ t.addEventListener('click', function(){
+      var nm = document.querySelector('.nav-main');
+      if(nm){
+        var open = nm.getAttribute('data-open') === '1';
+        if(open){ nm.removeAttribute('style'); nm.setAttribute('data-open','0'); }
+        else {
+          nm.setAttribute('data-open','1');
+          nm.style.display='flex'; nm.style.position='absolute'; nm.style.top='58px'; nm.style.left='0'; nm.style.right='0';
+          nm.style.flexDirection='column'; nm.style.alignItems='stretch'; nm.style.background='var(--ink-850)';
+          nm.style.borderBottom='1px solid var(--ink-700)'; nm.style.padding='8px'; nm.style.zIndex='59'; nm.style.gap='2px';
+        }
+      }
+    }); }
+  })();
+</script>
+</body>
+</html>

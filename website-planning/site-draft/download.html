@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>다운로드 · macOS용 SQLPreShift</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+:root{
+  /* 앱 테마 계승 - Calm Clarity graphite dark + teal accent + glow (frontend/src/styles/tokens.css) */
+  --bg-primary:#1A2024;--bg-canvas:#161B1F;--surface:#222A30;--surface-2:#2E373E;
+  --text-primary:#E6EBEC;--text-secondary:#9BA8AD;--text-tertiary:#6B767B;
+  --border:#313B41;--border-subtle:#2A333A;
+  --accent:#2BA8A0;--accent-hover:#34C2B8;--accent-soft:rgba(43,168,160,0.12);--accent-line:rgba(43,168,160,0.45);
+  --warning:#C4955A;--warning-soft:rgba(196,149,90,0.12);--warning-line:rgba(196,149,90,0.32);--danger:#C45B5B;--danger-soft:rgba(196,91,91,0.12);--info:#5A8FC4;--info-soft:rgba(90,143,196,0.12);--info-line:rgba(90,143,196,0.28);--success:#5B9A6F;
+  --shadow-sm:0 2px 8px rgba(0,0,0,0.45);--shadow-md:0 8px 24px rgba(0,0,0,0.5);--shadow-lg:0 12px 40px rgba(0,0,0,0.65);--shadow-glow:0 0 36px rgba(43,168,160,0.28);
+  --font-head:'Plus Jakarta Sans',system-ui,sans-serif;--font-body:'Plus Jakarta Sans',system-ui,sans-serif;--font-mono:'Fira Code','JetBrains Mono',ui-monospace,monospace;
+  --space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-6:24px;--space-8:32px;--space-12:48px;--space-16:64px;--space-24:96px;
+  --radius-sm:6px;--radius-md:10px;--radius-lg:16px;--radius-xl:22px;--radius-full:9999px;--ease:cubic-bezier(0.25,0.1,0.25,1);
+  --maxw:1320px;--maxw-prose:820px;--maxw-wide:1600px;--gutter:40px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:var(--font-body);background:var(--bg-primary);color:var(--text-primary);line-height:1.6;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;word-break:keep-all;overflow-wrap:break-word}
+code,.font-mono,[class*="mono"]{word-break:normal;overflow-wrap:anywhere}
+a{color:inherit;text-decoration:none}
+.wrap{max-width:var(--maxw);margin:0 auto;padding:0 var(--gutter)}
+.wrap-prose{max-width:var(--maxw-prose);margin:0 auto;padding:0 var(--gutter)}
+.wrap-wide{max-width:var(--maxw-wide);margin:0 auto;padding:0 var(--gutter)}
+.wrap-narrow{max-width:880px;margin:0 auto;padding:0 var(--gutter)}
+.nav{position:sticky;top:0;z-index:50;background:rgba(22,28,32,0.82);backdrop-filter:saturate(150%) blur(14px);border-bottom:1px solid var(--border-subtle)}
+.nav-inner{max-width:var(--maxw-wide);margin:0 auto;height:68px;padding:0 var(--gutter);display:flex;align-items:center;gap:var(--space-8)}
+.brand{display:flex;align-items:center;gap:10px;font-weight:600;font-size:17px;letter-spacing:-0.01em}
+.brand .mark{width:30px;height:30px;border-radius:9px;flex:none;background:linear-gradient(150deg,#34C2B8,#34C2B8);display:grid;place-items:center;box-shadow:var(--shadow-sm)}
+.brand .mark svg{width:17px;height:17px}
+.nav-links{display:flex;gap:var(--space-6);margin-left:var(--space-4)}
+.nav-links a{font-size:15px;color:var(--text-secondary);font-weight:500;padding:6px 2px;position:relative;transition:color .2s var(--ease)}
+.nav-links a:hover{color:var(--text-primary)}
+.nav-links a.active{color:var(--text-primary)}
+.nav-links a.active::after{content:"";position:absolute;left:0;right:0;bottom:-21px;height:2px;background:var(--accent);border-radius:2px}
+.nav-right{margin-left:auto;display:flex;align-items:center;gap:var(--space-4)}
+.nav-gh{display:flex;align-items:center;gap:7px;font-size:14px;color:var(--text-secondary);font-weight:500;transition:color .2s var(--ease)}
+.nav-gh:hover{color:var(--text-primary)}
+.nav-gh svg{width:18px;height:18px}
+.btn{display:inline-flex;align-items:center;gap:8px;font-family:var(--font-body);font-weight:600;font-size:15px;border-radius:var(--radius-full);border:none;cursor:pointer;transition:transform .15s var(--ease),box-shadow .2s var(--ease),background .2s var(--ease);white-space:nowrap}
+.btn-primary{background:var(--accent);color:#F2FBFA;padding:10px 20px;box-shadow:var(--shadow-glow)}
+.btn-primary:hover{background:var(--accent-hover);transform:translateY(-1px)}
+.btn-lg{padding:16px 32px;font-size:17px}
+.btn-ghost{background:transparent;color:var(--text-primary);padding:10px 18px;border:1px solid var(--border)}
+.btn-ghost:hover{background:var(--surface);border-color:var(--text-tertiary)}
+.menu-toggle{display:none;background:none;border:none;cursor:pointer;padding:6px;margin-left:auto}
+.menu-toggle span{display:block;width:22px;height:2px;background:var(--text-primary);border-radius:2px;margin:4px 0;transition:.2s}
+
+/* =========================================================================
+   다운로드탭 2존 구조 - 위쪽 액션 존(get-now) / 아래쪽 트러블슈팅·심화 존(help)
+   홈탭은 시네마틱 스냅이지만, 여기는 "정확한 정보를 빠르게 얻고 실행"하는 실용 페이지.
+   과한 모션 금지. Torii식 절제된 1회성 reveal만 사용.
+   ========================================================================= */
+
+/* ----- ZONE 1: 액션 존. 한 화면 안에 다운로드+요구사항+설치요약을 담는 초고밀도 영역.
+   Linear식으로 hero에 다운로드를 임베드하되, 좌(메시지·CTA) / 우(요구사항·설치요약) 2단으로 정보 밀도를 올린다. */
+.get-now{position:relative;padding:clamp(48px,7vw,84px) 0 clamp(40px,5vw,64px);
+  background:radial-gradient(1100px 560px at 22% 8%,rgba(43,168,160,0.08),transparent 64%),var(--bg-canvas);
+  border-bottom:1px solid var(--border-subtle)}
+.get-grid{display:grid;grid-template-columns:1.05fr 0.95fr;gap:clamp(40px,5vw,80px);align-items:start}
+/* 좌: 1차 액션 컬럼 - 버전 배지 + 헤드라인 + 압도적 다운로드 버튼 + 신뢰 배지 */
+.gn-lead{min-width:0}
+.gn-ver{display:inline-flex;align-items:center;gap:9px;font-family:var(--font-mono);font-size:13px;color:var(--text-secondary);background:var(--surface);border:1px solid var(--border-subtle);padding:6px 14px;border-radius:var(--radius-full);margin-bottom:var(--space-6)}
+.gn-ver .vd{width:6px;height:6px;border-radius:50%;background:var(--success);box-shadow:0 0 8px rgba(91,154,111,0.6)}
+.gn-ver a{color:var(--accent);font-weight:500}
+.gn-lead h1{font-family:var(--font-head);font-weight:500;font-size:clamp(36px,4.6vw,60px);line-height:1.06;letter-spacing:-0.03em}
+.gn-lead>p{font-size:clamp(16px,1.4vw,18px);color:var(--text-secondary);margin-top:var(--space-5);max-width:32em;line-height:1.6}
+/* 압도적 1차 액션 - 풀폭 큰 버튼 + 발광. 이 페이지에서 유일한 primary 버튼 톤. */
+.gn-cta{margin-top:var(--space-8)}
+.gn-dl{width:100%;justify-content:center;font-size:18px;padding:18px 32px;box-shadow:var(--shadow-glow),0 18px 50px -20px rgba(43,168,160,0.6)}
+.gn-dl svg{width:19px;height:19px}
+.gn-meta{margin-top:var(--space-4);font-family:var(--font-mono);font-size:13px;color:var(--text-tertiary);text-align:center}
+.gn-meta b{color:var(--text-secondary);font-weight:500}
+.gn-sub{display:flex;gap:var(--space-6);margin-top:var(--space-6);flex-wrap:wrap}
+.gn-sub a{font-size:14px;color:var(--text-secondary);display:inline-flex;align-items:center;gap:7px;transition:color .2s var(--ease)}
+.gn-sub a:hover{color:var(--accent)}
+.gn-sub a svg{width:16px;height:16px}
+.gn-trust{margin-top:var(--space-8);padding-top:var(--space-6);border-top:1px solid var(--border-subtle);display:flex;gap:var(--space-3);flex-wrap:wrap}
+.gn-trust .b{font-family:var(--font-mono);font-size:11.5px;color:var(--text-secondary);background:var(--surface);border:1px solid var(--border-subtle);padding:5px 12px;border-radius:var(--radius-full);display:inline-flex;align-items:center;gap:7px}
+.gn-trust .b svg{width:13px;height:13px;color:var(--accent)}
+/* 우: 보조 정보 컬럼 - 시스템 요구사항 패널 + 설치 3단계 요약(스캐너블). 1차 액션보다 한 단계 낮은 위계. */
+.gn-aside{display:grid;gap:var(--space-4);min-width:0}
+.spec{background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.spec-h{padding:13px 18px;display:flex;align-items:center;gap:9px;background:var(--surface);border-bottom:1px solid var(--border-subtle);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text-tertiary)}
+.spec-h svg{width:15px;height:15px;color:var(--accent)}
+.spec-rows{padding:var(--space-2) var(--space-6) var(--space-4)}
+.spec-rows .r{display:flex;align-items:baseline;justify-content:space-between;gap:var(--space-4);padding:11px 0;border-bottom:1px solid var(--border-subtle);font-size:14px}
+.spec-rows .r:last-child{border-bottom:none}
+.spec-rows .r .lab{color:var(--text-secondary)}
+.spec-rows .r .val{font-family:var(--font-mono);font-size:13px;color:var(--text-primary);text-align:right}
+.spec-rows .r .val.ok{color:var(--accent)}
+/* Apple Silicon 확인 인라인 안내 - 요구사항 패널 바로 아래에 붙여 "받기 전에 확인"을 한 흐름으로. */
+.spec-check{display:flex;gap:11px;align-items:flex-start;background:var(--info-soft);border:1px solid var(--info-line);border-radius:var(--radius-md);padding:13px 16px}
+.spec-check svg{width:18px;height:18px;color:var(--info);flex:none;margin-top:1px}
+.spec-check p{font-size:13px;color:var(--text-secondary);line-height:1.55}
+.spec-check b{color:var(--text-primary);font-weight:600}
+/* 설치 3단계 요약 - 우 컬럼 하단. 본격 설명이 아니라 "3단계뿐"을 한눈에 보여주는 미리보기. 상세는 #install 앵커. */
+.mini-steps{background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-lg);padding:var(--space-6) var(--space-6) var(--space-4)}
+.mini-steps .mh{display:flex;align-items:center;justify-content:space-between;gap:var(--space-4);margin-bottom:var(--space-4)}
+.mini-steps .mh .t{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text-tertiary)}
+.mini-steps .mh a{font-size:13px;color:var(--accent);font-weight:500;display:inline-flex;align-items:center;gap:6px}
+.mini-steps .mh a svg{width:14px;height:14px}
+.mini-steps ol{list-style:none;counter-reset:ms;display:grid;gap:1px}
+.mini-steps li{counter-increment:ms;display:flex;gap:13px;align-items:center;padding:11px 0;border-top:1px solid var(--border-subtle);font-size:14px;color:var(--text-secondary)}
+.mini-steps li::before{content:counter(ms);width:24px;height:24px;flex:none;border-radius:50%;background:var(--accent-soft);color:var(--accent);font-family:var(--font-mono);font-size:12px;font-weight:600;display:grid;place-items:center}
+.mini-steps li b{color:var(--text-primary);font-weight:600}
+.mini-steps li.gate{color:var(--warning)}
+.mini-steps li.gate::before{background:var(--warning-soft);color:var(--warning)}
+.mini-steps li.gate a{color:var(--warning);font-weight:600;border-bottom:1px solid var(--warning-line)}
+
+/* ----- 존 경계 표식 - "여기부터는 막히면 보는 곳". 작은 섹션 인덱스 바. ----- */
+.zone-edge{border-bottom:1px solid var(--border-subtle);background:var(--bg-primary)}
+.zone-edge .ze{display:flex;align-items:center;gap:var(--space-6);padding:var(--space-6) 0;flex-wrap:wrap}
+.zone-edge .lbl{font-family:var(--font-mono);font-size:12px;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.06em;display:inline-flex;align-items:center;gap:9px}
+.zone-edge .lbl::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--accent)}
+.zone-edge .jump{margin-left:auto;display:flex;gap:var(--space-2);flex-wrap:wrap}
+.zone-edge .jump a{font-family:var(--font-mono);font-size:12.5px;color:var(--text-secondary);border:1px solid var(--border-subtle);background:var(--surface);padding:6px 13px;border-radius:var(--radius-full);transition:all .2s var(--ease)}
+.zone-edge .jump a:hover{color:var(--accent);border-color:var(--accent-line)}
+
+/* ----- ZONE 2: 심화·트러블슈팅 존. 본문은 좁게(prose), 섹션은 명확히 구분. ----- */
+section.blk{padding:var(--space-16) 0;border-top:1px solid var(--border-subtle);scroll-margin-top:84px}
+section.blk:first-of-type{border-top:none}
+.blk-head{margin-bottom:var(--space-8)}
+.blk-head .k{font-family:var(--font-mono);font-size:12px;font-weight:500;color:var(--accent);text-transform:uppercase;letter-spacing:.05em;margin-bottom:var(--space-3)}
+.blk-head h2{font-family:var(--font-head);font-weight:500;font-size:clamp(24px,3vw,32px);letter-spacing:-0.02em}
+.blk-head p{font-size:16px;color:var(--text-secondary);margin-top:var(--space-3);max-width:42em}
+.steps{display:grid;gap:var(--space-4);counter-reset:s}
+.step-row{display:flex;gap:var(--space-4);background:var(--bg-canvas);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:var(--space-6)}
+.step-row .sn{counter-increment:s;width:34px;height:34px;flex:none;border-radius:50%;background:var(--accent-soft);color:var(--accent);font-family:var(--font-mono);font-weight:600;font-size:15px;display:grid;place-items:center}
+.step-row .sn::before{content:counter(s)}
+.step-row h4{font-size:16px;font-weight:600}
+.step-row p{font-size:14.5px;color:var(--text-secondary);margin-top:4px;line-height:1.55}
+.step-row code{font-family:var(--font-mono);font-size:13px;background:var(--surface);padding:1px 6px;border-radius:4px;color:var(--accent-hover)}
+.callout{border-radius:var(--radius-md);padding:var(--space-6);margin-top:var(--space-6);display:flex;gap:13px}
+.callout svg{width:20px;height:20px;flex:none;margin-top:1px}
+.callout .ct{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px}
+.callout p{font-size:14.5px;line-height:1.6}
+.callout.warn{background:var(--warning-soft);border:1px solid var(--warning-line)}
+.callout.warn svg,.callout.warn .ct{color:var(--warning)}
+.callout.warn p{color:var(--text-secondary)}
+.callout.info{background:var(--info-soft);border:1px solid var(--info-line)}
+.callout.info svg,.callout.info .ct{color:var(--info)}
+.callout.info p{color:var(--text-secondary)}
+.codeblock{margin-top:var(--space-4);background:#E6EBEC;border-radius:var(--radius-md);overflow:hidden;box-shadow:var(--shadow-sm)}
+.codeblock .cb-bar{display:flex;align-items:center;gap:8px;padding:9px 14px;background:rgba(255,255,255,0.04);border-bottom:1px solid rgba(43,168,160,0.06)}
+.codeblock .cb-bar .lbl{font-family:var(--font-mono);font-size:11px;color:#6B767B;letter-spacing:.03em}
+.codeblock .copy{margin-left:auto;font-family:var(--font-body);font-size:11px;font-weight:600;color:#2E373E;background:rgba(43,168,160,0.06);border:1px solid rgba(43,168,160,0.10);border-radius:var(--radius-sm);padding:4px 11px;cursor:pointer;transition:all .2s var(--ease)}
+.codeblock .copy:hover{background:var(--accent);color:#F2FBFA;border-color:var(--accent)}
+.codeblock pre{margin:0;padding:14px 16px;overflow-x:auto}
+.codeblock code{font-family:var(--font-mono);font-size:13px;color:#222A30;line-height:1.7;white-space:pre}
+.codeblock code .c{color:#9BA8AD}
+.codeblock code .p{color:#34C2B8}
+.gk-tabs{margin-top:var(--space-4)}
+.gk-tabbar{display:flex;gap:6px;border-bottom:1px solid var(--border-subtle);margin-bottom:var(--space-6);flex-wrap:wrap}
+.gk-tabbar button{font-family:var(--font-body);font-size:14px;font-weight:600;color:var(--text-tertiary);background:none;border:none;border-bottom:2px solid transparent;padding:10px 14px;margin-bottom:-1px;cursor:pointer;transition:all .2s var(--ease)}
+.gk-tabbar button.on{color:var(--accent);border-bottom-color:var(--accent)}
+.gk-panel{display:none}
+.gk-panel.on{display:block}
+.opt-box{background:var(--bg-canvas);border:1px dashed var(--border);border-radius:var(--radius-lg);padding:var(--space-8)}
+.opt-box .ol{display:inline-flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:11px;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.05em;border:1px solid var(--border-subtle);padding:4px 11px;border-radius:var(--radius-full);margin-bottom:var(--space-4)}
+.opt-box h3{font-family:var(--font-head);font-weight:500;font-size:21px;letter-spacing:-0.01em}
+.opt-box p{font-size:15px;color:var(--text-secondary);margin-top:var(--space-3);line-height:1.6}
+.src-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-6);margin-top:var(--space-8)}
+.src-card{background:var(--bg-canvas);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:var(--space-6)}
+.src-card h4{font-size:15px;font-weight:600;display:flex;align-items:center;gap:9px}
+.src-card h4 svg{width:17px;height:17px;color:var(--accent)}
+.src-card p{font-size:14px;color:var(--text-secondary);margin-top:var(--space-3);line-height:1.55}
+.src-card ul{list-style:none;margin-top:var(--space-3);display:grid;gap:6px}
+.src-card li{font-family:var(--font-mono);font-size:12px;color:var(--text-tertiary);display:flex;gap:8px}
+.src-card li b{color:var(--text-secondary);font-weight:500}
+.faq{display:grid;gap:var(--space-4);margin-top:var(--space-8)}
+.faq details{background:var(--bg-canvas);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:var(--space-6);transition:border-color .2s var(--ease)}
+.faq details[open]{border-color:var(--accent-line)}
+.faq summary{font-size:16px;font-weight:600;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:var(--space-4)}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary .pm{width:22px;height:22px;flex:none;position:relative}
+.faq summary .pm::before,.faq summary .pm::after{content:"";position:absolute;background:var(--accent);border-radius:2px;transition:.2s var(--ease)}
+.faq summary .pm::before{top:10px;left:3px;right:3px;height:2px}
+.faq summary .pm::after{left:10px;top:3px;bottom:3px;width:2px}
+.faq details[open] summary .pm::after{transform:scaleY(0)}
+.faq details p{font-size:14.5px;color:var(--text-secondary);margin-top:var(--space-3);line-height:1.6}
+.faq details code{font-family:var(--font-mono);font-size:12.5px;background:var(--surface);padding:1px 6px;border-radius:4px;color:var(--accent-hover)}
+/* 페이지 끝 마지막 받기 유도 - 스크롤 끝에서 다시 한 번 1차 액션 제공(아래까지 읽은 사용자용) */
+.dl-again{text-align:center;padding:var(--space-24) 0;background:radial-gradient(900px 460px at 50% 30%,rgba(43,168,160,0.06),transparent 68%),var(--bg-canvas);border-top:1px solid var(--border-subtle)}
+.dl-again h2{font-family:var(--font-head);font-weight:500;font-size:clamp(24px,3vw,34px);letter-spacing:-0.02em}
+.dl-again p{font-size:16px;color:var(--text-secondary);margin:var(--space-4) auto 0;max-width:34em}
+.dl-again .row{display:flex;justify-content:center;gap:var(--space-4);margin-top:var(--space-8);flex-wrap:wrap}
+.dl-again .meta{margin-top:var(--space-6);font-family:var(--font-mono);font-size:13px;color:var(--text-tertiary)}
+.foot{background:var(--bg-canvas);border-top:1px solid var(--border-subtle);padding:var(--space-16) 0 var(--space-8)}
+.foot-grid{display:grid;grid-template-columns:1.6fr 1fr 1fr 1fr;gap:var(--space-8)}
+.foot-brand .brand{margin-bottom:var(--space-4)}
+.foot-brand p{font-size:14px;color:var(--text-secondary);max-width:26em;line-height:1.6}
+.foot-col h5{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text-tertiary);margin-bottom:var(--space-4)}
+.foot-col a{display:block;font-size:14.5px;color:var(--text-secondary);padding:5px 0;transition:color .2s var(--ease)}
+.foot-col a:hover{color:var(--accent)}
+.foot-bottom{margin-top:var(--space-12);padding-top:var(--space-6);border-top:1px solid var(--border-subtle);display:flex;justify-content:space-between;flex-wrap:wrap;gap:var(--space-3);font-size:13px;color:var(--text-tertiary)}
+.foot-bottom .badges{display:flex;gap:var(--space-3);flex-wrap:wrap}
+.foot-bottom .badge{font-family:var(--font-mono);font-size:12px;background:var(--surface);padding:3px 10px;border-radius:var(--radius-full);color:var(--text-secondary)}
+@media(max-width:980px){.get-grid{grid-template-columns:1fr;gap:var(--space-12)}.foot-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:760px){.src-grid{grid-template-columns:1fr}.zone-edge .jump{margin-left:0;width:100%}}
+@media(max-width:680px){.nav-links,.nav-gh{display:none}.menu-toggle{display:block}.nav.open .nav-links{display:flex;position:absolute;top:64px;left:0;right:0;flex-direction:column;background:var(--bg-canvas);border-bottom:1px solid var(--border);padding:var(--space-4) var(--space-6);gap:0;margin:0}.nav.open .nav-links a{padding:12px 0;border-bottom:1px solid var(--border-subtle)}.nav.open .nav-links a.active::after{display:none}.foot-grid{grid-template-columns:1fr}}
+
+/* ============ 스크롤 진입 reveal - index.html/features.html과 동일 엔진. Torii식 절제: 1회성 opacity+미세 translate만 ============ */
+.js [data-reveal]{opacity:0;transition:opacity .7s var(--ease),transform .7s var(--ease)}
+.js [data-reveal="up"]{transform:translateY(22px)}
+.js [data-reveal].in{opacity:1;transform:none}
+.js [data-reveal="stagger"]{opacity:1}
+.js [data-reveal="stagger"]>*{opacity:0;transform:translateY(18px);transition:opacity .6s var(--ease),transform .6s var(--ease)}
+.js [data-reveal="stagger"].in>*{opacity:1;transform:none;transition-delay:calc(var(--i,0)*70ms)}
+@media(prefers-reduced-motion:reduce){
+  .js [data-reveal],.js [data-reveal="up"],.js [data-reveal="stagger"]>*{opacity:1!important;transform:none!important;transition:none!important}
+}
+</style>
+</head>
+<body>
+<header class="nav" id="nav">
+  <div class="nav-inner">
+    <a href="./index.html" class="brand"><span class="mark"><svg viewBox="0 0 24 24" fill="none"><path d="M5 7c0-1.7 3.1-3 7-3s7 1.3 7 3-3.1 3-7 3-7-1.3-7-3Z" stroke="#F2FBFA" stroke-width="1.6"/><path d="M5 7v10c0 1.7 3.1 3 7 3s7-1.3 7-3V7" stroke="#F2FBFA" stroke-width="1.6"/><path d="M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3" stroke="#F2FBFA" stroke-width="1.6"/></svg></span>SQLPreShift</a>
+    <nav class="nav-links"><a href="./index.html">홈</a><a href="./features.html">기능</a><a href="./download.html" class="active">다운로드</a><a href="./guide.html">가이드</a></nav>
+    <div class="nav-right"><a href="https://github.com/taehyunan-99/sql-preshift" class="nav-gh"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.58 2 12.25c0 4.53 2.87 8.37 6.84 9.73.5.1.68-.22.68-.49 0-.24-.01-.88-.01-1.73-2.78.62-3.37-1.37-3.37-1.37-.45-1.18-1.11-1.49-1.11-1.49-.91-.63.07-.62.07-.62 1 .07 1.53 1.06 1.53 1.06.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.63-1.37-2.22-.26-4.56-1.14-4.56-5.06 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.7 0 0 .84-.28 2.75 1.05a9.3 9.3 0 0 1 5 0c1.91-1.33 2.75-1.05 2.75-1.05.55 1.4.2 2.44.1 2.7.64.72 1.03 1.63 1.03 2.75 0 3.93-2.34 4.8-4.57 5.05.36.32.68.94.68 1.9 0 1.37-.01 2.48-.01 2.82 0 .27.18.6.69.49A10.02 10.02 0 0 0 22 12.25C22 6.58 17.52 2 12 2Z"/></svg>GitHub</a><a href="https://github.com/taehyunan-99/sql-preshift/releases" class="btn btn-primary">다운로드</a></div>
+    <button class="menu-toggle" id="menuToggle" aria-label="Menu"><span></span><span></span><span></span></button>
+  </div>
+</header>
+
+<!-- ============ ZONE 1 · 액션 존: 한 화면에 다운로드 + 요구사항 + 설치요약 ============ -->
+<section class="get-now">
+  <div class="wrap get-grid">
+    <!-- 좌: 1차 액션 컬럼 -->
+    <div class="gn-lead">
+      <span class="gn-ver"><span class="vd"></span> SQLPreShift v0.1.0 &middot; <a href="https://github.com/taehyunan-99/sql-preshift/releases">릴리즈 노트</a></span>
+      <h1>받아서 바로 게이트를 엽니다.</h1>
+      <p>한 번 설치하면 완전히 로컬에서 동작합니다. 자격증명도 추론도 기기 밖으로 나가지 않으며, Apple Silicon에 맞춰 빌드돼 PostgreSQL 16에 바로 연결됩니다.</p>
+      <div class="gn-cta">
+        <a href="https://github.com/taehyunan-99/sql-preshift/releases" class="btn btn-primary gn-dl"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0 4.5-4.5M12 15l-4.5-4.5M5 19h14" stroke="#F2FBFA" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg> macOS용 .dmg 다운로드</a>
+        <p class="gn-meta"><b>Apple Silicon</b> &middot; 약 122 MiB &middot; 미서명 빌드 &middot; macOS Sonoma 이상</p>
+        <div class="gn-sub">
+          <a href="https://github.com/taehyunan-99/sql-preshift"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.58 2 12.25c0 4.53 2.87 8.37 6.84 9.73.5.1.68-.22.68-.49 0-.24-.01-.88-.01-1.73-2.78.62-3.37-1.37-3.37-1.37-.45-1.18-1.11-1.49-1.11-1.49-.91-.63.07-.62.07-.62 1 .07 1.53 1.06 1.53 1.06.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.63-1.37-2.22-.26-4.56-1.14-4.56-5.06 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.7 0 0 .84-.28 2.75 1.05a9.3 9.3 0 0 1 5 0c1.91-1.33 2.75-1.05 2.75-1.05.55 1.4.2 2.44.1 2.7.64.72 1.03 1.63 1.03 2.75 0 3.93-2.34 4.8-4.57 5.05.36.32.68.94.68 1.9 0 1.37-.01 2.48-.01 2.82 0 .27.18.6.69.49A10.02 10.02 0 0 0 22 12.25C22 6.58 17.52 2 12 2Z"/></svg> GitHub에서 보기</a>
+          <a href="#source"><svg viewBox="0 0 24 24" fill="none"><path d="M8 6 2 12l6 6M16 6l6 6-6 6" stroke="currentColor" stroke-width="1.8"/></svg> 소스에서 빌드</a>
+        </div>
+      </div>
+      <div class="gn-trust">
+        <span class="b"><svg viewBox="0 0 24 24" fill="none"><path d="M9 12.5 11 14.5 15.5 10M12 3 4 6v5c0 5 3.4 8.4 8 10 4.6-1.6 8-5 8-10V6l-8-3Z" stroke="currentColor" stroke-width="1.6"/></svg> 완전히 로컬에서 동작</span>
+        <span class="b"><svg viewBox="0 0 24 24" fill="none"><path d="M9 12.5 11 14.5 15.5 10M12 3 4 6v5c0 5 3.4 8.4 8 10 4.6-1.6 8-5 8-10V6l-8-3Z" stroke="currentColor" stroke-width="1.6"/></svg> 텔레메트리 없음</span>
+        <span class="b"><svg viewBox="0 0 24 24" fill="none"><path d="M9 12.5 11 14.5 15.5 10M12 3 4 6v5c0 5 3.4 8.4 8 10 4.6-1.6 8-5 8-10V6l-8-3Z" stroke="currentColor" stroke-width="1.6"/></svg> 자격증명 미저장</span>
+        <span class="b"><svg viewBox="0 0 24 24" fill="none"><path d="M9 12.5 11 14.5 15.5 10M12 3 4 6v5c0 5 3.4 8.4 8 10 4.6-1.6 8-5 8-10V6l-8-3Z" stroke="currentColor" stroke-width="1.6"/></svg> MIT 라이선스</span>
+      </div>
+    </div>
+    <!-- 우: 요구사항 + 설치 3단계 요약 -->
+    <div class="gn-aside">
+      <div class="spec">
+        <div class="spec-h"><svg viewBox="0 0 24 24" fill="none"><path d="M5 4h14a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1ZM9 20h6M12 16v4" stroke="currentColor" stroke-width="1.6"/></svg> 시스템 요구사항</div>
+        <div class="spec-rows">
+          <div class="r"><span class="lab">칩</span><span class="val ok">Apple Silicon (M1 이상)</span></div>
+          <div class="r"><span class="lab">운영체제</span><span class="val">macOS Sonoma 14 이상</span></div>
+          <div class="r"><span class="lab">데이터베이스</span><span class="val">PostgreSQL 16</span></div>
+          <div class="r"><span class="lab">다운로드 크기</span><span class="val">약 122 MiB</span></div>
+          <div class="r"><span class="lab">자연어 입력</span><span class="val">Ollama (선택)</span></div>
+        </div>
+      </div>
+      <div class="spec-check">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M12 16v-4m0-4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" stroke="currentColor" stroke-width="1.6"/></svg>
+        <p><b>받기 전에 칩을 확인하세요.</b> Apple 메뉴 &middot; 이 Mac에 관하여(About This Mac)의 칩(Chip) 항목이 Apple M1 이상이면 사용할 수 있습니다. Intel Mac은 지원하지 않습니다.</p>
+      </div>
+      <div class="mini-steps">
+        <div class="mh"><span class="t">설치는 세 단계</span><a href="#install">자세히 보기 <svg viewBox="0 0 24 24" fill="none"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="2"/></svg></a></div>
+        <ol>
+          <li><span><code style="font-family:var(--font-mono);font-size:12.5px;color:var(--accent-hover)">.dmg</code> 열기</span></li>
+          <li><b>SQLPreShift.app</b>을 응용 프로그램으로 드래그</li>
+          <li class="gate">첫 실행은 <a href="#gatekeeper">Gatekeeper 통과</a>가 한 번 필요</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 존 경계: 여기부터는 막히면 보는 트러블슈팅·심화 존 ============ -->
+<div class="zone-edge">
+  <div class="wrap-narrow ze">
+    <span class="lbl">막히면 여기서</span>
+    <nav class="jump">
+      <a href="#install">설치</a>
+      <a href="#gatekeeper">Gatekeeper</a>
+      <a href="#llm">로컬 LLM</a>
+      <a href="#source">소스 빌드</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+  </div>
+</div>
+
+<!-- ZONE 2 - 좁은 본문(prose) 폭으로 읽기 흐름 집중 -->
+<div class="wrap-narrow">
+
+<section class="blk" id="install">
+  <div class="blk-head" data-reveal="up"><div class="k">설치</div><h2>설치는 세 단계.</h2><p>다운로드한 디스크 이미지에서 실행되는 앱까지. 빌드가 미서명 상태이기 때문에 첫 실행에는 추가 확인이 한 번 필요합니다. 바로 다음 섹션에서 다룹니다.</p></div>
+  <div class="steps" data-reveal="stagger">
+    <div class="step-row"><span class="sn"></span><div><h4>디스크 이미지 열기</h4><p>다운로드한 <code>SQLPreShift-*.dmg</code>를 더블 클릭하세요. 앱과 응용 프로그램(Applications) 단축 아이콘이 표시된 Finder 창이 열립니다.</p></div></div>
+    <div class="step-row"><span class="sn"></span><div><h4>앱을 응용 프로그램으로 드래그</h4><p>같은 창에서 <code>SQLPreShift.app</code>을 응용 프로그램(Applications) 폴더 위로 드래그하세요. <code>/Applications</code>로 복사됩니다.</p></div></div>
+    <div class="step-row"><span class="sn"></span><div><h4>처음 한 번 실행하기</h4><p>빌드가 미서명 상태라 처음에는 단순 더블 클릭이 차단됩니다. 다음 섹션의 두 가지 방법 중 하나를 사용하세요. 이 작업은 한 번만 하면 됩니다.</p></div></div>
+  </div>
+</section>
+
+<section class="blk" id="gatekeeper">
+  <div class="blk-head" data-reveal="up"><div class="k">첫 실행</div><h2>Gatekeeper, 한 번만 통과하기.</h2><p>SQLPreShift는 공증(notarize)되지 않았기 때문에 macOS가 첫 실행을 차단합니다. 정상적인 동작입니다. macOS 버전에 맞는 방법을 선택하세요. 한 번 연 뒤부터는 더블 클릭으로 평소처럼 실행됩니다.</p></div>
+  <div class="callout warn" data-reveal="up"><svg viewBox="0 0 24 24" fill="none"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" stroke="currentColor" stroke-width="1.6"/></svg><div><div class="ct">미서명 빌드</div><p>이 앱은 포트폴리오 앱이며 Apple 공증을 받지 않았기 때문에 첫 실행이 Gatekeeper에 의해 차단됩니다. 정상입니다. 한 번만 해제하면 되며, 이후 모든 실행은 더블 클릭으로 열립니다.</p></div></div>
+  <div class="gk-tabs" data-reveal="up">
+    <div class="gk-tabbar" role="tablist">
+      <button class="on" data-gk="a">우클릭 &middot; 열기(Open) (Sonoma 이하)</button>
+      <button data-gk="b">개인정보 보호 및 보안(Privacy &amp; Security) (Sequoia 15+)</button>
+      <button data-gk="c">터미널(고급)</button>
+    </div>
+    <div class="gk-panel on" data-gk="a">
+      <div class="steps">
+        <div class="step-row"><span class="sn"></span><div><h4>앱을 우클릭</h4><p><code>/Applications</code>에서 <code>SQLPreShift.app</code>을 우클릭(또는 Control-클릭)한 뒤 <b>열기(Open)</b>를 선택하세요.</p></div></div>
+        <div class="step-row"><span class="sn"></span><div><h4>대화상자에서 확인</h4><p><b>열기(Open)</b> 버튼이 있는 경고 창이 나타납니다. <b>열기(Open)</b>를 다시 클릭하세요. 앱이 실행되고 예외로 기억됩니다.</p></div></div>
+      </div>
+    </div>
+    <div class="gk-panel" data-gk="b">
+      <div class="callout info"><svg viewBox="0 0 24 24" fill="none"><path d="M12 16v-4m0-4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" stroke="currentColor" stroke-width="1.6"/></svg><div><div class="ct">왜 다른가</div><p>macOS Sequoia(15)에서는 우클릭 &middot; 열기(Open) 단축 동작이 더 이상 Gatekeeper를 우회하지 못합니다. 대신 개인정보 보호 및 보안(Privacy &amp; Security) 패널을 사용하세요.</p></div></div>
+      <div class="steps">
+        <div class="step-row"><span class="sn"></span><div><h4>앱을 한 번 열어보기</h4><p><code>SQLPreShift.app</code>을 더블 클릭하세요. macOS가 차단 대화상자를 표시합니다. 이를 닫으세요.</p></div></div>
+        <div class="step-row"><span class="sn"></span><div><h4>시스템 설정(System Settings) &middot; 개인정보 보호 및 보안(Privacy &amp; Security) 열기</h4><p>맨 아래 <b>보안(Security)</b> 섹션까지 스크롤하세요. <code>"SQLPreShift" was blocked…</code>라는 문구가 보입니다.</p></div></div>
+        <div class="step-row"><span class="sn"></span><div><h4>그래도 열기(Open Anyway) 클릭</h4><p>이어지는 대화상자에서 <b>열기(Open)</b>를 확인하고 로그인 암호를 입력하세요. 이 버튼은 차단 시도 후 약 한 시간 동안만 제공됩니다.</p></div></div>
+      </div>
+    </div>
+    <div class="gk-panel" data-gk="c">
+      <p style="font-size:14.5px;color:var(--text-secondary);line-height:1.6">격리(quarantine) 속성을 직접 제거합니다. 터미널 사용이 익숙하다면 가장 빠른 방법입니다.</p>
+      <div class="codeblock">
+        <div class="cb-bar"><span class="lbl">터미널</span><button class="copy" data-copy="xattr -dr com.apple.quarantine /Applications/SQLPreShift.app">복사</button></div>
+        <pre><code><span class="p">xattr</span> -dr com.apple.quarantine /Applications/SQLPreShift.app</code></pre>
+      </div>
+      <div class="callout info" style="margin-top:var(--space-4)"><svg viewBox="0 0 24 24" fill="none"><path d="M12 16v-4m0-4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" stroke="currentColor" stroke-width="1.6"/></svg><div><div class="ct">보안 팁</div><p>이 명령은 해당 앱에 한해서만 격리 플래그를 제거합니다(<code>-r</code> 재귀, <code>-d</code> 삭제). 시스템의 모든 앱에 대해 Gatekeeper를 약화시키는 <code>spctl --global-disable</code>은 사용하지 마세요.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<section class="blk" id="llm">
+  <div class="opt-box" data-reveal="up">
+    <span class="ol">선택 사항</span>
+    <h3>자연어를 SQL로 변환 활성화</h3>
+    <p>안전 코어는 LLM 없이도 동작합니다. 자연어 입력을 사용하려면 <a href="https://ollama.com" style="color:var(--accent);font-weight:600">Ollama</a>를 설치하고 로컬 모델 두 개를 받으세요. 추론은 전적으로 사용자 머신에서 이루어집니다.</p>
+    <div class="codeblock">
+      <div class="cb-bar"><span class="lbl">터미널 · NL to SQL</span><button class="copy" data-copy="ollama pull gemma4:latest">복사</button></div>
+      <pre><code><span class="p">ollama</span> pull gemma4:latest   <span class="c"># 자연어를 SQL로</span></code></pre>
+    </div>
+    <div class="codeblock">
+      <div class="cb-bar"><span class="lbl">터미널 · RAG 임베딩</span><button class="copy" data-copy="ollama pull bge-m3:latest">복사</button></div>
+      <pre><code><span class="p">ollama</span> pull bge-m3:latest   <span class="c"># RAG 임베딩 (1024-dim)</span></code></pre>
+    </div>
+    <div class="callout info" style="margin-top:var(--space-6)"><svg viewBox="0 0 24 24" fill="none"><path d="M12 16v-4m0-4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" stroke="currentColor" stroke-width="1.6"/></svg><div><div class="ct">Ollama가 없어도 괜찮습니다</div><p>Ollama 없이도 SQLPreShift는 SQL을 직접 입력하도록 안내합니다. dry-run 스택, 17개 위험 규칙, 진단 등 모든 안전 기능이 LLM 없이도 동작합니다.</p></div></div>
+  </div>
+</section>
+
+<section class="blk" id="source">
+  <div class="blk-head" data-reveal="up"><div class="k">소스에서 실행</div><h2>직접 빌드하고 싶으신가요?</h2><p>저장소를 클론하고 Docker Compose로 전체 스택을 기동하세요. 데모 데이터베이스가 포함되어 있어 자신의 데이터를 연결하지 않고도 전체 흐름을 체험할 수 있습니다.</p></div>
+  <div class="codeblock" data-reveal="up">
+    <div class="cb-bar"><span class="lbl">터미널 · 클론 &amp; 실행</span><button class="copy" data-copy="cp .env.example .env && docker compose up -d">복사</button></div>
+    <pre><code><span class="c"># 클론한 저장소 루트에서</span>
+<span class="p">cp</span> .env.example .env
+<span class="p">docker</span> compose up -d   <span class="c"># postgres + backend + frontend</span></code></pre>
+  </div>
+  <div class="src-grid" data-reveal="stagger">
+    <div class="src-card">
+      <h4><svg viewBox="0 0 24 24" fill="none"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="1.8"/></svg> 데모 데이터베이스</h4>
+      <p>이 스택에는 시드 데이터가 적재된 PostgreSQL 데이터베이스 두 개가 함께 제공되어, 바로 게이트해볼 수 있는 현실적인 데이터를 제공합니다.</p>
+      <ul><li><b>ERP 데모</b> &middot; 92개 테이블 &middot; localhost:5433</li><li><b>Pagila</b> &middot; 영화 대여 샘플 스키마 &middot; localhost:5434</li></ul>
+    </div>
+    <div class="src-card">
+      <h4><svg viewBox="0 0 24 24" fill="none"><path d="M12 2 4 5v6c0 5 3.5 8.5 8 10 4.5-1.5 8-5 8-10V5l-8-3Z" stroke="currentColor" stroke-width="1.6"/></svg> 로컬에 머무는 것</h4>
+      <p>이 앱은 상태를 저장하지 않고 일회성으로 동작하며, 자격증명은 세션 간에 절대 저장되지 않습니다.</p>
+      <ul><li>단일 <b>SQLite</b> 메타데이터 저장소</li><li>PostgreSQL 전용 (16에서 검증)</li><li>포트폴리오 데모 &middot; 호스팅 서비스 아님</li></ul>
+    </div>
+  </div>
+</section>
+
+<section class="blk" id="faq">
+  <div class="blk-head" data-reveal="up"><div class="k">묻기 전에</div><h2>다운로드 FAQ</h2></div>
+  <div class="faq">
+    <details open><summary>첫 실행이 왜 차단되나요? <span class="pm"></span></summary><p>빌드가 미서명 상태이며 Apple 공증을 받지 않았기 때문에 Gatekeeper가 첫 실행을 차단합니다. 포트폴리오 앱에서는 정상적인 동작입니다. 우클릭 &middot; 열기(Open) 방법, Sequoia의 개인정보 보호 및 보안(Privacy &amp; Security) 패널, 또는 <code>xattr</code> 명령으로 한 번만 해제하면, 이후에는 평소처럼 열립니다.</p></details>
+    <details><summary>Intel Mac에서도 동작하나요? <span class="pm"></span></summary><p>아니요. SQLPreShift는 Apple Silicon(M1 이상) 전용입니다. Apple 메뉴 &middot; 이 Mac에 관하여(About This Mac)에서 칩을 확인하세요.</p></details>
+    <details><summary>Ollama를 꼭 설치해야 하나요? <span class="pm"></span></summary><p>아니요. Ollama는 자연어 입력에만 필요합니다. 없어도 SQL을 직접 입력하면 되며 모든 안전 기능이 그대로 동작합니다.</p></details>
+    <details><summary>어떤 데이터베이스를 지원하나요? <span class="pm"></span></summary><p>PostgreSQL 전용이며, PostgreSQL 16에서 빌드·검증했습니다. 포함된 데모 스택에는 92개 테이블의 ERP 데이터베이스와 Pagila가 함께 제공되어, 자신의 데이터 없이도 사용해볼 수 있습니다.</p></details>
+    <details><summary>제 자격증명이 어딘가에 저장되나요? <span class="pm"></span></summary><p>아니요. 이 앱은 상태를 저장하지 않고 일회성으로 동작하며, 연결 자격증명은 세션 간에 저장되지 않고, 추론(로컬 LLM을 사용하는 경우)도 사용자 머신에 머뭅니다.</p></details>
+  </div>
+</section>
+
+</div><!-- /wrap-narrow -->
+
+<!-- 페이지 끝 - 아래까지 읽은 사용자를 위한 마지막 받기 유도 -->
+<section class="dl-again">
+  <div class="wrap-narrow" data-reveal="up">
+    <h2>확인을 마쳤다면, 이제 게이트를 열 차례입니다.</h2>
+    <p>무료 오픈소스. 모든 작업이 로컬에서 동작합니다. 운영 DB에 ALTER를 던지는 순간을 위해 만들었습니다.</p>
+    <div class="row">
+      <a href="https://github.com/taehyunan-99/sql-preshift/releases" class="btn btn-primary btn-lg">macOS용 .dmg 다운로드</a>
+      <a href="./guide.html" class="btn btn-ghost btn-lg">가이드 읽기</a>
+    </div>
+    <p class="meta">v0.1.0 &middot; Apple Silicon &middot; 약 122 MiB &middot; MIT</p>
+  </div>
+</section>
+
+<footer class="foot">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div class="foot-brand"><a href="./index.html" class="brand"><span class="mark"><svg viewBox="0 0 24 24" fill="none"><path d="M5 7c0-1.7 3.1-3 7-3s7 1.3 7 3-3.1 3-7 3-7-1.3-7-3Z" stroke="#F2FBFA" stroke-width="1.6"/><path d="M5 7v10c0 1.7 3.1 3 7 3s7-1.3 7-3V7" stroke="#F2FBFA" stroke-width="1.6"/><path d="M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3" stroke="#F2FBFA" stroke-width="1.6"/></svg></span>SQLPreShift</a><p>PostgreSQL 스키마 마이그레이션을 위한 안전 게이트. 호스팅 서비스가 아닌 포트폴리오 데모로, 위험한 마이그레이션을 실수로 적용하는 일이 불가능하도록 만들었습니다.</p></div>
+      <div class="foot-col"><h5>제품</h5><a href="./index.html">홈</a><a href="./features.html">기능</a><a href="./download.html">다운로드</a><a href="./guide.html">가이드</a></div>
+      <div class="foot-col"><h5>리소스</h5><a href="#install">설치 &amp; Gatekeeper</a><a href="#llm">로컬 LLM 설정</a><a href="#source">소스에서 실행</a><a href="https://github.com/taehyunan-99/sql-preshift">GitHub 저장소</a></div>
+      <div class="foot-col"><h5>정보</h5><a href="https://github.com/taehyunan-99/sql-preshift/releases">릴리즈</a><a href="https://github.com/taehyunan-99/sql-preshift/blob/main/LICENSE">MIT 라이선스</a><a href="#source">소스에서 빌드</a></div>
+    </div>
+    <div class="foot-bottom"><span>&copy; 2026 SQLPreShift &middot; MIT 라이선스 &middot; 완전히 로컬에서 동작.</span><span class="badges"><span class="badge">PostgreSQL 16</span><span class="badge">macOS Apple Silicon</span><span class="badge">텔레메트리 없음</span></span></div>
+  </div>
+</footer>
+<script>
+(function(){var t=document.getElementById('menuToggle'),n=document.getElementById('nav');if(t)t.addEventListener('click',function(){n.classList.toggle('open');});})();
+// 스크롤 진입 reveal - index.html/features.html과 동일 엔진(콘텐츠 페이지용 간소). Torii식 1회성 fade.
+(function(){
+  document.documentElement.classList.add('js');
+  document.querySelectorAll('[data-reveal="stagger"]').forEach(function(box){
+    Array.prototype.forEach.call(box.children,function(c,i){c.style.setProperty('--i',i);});
+  });
+  var io=new IntersectionObserver(function(entries){
+    entries.forEach(function(en){
+      if(!en.isIntersecting)return;
+      en.target.classList.add('in');io.unobserve(en.target);
+    });
+  },{threshold:0.18,rootMargin:'0px 0px -8% 0px'});
+  document.querySelectorAll('[data-reveal]').forEach(function(el){io.observe(el);});
+})();
+// Gatekeeper 탭 전환
+(function(){
+  var bar=document.querySelector('.gk-tabbar');if(!bar)return;
+  var btns=bar.querySelectorAll('button'),panels=document.querySelectorAll('.gk-panel');
+  btns.forEach(function(b){b.addEventListener('click',function(){
+    btns.forEach(function(x){x.classList.remove('on')});b.classList.add('on');
+    var k=b.getAttribute('data-gk');
+    panels.forEach(function(p){p.classList.toggle('on',p.getAttribute('data-gk')===k)});
+  });});
+})();
+// 코드블록 copy 버튼
+(function(){
+  document.querySelectorAll('.copy').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var txt=btn.getAttribute('data-copy')||'';
+      navigator.clipboard.writeText(txt).then(function(){
+        var o=btn.textContent;btn.textContent='Copied';
+        setTimeout(function(){btn.textContent=o;},1400);
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>

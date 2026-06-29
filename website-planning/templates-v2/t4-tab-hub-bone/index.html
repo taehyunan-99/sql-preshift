@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SQLPreShift — A safety gate for PostgreSQL schema migrations</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ═══ SQLPreShift — Warm Bone + Coral theme (Calm Clarity, bone variant) ═══ */
+:root{
+  /* Bone surfaces */
+  --bone:#F2EDE6;            /* page canvas */
+  --bone-deep:#EAE2D8;       /* recessed wells */
+  --surface:#FBF8F4;         /* card surface */
+  --surface-raised:#FFFFFF;  /* raised card */
+  /* Ink */
+  --ink:#232020;            /* charcoal text */
+  --ink-soft:#5C534C;        /* secondary */
+  --ink-faint:#8E837A;       /* tertiary */
+  /* Lines */
+  --line:#E1D7CB;
+  --line-soft:#ECE4D9;
+  /* Coral accent */
+  --coral:#E2603E;
+  --coral-deep:#C84A2A;
+  --coral-12:rgba(226,96,62,0.12);
+  --coral-06:rgba(226,96,62,0.06);
+  --coral-tint:#F7E5DE;
+  /* Semantic (warm-tuned) */
+  --ok:#5B8C63;
+  --ok-tint:#E4EDE2;
+  --warn:#C98A2E;
+  --warn-tint:#F4E8D2;
+  --danger:#C2402B;
+  --danger-tint:#F6E0DA;
+  --info:#5E7C99;
+  --info-tint:#E2EAF1;
+  /* Elevation (warm-cast shadows) */
+  --sh-sm:0 1px 3px rgba(74,48,30,0.07);
+  --sh-md:0 4px 14px rgba(74,48,30,0.10);
+  --sh-lg:0 12px 34px rgba(74,48,30,0.14);
+  --sh-xl:0 22px 60px rgba(74,48,30,0.18);
+  /* Type */
+  --font:'Plus Jakarta Sans',system-ui,sans-serif;
+  --mono:'JetBrains Mono','SF Mono',Menlo,monospace;
+  /* Spacing 4px scale */
+  --s1:4px;--s2:8px;--s3:12px;--s4:16px;--s6:24px;--s8:32px;--s12:48px;--s16:64px;--s24:96px;
+  --r-sm:6px;--r-md:10px;--r-lg:14px;--r-xl:20px;--r-full:999px;
+  --max:1180px;
+  --ease:cubic-bezier(0.22,0.61,0.36,1);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  font-family:var(--font);
+  background:var(--bone);
+  color:var(--ink);
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+a{color:inherit;text-decoration:none}
+img{max-width:100%}
+::selection{background:var(--coral-12);color:var(--coral-deep)}
+
+/* ─── Top bar (tab/hub nav) ─── */
+.topbar{
+  position:sticky;top:0;z-index:50;
+  background:rgba(242,237,230,0.86);
+  backdrop-filter:saturate(160%) blur(14px);
+  border-bottom:1px solid var(--line);
+}
+.topbar-inner{
+  max-width:var(--max);margin:0 auto;
+  display:flex;align-items:center;gap:var(--s8);
+  padding:0 var(--s6);height:60px;
+}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:-0.01em;flex-shrink:0}
+.brand .mark{
+  width:26px;height:26px;border-radius:7px;flex-shrink:0;
+  background:linear-gradient(140deg,var(--coral),var(--coral-deep));
+  position:relative;box-shadow:var(--sh-sm);
+}
+.brand .mark::after{
+  content:"";position:absolute;inset:6px 7px;
+  border-left:2.5px solid var(--bone);border-bottom:2.5px solid var(--bone);
+  border-bottom-left-radius:3px;
+}
+.brand b{font-size:16px}
+.brand span{color:var(--ink-faint);font-weight:500;font-size:13px}
+
+/* tabs — the defining nav of the hub IA */
+.tabs{display:flex;align-items:center;gap:2px;margin-left:var(--s4)}
+.tab{
+  position:relative;
+  padding:9px 16px;border-radius:var(--r-sm);
+  font-size:14px;font-weight:600;color:var(--ink-soft);
+  transition:color var(--ease) .15s,background var(--ease) .15s;
+}
+.tab:hover{color:var(--ink);background:var(--coral-06)}
+.tab.active{color:var(--coral-deep)}
+.tab.active::after{
+  content:"";position:absolute;left:14px;right:14px;bottom:-1px;height:2.5px;
+  background:var(--coral);border-radius:2px;
+}
+.topbar-cta{margin-left:auto;display:flex;align-items:center;gap:var(--s3)}
+.gh-link{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:8px 12px;border-radius:var(--r-sm);
+  font-size:13px;font-weight:600;color:var(--ink-soft);
+  border:1px solid var(--line);background:var(--surface);
+  transition:border-color .15s var(--ease),color .15s var(--ease);
+}
+.gh-link:hover{border-color:var(--ink-faint);color:var(--ink)}
+.gh-link svg{width:16px;height:16px}
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  font-family:var(--font);font-weight:600;cursor:pointer;border:none;
+  transition:transform .12s var(--ease),box-shadow .18s var(--ease),background .15s var(--ease);
+}
+.btn-primary{
+  background:var(--coral);color:#fff;
+  padding:9px 18px;border-radius:var(--r-sm);font-size:14px;
+  box-shadow:0 2px 10px rgba(226,96,62,0.30);
+}
+.btn-primary:hover{background:var(--coral-deep);transform:translateY(-1px);box-shadow:0 6px 18px rgba(226,96,62,0.36)}
+.btn-lg{padding:14px 26px;font-size:16px;border-radius:var(--r-md)}
+.btn-ghost{
+  background:var(--surface);color:var(--ink);border:1px solid var(--line);
+  padding:13px 24px;border-radius:var(--r-md);font-size:15px;
+}
+.btn-ghost:hover{border-color:var(--ink-faint);transform:translateY(-1px)}
+
+.menu-toggle{display:none;background:none;border:1px solid var(--line);border-radius:var(--r-sm);width:38px;height:38px;cursor:pointer}
+.menu-toggle span{display:block;width:16px;height:2px;background:var(--ink);margin:3px auto;border-radius:2px}
+
+/* ─── Hub hero ─── */
+.hub-hero{
+  max-width:var(--max);margin:0 auto;
+  padding:var(--s24) var(--s6) var(--s12);
+  text-align:center;
+}
+.eyebrow{
+  display:inline-flex;align-items:center;gap:8px;
+  font-size:12.5px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;
+  color:var(--coral-deep);background:var(--coral-tint);
+  padding:6px 14px;border-radius:var(--r-full);margin-bottom:var(--s6);
+}
+.eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--coral)}
+.hub-hero h1{
+  font-size:clamp(34px,5.6vw,60px);font-weight:800;line-height:1.05;
+  letter-spacing:-0.025em;margin:0 auto var(--s4);max-width:14ch;
+}
+.hub-hero h1 .hl{color:var(--coral)}
+.hub-hero .lede{
+  font-size:clamp(16px,2vw,19px);color:var(--ink-soft);
+  max-width:56ch;margin:0 auto var(--s8);line-height:1.55;
+}
+.hub-hero .tagline{
+  font-size:15px;color:var(--ink-faint);font-style:italic;margin-bottom:var(--s8);
+}
+.hero-actions{display:flex;gap:var(--s3);justify-content:center;flex-wrap:wrap}
+.hero-meta{margin-top:var(--s6);font-size:13px;color:var(--ink-faint);font-family:var(--mono)}
+.hero-meta b{color:var(--ink-soft);font-weight:600}
+
+/* ─── Hub dispatcher grid (the 4 areas) ─── */
+.hub-wrap{max-width:var(--max);margin:0 auto;padding:0 var(--s6) var(--s16)}
+.hub-label{
+  display:flex;align-items:baseline;gap:var(--s4);
+  margin-bottom:var(--s6);padding-bottom:var(--s3);border-bottom:1px solid var(--line);
+}
+.hub-label h2{font-size:15px;font-weight:700;letter-spacing:0.02em;text-transform:uppercase;color:var(--ink-soft)}
+.hub-label p{font-size:14px;color:var(--ink-faint)}
+.hub-grid{
+  display:grid;grid-template-columns:repeat(2,1fr);gap:var(--s6);
+}
+.hub-card{
+  position:relative;display:flex;flex-direction:column;
+  background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--r-xl);padding:var(--s8);
+  box-shadow:var(--sh-sm);overflow:hidden;
+  transition:transform .2s var(--ease),box-shadow .22s var(--ease),border-color .2s var(--ease);
+}
+.hub-card::before{
+  content:"";position:absolute;left:0;top:0;bottom:0;width:4px;
+  background:var(--coral);transform:scaleY(0);transform-origin:top;
+  transition:transform .25s var(--ease);
+}
+.hub-card:hover{transform:translateY(-4px);box-shadow:var(--sh-lg);border-color:var(--coral-tint)}
+.hub-card:hover::before{transform:scaleY(1)}
+.hub-num{
+  font-family:var(--mono);font-size:13px;font-weight:600;
+  color:var(--coral-deep);background:var(--coral-tint);
+  width:34px;height:34px;border-radius:var(--r-sm);
+  display:flex;align-items:center;justify-content:center;margin-bottom:var(--s4);
+}
+.hub-card h3{font-size:22px;font-weight:700;letter-spacing:-0.01em;margin-bottom:var(--s2)}
+.hub-card .sub{font-size:13px;color:var(--coral-deep);font-weight:600;margin-bottom:var(--s4)}
+.hub-card p{font-size:14.5px;color:var(--ink-soft);line-height:1.6;flex:1;margin-bottom:var(--s6)}
+.hub-card .enter{
+  display:inline-flex;align-items:center;gap:8px;
+  font-size:14px;font-weight:600;color:var(--coral-deep);
+}
+.hub-card .enter .ic{
+  width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;
+  transition:transform .2s var(--ease);
+}
+.hub-card:hover .enter .ic{transform:translateX(4px)}
+.hub-card ul{list-style:none;margin:0 0 var(--s6);padding:0;display:grid;gap:6px}
+.hub-card ul li{font-size:13px;color:var(--ink-faint);display:flex;gap:8px;align-items:flex-start}
+.hub-card ul li .tick{color:var(--coral);font-weight:700;flex-shrink:0}
+
+/* ─── Trust strip ─── */
+.trust{max-width:var(--max);margin:0 auto;padding:0 var(--s6) var(--s16)}
+.trust-grid{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:var(--s4);
+  background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--r-lg);padding:var(--s8);box-shadow:var(--sh-sm);
+}
+.trust-item{text-align:center;padding:var(--s2)}
+.trust-item .big{font-size:30px;font-weight:800;color:var(--ink);letter-spacing:-0.02em;font-family:var(--mono)}
+.trust-item .lbl{font-size:12.5px;color:var(--ink-faint);margin-top:4px;font-weight:500}
+
+/* ─── How it works mini-flow ─── */
+.flow-sec{max-width:var(--max);margin:0 auto;padding:0 var(--s6) var(--s16)}
+.flow-head{text-align:center;margin-bottom:var(--s12)}
+.flow-head h2{font-size:clamp(26px,3.6vw,34px);font-weight:800;letter-spacing:-0.02em;margin-bottom:var(--s3)}
+.flow-head p{color:var(--ink-soft);font-size:16px;max-width:50ch;margin:0 auto}
+.flow-rail{
+  display:grid;grid-template-columns:repeat(7,1fr);gap:var(--s2);
+  position:relative;
+}
+.flow-step{
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);
+  padding:var(--s4) var(--s3);text-align:center;
+  box-shadow:var(--sh-sm);
+}
+.flow-step .n{
+  font-family:var(--mono);font-size:11px;font-weight:600;color:var(--coral-deep);
+  display:block;margin-bottom:6px;
+}
+.flow-step .t{font-size:13px;font-weight:600;color:var(--ink);line-height:1.3}
+
+/* ─── App mockup (CSS, bone+coral toned) ─── */
+.mock{
+  background:var(--surface-raised);border:1px solid var(--line);
+  border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--sh-lg);
+}
+.mock-bar{
+  display:flex;align-items:center;gap:7px;
+  padding:11px var(--s4);background:var(--bone-deep);border-bottom:1px solid var(--line);
+}
+.mock-bar .dot{width:11px;height:11px;border-radius:50%}
+.mock-bar .dot.r{background:#E0907E}.mock-bar .dot.y{background:#E3C07A}.mock-bar .dot.g{background:#9FC08C}
+.mock-bar .title{margin-left:10px;font-size:12px;color:var(--ink-faint);font-family:var(--mono)}
+.mock-body{display:grid;grid-template-columns:200px 1fr;min-height:300px}
+.mock-side{background:var(--bone);border-right:1px solid var(--line);padding:var(--s4)}
+.mock-side .grp{font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-faint);margin:var(--s3) 0 var(--s2);font-weight:600}
+.mock-side .row{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:var(--r-sm);font-size:12px;color:var(--ink-soft);margin-bottom:2px}
+.mock-side .row.on{background:var(--coral-tint);color:var(--coral-deep);font-weight:600}
+.mock-side .row .sq{width:12px;height:12px;border-radius:3px;background:var(--line);flex-shrink:0}
+.mock-side .row.on .sq{background:var(--coral)}
+.mock-main{padding:var(--s6);background:var(--surface)}
+.erd-node{
+  display:inline-block;background:var(--surface-raised);border:1px solid var(--line);
+  border-radius:var(--r-md);padding:0;margin:0 0 var(--s4);box-shadow:var(--sh-sm);width:170px;vertical-align:top;
+}
+.erd-node .hd{background:var(--ink);color:var(--bone);font-size:12px;font-weight:600;padding:7px 11px;border-radius:9px 9px 0 0;font-family:var(--mono)}
+.erd-node.added .hd{background:var(--coral)}
+.erd-node .col{font-size:11px;padding:5px 11px;border-top:1px solid var(--line-soft);color:var(--ink-soft);font-family:var(--mono);display:flex;justify-content:space-between}
+.erd-node .col.new{background:var(--coral-06);color:var(--coral-deep);font-weight:600}
+.erd-node .col .ty{color:var(--ink-faint)}
+.mock-flex{display:flex;gap:var(--s6);align-items:flex-start;flex-wrap:wrap}
+
+/* ─── Footer ─── */
+footer{
+  background:var(--bone-deep);border-top:1px solid var(--line);
+  margin-top:var(--s8);
+}
+.foot-inner{
+  max-width:var(--max);margin:0 auto;padding:var(--s16) var(--s6) var(--s12);
+  display:grid;grid-template-columns:1.6fr 1fr 1fr 1fr;gap:var(--s8);
+}
+.foot-brand .brand{margin-bottom:var(--s4)}
+.foot-brand p{font-size:13.5px;color:var(--ink-faint);max-width:34ch;line-height:1.6}
+.foot-col h4{font-size:12px;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-faint);margin-bottom:var(--s4);font-weight:700}
+.foot-col a{display:block;font-size:14px;color:var(--ink-soft);padding:5px 0;transition:color .15s var(--ease)}
+.foot-col a:hover{color:var(--coral-deep)}
+.foot-bottom{
+  max-width:var(--max);margin:0 auto;padding:var(--s6);
+  border-top:1px solid var(--line);
+  display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:var(--s3);
+}
+.foot-bottom p{font-size:13px;color:var(--ink-faint)}
+.foot-badges{display:flex;gap:var(--s2);flex-wrap:wrap}
+.fbadge{font-size:11.5px;font-family:var(--mono);color:var(--ink-soft);background:var(--surface);border:1px solid var(--line);padding:4px 10px;border-radius:var(--r-full)}
+
+/* ─── Responsive ─── */
+@media (max-width:920px){
+  .tabs{display:none}
+  .menu-toggle{display:block;margin-left:auto;order:3}
+  .topbar-cta{order:2}
+  .topbar-cta .gh-link{display:none}
+  .hub-grid{grid-template-columns:1fr}
+  .trust-grid{grid-template-columns:repeat(2,1fr)}
+  .flow-rail{grid-template-columns:1fr 1fr;gap:var(--s3)}
+  .foot-inner{grid-template-columns:1fr 1fr}
+  .mock-body{grid-template-columns:1fr}
+  .mock-side{display:none}
+}
+@media (max-width:560px){
+  .hub-hero{padding-top:var(--s16)}
+  .trust-grid{grid-template-columns:1fr}
+  .flow-rail{grid-template-columns:1fr}
+  .foot-inner{grid-template-columns:1fr}
+  .hero-actions .btn{width:100%}
+}
+/* Mobile menu drawer */
+.mobile-menu{display:none;border-bottom:1px solid var(--line);background:var(--surface)}
+.mobile-menu.open{display:block}
+.mobile-menu a{display:block;padding:13px var(--s6);font-size:15px;font-weight:600;color:var(--ink-soft);border-bottom:1px solid var(--line-soft)}
+.mobile-menu a.active{color:var(--coral-deep)}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="./index.html">
+      <span class="mark"></span>
+      <b>SQLPreShift</b>
+      <span>safety gate</span>
+    </a>
+    <nav class="tabs" aria-label="Primary">
+      <a class="tab active" href="./index.html">Hub</a>
+      <a class="tab" href="./product.html">Product</a>
+      <a class="tab" href="./download.html">Download</a>
+      <a class="tab" href="./open-source.html">Open Source</a>
+    </nav>
+    <div class="topbar-cta">
+      <a class="gh-link" href="https://github.com/taehyunan-99/sql-preshift" target="_blank" rel="noopener">
+        <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        GitHub
+      </a>
+      <a class="btn btn-primary" href="./download.html">Download</a>
+    </div>
+    <button class="menu-toggle" aria-label="Toggle menu" onclick="document.getElementById('mm').classList.toggle('open')"><span></span><span></span><span></span></button>
+  </div>
+  <nav class="mobile-menu" id="mm" aria-label="Mobile">
+    <a class="active" href="./index.html">Hub</a>
+    <a href="./product.html">Product</a>
+    <a href="./download.html">Download</a>
+    <a href="./open-source.html">Open Source</a>
+    <a href="https://github.com/taehyunan-99/sql-preshift" target="_blank" rel="noopener">GitHub</a>
+  </nav>
+</header>
+
+<main>
+  <!-- HUB HERO -->
+  <section class="hub-hero">
+    <span class="eyebrow"><span class="dot"></span>PostgreSQL 16 · macOS · MIT</span>
+    <h1>A safety gate for <span class="hl">PostgreSQL</span> schema migrations</h1>
+    <p class="lede">SQLPreShift inspects every migration <em>before</em> it touches your database. Cumulative dry-runs, 18 risk rules, and a single-transaction apply mean no half-applied changes and no regret after the fact.</p>
+    <p class="tagline">"Don't regret after applying — stop it before."</p>
+    <div class="hero-actions">
+      <a class="btn btn-primary btn-lg" href="./download.html">Download for macOS</a>
+      <a class="btn btn-ghost" href="./product.html">Explore the product</a>
+    </div>
+    <p class="hero-meta">v0.x &nbsp;·&nbsp; <b>~122 MiB</b> &nbsp;·&nbsp; Apple Silicon &nbsp;·&nbsp; PostgreSQL 16</p>
+  </section>
+
+  <!-- HUB DISPATCHER -->
+  <section class="hub-wrap">
+    <div class="hub-label">
+      <h2>Choose your path</h2>
+      <p>Four areas — each one its own focused space.</p>
+    </div>
+    <div class="hub-grid">
+      <a class="hub-card" href="./product.html">
+        <span class="hub-num">01</span>
+        <h3>Product</h3>
+        <span class="sub">What it does, in depth</span>
+        <p>Five core capabilities that turn a risky ALTER into a reviewed, reversible operation — explored one card at a time.</p>
+        <ul>
+          <li><span class="tick">+</span>Cumulative dry-run stack + single-TX apply</li>
+          <li><span class="tick">+</span>18 risk rules with golden-path alternatives</li>
+          <li><span class="tick">+</span>Size-aware impact &amp; read-only diagnostics</li>
+        </ul>
+        <span class="enter">Open Product<span class="ic" aria-hidden="true">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10h11M11 6l4 4-4 4"/></svg>
+        </span></span>
+      </a>
+
+      <a class="hub-card" href="./download.html">
+        <span class="hub-num">02</span>
+        <h3>Download</h3>
+        <span class="sub">Install in three steps</span>
+        <p>Grab the .dmg, drag to Applications, and clear the first-launch Gatekeeper block. Honest about the unsigned build — and exactly how to open it.</p>
+        <ul>
+          <li><span class="tick">+</span>macOS (Apple Silicon) · ~122 MiB</li>
+          <li><span class="tick">+</span>Gatekeeper bypass: right-click Open or xattr</li>
+          <li><span class="tick">+</span>Optional Ollama setup for natural language</li>
+        </ul>
+        <span class="enter">Open Download<span class="ic" aria-hidden="true">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10h11M11 6l4 4-4 4"/></svg>
+        </span></span>
+      </a>
+
+      <a class="hub-card" href="./product.html#guide">
+        <span class="hub-num">03</span>
+        <h3>Guide</h3>
+        <span class="sub">Connect to Rollback</span>
+        <p>The full operating flow as a step-by-step sidebar: connect, input, ERD diff, risk check, dry-run stack, apply all, rollback — with callouts where it matters.</p>
+        <ul>
+          <li><span class="tick">+</span>Seven-step workflow, each one screenshot-backed</li>
+          <li><span class="tick">+</span>Split / Unified ERD diff explained</li>
+          <li><span class="tick">+</span>Risk modal &amp; cumulative stack walkthrough</li>
+        </ul>
+        <span class="enter">Open Guide<span class="ic" aria-hidden="true">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10h11M11 6l4 4-4 4"/></svg>
+        </span></span>
+      </a>
+
+      <a class="hub-card" href="./open-source.html">
+        <span class="hub-num">04</span>
+        <h3>Open Source</h3>
+        <span class="sub">Free, MIT, run it yourself</span>
+        <p>No pricing page — by design. Read the license, browse the source, or bring up the whole stack with one docker compose command and the bundled demo databases.</p>
+        <ul>
+          <li><span class="tick">+</span>MIT licensed · 100% local · no telemetry</li>
+          <li><span class="tick">+</span>docker compose up -d — Postgres + app</li>
+          <li><span class="tick">+</span>ERP (92-table) &amp; Pagila demo databases</li>
+        </ul>
+        <span class="enter">Open Source<span class="ic" aria-hidden="true">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10h11M11 6l4 4-4 4"/></svg>
+        </span></span>
+      </a>
+    </div>
+  </section>
+
+  <!-- TRUST STRIP -->
+  <section class="trust">
+    <div class="trust-grid">
+      <div class="trust-item"><div class="big">18</div><div class="lbl">Risk rules</div></div>
+      <div class="trust-item"><div class="big">1 TX</div><div class="lbl">Apply All, no half-applies</div></div>
+      <div class="trust-item"><div class="big">100%</div><div class="lbl">Local — credentials never persist</div></div>
+      <div class="trust-item"><div class="big">MIT</div><div class="lbl">Free &amp; open source</div></div>
+    </div>
+  </section>
+
+  <!-- HOW IT WORKS MINI FLOW + MOCKUP -->
+  <section class="flow-sec">
+    <div class="flow-head">
+      <h2>One straight line from connect to rollback</h2>
+      <p>Every change is dry-run against your real database, stacked for review, then committed as a single transaction.</p>
+    </div>
+    <div class="flow-rail" style="margin-bottom:var(--s12)">
+      <div class="flow-step"><span class="n">01</span><span class="t">Connect</span></div>
+      <div class="flow-step"><span class="n">02</span><span class="t">Input NL / SQL</span></div>
+      <div class="flow-step"><span class="n">03</span><span class="t">ERD Diff</span></div>
+      <div class="flow-step"><span class="n">04</span><span class="t">Risk Check</span></div>
+      <div class="flow-step"><span class="n">05</span><span class="t">Dry-run Stack</span></div>
+      <div class="flow-step"><span class="n">06</span><span class="t">Apply All</span></div>
+      <div class="flow-step"><span class="n">07</span><span class="t">Rollback</span></div>
+    </div>
+
+    <div class="mock">
+      <div class="mock-bar">
+        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+        <span class="title">SQLPreShift — ERD Diff (Split view)</span>
+      </div>
+      <div class="mock-body">
+        <aside class="mock-side">
+          <div class="grp">Schema</div>
+          <div class="row on"><span class="sq"></span>orders</div>
+          <div class="row"><span class="sq"></span>customers</div>
+          <div class="row"><span class="sq"></span>line_items</div>
+          <div class="grp">Stack</div>
+          <div class="row"><span class="sq"></span>ADD COLUMN</div>
+          <div class="row"><span class="sq"></span>ADD INDEX</div>
+        </aside>
+        <div class="mock-main">
+          <div class="mock-flex">
+            <div class="erd-node">
+              <div class="hd">orders · before</div>
+              <div class="col"><span>id</span><span class="ty">bigint</span></div>
+              <div class="col"><span>customer_id</span><span class="ty">bigint</span></div>
+              <div class="col"><span>total</span><span class="ty">numeric</span></div>
+            </div>
+            <div class="erd-node added">
+              <div class="hd">orders · after</div>
+              <div class="col"><span>id</span><span class="ty">bigint</span></div>
+              <div class="col"><span>customer_id</span><span class="ty">bigint</span></div>
+              <div class="col"><span>total</span><span class="ty">numeric</span></div>
+              <div class="col new"><span>shipped_at</span><span class="ty">timestamptz</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="foot-inner">
+    <div class="foot-brand">
+      <a class="brand" href="./index.html"><span class="mark"></span><b>SQLPreShift</b></a>
+      <p>A safety gate for PostgreSQL schema migrations. Stop risky changes before they apply — not after you regret them. Portfolio / demo project.</p>
+    </div>
+    <div class="foot-col">
+      <h4>Product</h4>
+      <a href="./product.html">Features</a>
+      <a href="./product.html#guide">Guide</a>
+      <a href="./download.html">Download</a>
+    </div>
+    <div class="foot-col">
+      <h4>Open Source</h4>
+      <a href="./open-source.html">License (MIT)</a>
+      <a href="./open-source.html#source">Run from source</a>
+      <a href="https://github.com/taehyunan-99/sql-preshift" target="_blank" rel="noopener">GitHub</a>
+    </div>
+    <div class="foot-col">
+      <h4>Reference</h4>
+      <a href="./product.html#risk">18 risk rules</a>
+      <a href="./product.html#diagnostics">Integrity diagnostics</a>
+      <a href="./download.html#gatekeeper">Gatekeeper bypass</a>
+    </div>
+  </div>
+  <div class="foot-bottom">
+    <p>MIT licensed · runs fully local · no telemetry. Built as a portfolio demo.</p>
+    <div class="foot-badges">
+      <span class="fbadge">PostgreSQL 16</span>
+      <span class="fbadge">macOS · Apple Silicon</span>
+      <span class="fbadge">~122 MiB</span>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

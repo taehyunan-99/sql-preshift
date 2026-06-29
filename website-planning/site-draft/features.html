@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>기능 · SQLPreShift</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+:root{
+  /* 앱 테마 계승 - Calm Clarity graphite dark + teal accent + glow (frontend/src/styles/tokens.css) */
+  --bg-primary:#1A2024;--bg-canvas:#161B1F;--surface:#222A30;--surface-2:#2E373E;
+  --text-primary:#E6EBEC;--text-secondary:#9BA8AD;--text-tertiary:#6B767B;
+  --border:#313B41;--border-subtle:#2A333A;
+  --accent:#2BA8A0;--accent-hover:#34C2B8;--accent-soft:rgba(43,168,160,0.12);--accent-line:rgba(43,168,160,0.45);
+  --warning:#C4955A;--warning-soft:rgba(196,149,90,0.12);--warning-line:rgba(196,149,90,0.32);--danger:#C45B5B;--danger-soft:rgba(196,91,91,0.12);--info:#5A8FC4;--info-soft:rgba(90,143,196,0.12);--info-line:rgba(90,143,196,0.28);--success:#5B9A6F;
+  --shadow-sm:0 2px 8px rgba(0,0,0,0.45);--shadow-md:0 8px 24px rgba(0,0,0,0.5);--shadow-lg:0 12px 40px rgba(0,0,0,0.65);--shadow-glow:0 0 36px rgba(43,168,160,0.28);
+  --font-head:'Plus Jakarta Sans',system-ui,sans-serif;--font-body:'Plus Jakarta Sans',system-ui,sans-serif;--font-mono:'Fira Code','JetBrains Mono',ui-monospace,monospace;
+  --space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-6:24px;--space-8:32px;--space-12:48px;--space-16:64px;--space-24:96px;
+  --radius-sm:6px;--radius-md:10px;--radius-lg:16px;--radius-xl:22px;--radius-full:9999px;--ease:cubic-bezier(0.25,0.1,0.25,1);
+  --maxw:1320px;--maxw-prose:820px;--maxw-wide:1600px;--gutter:40px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:var(--font-body);background:var(--bg-primary);color:var(--text-primary);line-height:1.6;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;word-break:keep-all;overflow-wrap:break-word}
+code,.font-mono,[class*="mono"]{word-break:normal;overflow-wrap:anywhere}
+a{color:inherit;text-decoration:none}
+.wrap{max-width:var(--maxw);margin:0 auto;padding:0 var(--gutter)}
+.wrap-prose{max-width:var(--maxw-prose);margin:0 auto;padding:0 var(--gutter)}
+.wrap-wide{max-width:var(--maxw-wide);margin:0 auto;padding:0 var(--gutter)}
+.nav{position:sticky;top:0;z-index:50;background:rgba(22,28,32,0.82);backdrop-filter:saturate(150%) blur(14px);border-bottom:1px solid var(--border-subtle)}
+.nav-inner{max-width:var(--maxw-wide);margin:0 auto;height:68px;padding:0 var(--gutter);display:flex;align-items:center;gap:var(--space-8)}
+.brand{display:flex;align-items:center;gap:10px;font-weight:600;font-size:17px;letter-spacing:-0.01em}
+.brand .mark{width:30px;height:30px;border-radius:9px;flex:none;background:linear-gradient(150deg,#34C2B8,#34C2B8);display:grid;place-items:center;box-shadow:var(--shadow-sm)}
+.brand .mark svg{width:17px;height:17px}
+.nav-links{display:flex;gap:var(--space-6);margin-left:var(--space-4)}
+.nav-links a{font-size:15px;color:var(--text-secondary);font-weight:500;padding:6px 2px;position:relative;transition:color .2s var(--ease)}
+.nav-links a:hover{color:var(--text-primary)}
+.nav-links a.active{color:var(--text-primary)}
+.nav-links a.active::after{content:"";position:absolute;left:0;right:0;bottom:-21px;height:2px;background:var(--accent);border-radius:2px}
+.nav-right{margin-left:auto;display:flex;align-items:center;gap:var(--space-4)}
+.nav-gh{display:flex;align-items:center;gap:7px;font-size:14px;color:var(--text-secondary);font-weight:500;transition:color .2s var(--ease)}
+.nav-gh:hover{color:var(--text-primary)}
+.nav-gh svg{width:18px;height:18px}
+.btn{display:inline-flex;align-items:center;gap:8px;font-family:var(--font-body);font-weight:600;font-size:15px;border-radius:var(--radius-full);border:none;cursor:pointer;transition:transform .15s var(--ease),box-shadow .2s var(--ease),background .2s var(--ease);white-space:nowrap}
+.btn-primary{background:var(--accent);color:#F2FBFA;padding:10px 20px;box-shadow:var(--shadow-glow)}
+.btn-primary:hover{background:var(--accent-hover);transform:translateY(-1px)}
+.btn-lg{padding:15px 30px;font-size:16px}
+.btn-ghost{background:transparent;color:var(--text-primary);padding:10px 18px;border:1px solid var(--border)}
+.btn-ghost:hover{background:var(--surface);border-color:var(--text-tertiary)}
+.menu-toggle{display:none;background:none;border:none;cursor:pointer;padding:6px;margin-left:auto}
+.menu-toggle span{display:block;width:22px;height:2px;background:var(--text-primary);border-radius:2px;margin:4px 0;transition:.2s}
+.fhero{padding:clamp(56px,9vw,120px) 0 var(--space-12);text-align:center}
+.fhero .kicker{font-size:13.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);margin-bottom:var(--space-4)}
+.fhero h1{font-family:var(--font-head);font-weight:500;font-size:clamp(40px,5.4vw,72px);line-height:1.08;letter-spacing:-0.03em;max-width:13em;margin:0 auto}
+.fhero p{font-size:clamp(17px,1.5vw,20px);color:var(--text-secondary);margin:var(--space-8) auto 0;max-width:44em}
+.feat-jump{display:flex;justify-content:center;flex-wrap:wrap;gap:var(--space-3);margin-top:var(--space-8)}
+.feat-jump a{font-family:var(--font-mono);font-size:13px;color:var(--text-secondary);background:var(--surface);border:1px solid var(--border-subtle);padding:7px 13px;border-radius:var(--radius-full);transition:all .2s var(--ease)}
+.feat-jump a:hover{border-color:var(--accent-line);color:var(--accent)}
+.frow{display:grid;grid-template-columns:1fr 1.05fr;gap:clamp(48px,6vw,112px);align-items:center;padding:clamp(64px,8vw,128px) 0;border-top:1px solid var(--border-subtle);scroll-margin-top:80px}
+.frow:nth-child(even) .ftext{order:2}
+.frow:nth-child(even) .fvis{order:1}
+.fnum-big{font-family:var(--font-mono);font-size:14px;font-weight:600;color:var(--accent);display:inline-flex;align-items:center;gap:10px;margin-bottom:var(--space-4)}
+.fnum-big .ring{width:40px;height:40px;border-radius:50%;border:1.5px solid var(--accent-line);display:grid;place-items:center;font-size:15px}
+.ftext{max-width:32em}
+.ftext h2{font-family:var(--font-head);font-weight:500;font-size:clamp(28px,3.6vw,44px);line-height:1.1;letter-spacing:-0.025em}
+.ftext .opt{font-weight:400;color:var(--text-tertiary);font-size:.6em;font-family:var(--font-body)}
+.ftext>p{font-size:17px;color:var(--text-secondary);margin-top:var(--space-4);line-height:1.6}
+.fpoints{list-style:none;margin-top:var(--space-6);display:grid;gap:var(--space-3)}
+.fpoints li{display:flex;gap:11px;font-size:15px;color:var(--text-secondary);line-height:1.5}
+.fpoints li svg{width:19px;height:19px;color:var(--accent);flex:none;margin-top:1px}
+.fpoints li b{color:var(--text-primary);font-weight:600}
+.ftext .more{display:inline-flex;align-items:center;gap:7px;margin-top:var(--space-6);font-size:15px;font-weight:600;color:var(--accent)}
+.ftext .more svg{width:15px;height:15px;transition:transform .2s var(--ease)}
+.ftext .more:hover svg{transform:translateX(4px)}
+.fvis{min-width:0}
+.panel{background:var(--bg-canvas);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);overflow:hidden}
+.panel-bar{display:flex;align-items:center;gap:7px;padding:11px 14px;background:var(--surface);border-bottom:1px solid var(--border-subtle)}
+.panel-bar .tl{width:11px;height:11px;border-radius:50%;background:var(--border)}
+.panel-bar .tl:nth-child(1){background:#2BA8A0}.panel-bar .tl:nth-child(2){background:#C4955A}.panel-bar .tl:nth-child(3){background:#5B9A6F}
+.panel-bar .title{margin-left:10px;font-family:var(--font-mono);font-size:12px;color:var(--text-tertiary)}
+.panel-tabs{margin-left:auto;display:flex;gap:4px}
+.panel-tabs span{font-family:var(--font-mono);font-size:11px;padding:3px 9px;border-radius:var(--radius-full);color:var(--text-tertiary);border:1px solid var(--border-subtle)}
+.panel-tabs span.on{color:var(--accent);border-color:var(--accent-line);background:var(--accent-soft)}
+.panel-body{padding:var(--space-6)}
+.erd-row{display:flex;gap:var(--space-4)}
+.erd-node{flex:1;background:var(--bg-canvas);border:1px solid var(--border);border-radius:var(--radius-md);overflow:hidden;box-shadow:var(--shadow-sm)}
+.erd-node h5{font-family:var(--font-mono);font-size:12px;font-weight:500;padding:8px 11px;background:var(--surface);border-bottom:1px solid var(--border-subtle);display:flex;justify-content:space-between;color:var(--text-secondary)}
+.erd-node h5 .pk{color:var(--accent);font-size:10px}
+.erd-node ul{list-style:none;padding:7px 11px;display:grid;gap:5px}
+.erd-node li{font-family:var(--font-mono);font-size:11px;color:var(--text-tertiary);display:flex;justify-content:space-between}
+.erd-node li.added{color:var(--success)}
+.erd-node li.added::before{content:"+";color:var(--success);margin-right:5px}
+.erd-node.changed{border-color:var(--accent-line);box-shadow:0 0 0 1px var(--accent-line),var(--shadow-sm)}
+.stack{display:grid;gap:8px}
+.stack-item{display:flex;align-items:center;gap:11px;font-family:var(--font-mono);font-size:12px;background:var(--bg-canvas);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:10px 12px;color:var(--text-secondary)}
+.stack-item .num{width:20px;height:20px;border-radius:5px;background:var(--accent-soft);color:var(--accent);font-size:11px;font-weight:600;display:grid;place-items:center;flex:none}
+.stack-item .ok{margin-left:auto;font-size:10px;color:var(--success);text-transform:uppercase;letter-spacing:.04em}
+.stack-item .undo{margin-left:auto;font-size:10px;color:var(--text-tertiary);border:1px solid var(--border-subtle);padding:2px 8px;border-radius:var(--radius-full)}
+.applybar{margin-top:var(--space-4);display:flex;align-items:center;gap:11px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:11px 13px}
+.applybar .tx{font-family:var(--font-mono);font-size:11px;color:var(--text-tertiary)}
+.applybar .ab{margin-left:auto;font-family:var(--font-body);font-size:12px;font-weight:600;color:#F2FBFA;background:var(--accent);padding:6px 14px;border-radius:var(--radius-full)}
+.riskcard{border:1px solid rgba(43,168,160,0.34);background:var(--warning-soft);border-radius:var(--radius-md);overflow:hidden}
+.riskcard .rh{padding:12px 15px;display:flex;align-items:center;gap:9px;font-size:13px;font-weight:600;color:var(--warning);border-bottom:1px solid rgba(43,168,160,0.24)}
+.riskcard .rh svg{width:16px;height:16px;flex:none}
+.riskcard .rh .badge{margin-left:auto;font-family:var(--font-mono);font-size:10px;background:rgba(43,168,160,0.18);padding:2px 8px;border-radius:var(--radius-full)}
+.riskcard .rb{padding:13px 15px;display:grid;gap:10px}
+.riskcard .line{font-family:var(--font-mono);font-size:11.5px;color:var(--text-secondary)}
+.riskcard .gp{background:var(--bg-canvas);border:1px solid var(--border-subtle);border-left:3px solid var(--success);border-radius:var(--radius-sm);padding:9px 11px}
+.riskcard .gp .gl{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--success);margin-bottom:4px}
+.riskcard .gp code{font-family:var(--font-mono);font-size:11px;color:var(--text-primary);display:block;line-height:1.6}
+.sizebar{display:grid;gap:11px}
+.sizebar .sr{display:grid;grid-template-columns:90px 1fr 70px;align-items:center;gap:11px;font-family:var(--font-mono);font-size:11.5px;color:var(--text-secondary)}
+.sizebar .track{height:9px;background:var(--surface);border-radius:var(--radius-full);overflow:hidden}
+.sizebar .fill{height:100%;border-radius:var(--radius-full);background:linear-gradient(90deg,#34C2B8,#2BA8A0)}
+.sizebar .sr .rn{text-align:right;color:var(--text-tertiary)}
+.sizebar .warn .fill{background:linear-gradient(90deg,#2BA8A0,#C45B5B)}
+.diaglist{display:grid;gap:9px}
+.diag{display:flex;align-items:center;gap:11px;background:var(--bg-canvas);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:11px 13px}
+.diag .ic{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;flex:none}
+.diag .ic svg{width:16px;height:16px}
+.diag .ic.ok{background:rgba(91,154,111,0.14);color:var(--success)}
+.diag .ic.wn{background:var(--warning-soft);color:var(--warning)}
+.diag .dt{font-size:13px;font-weight:600}
+.diag .dd{font-family:var(--font-mono);font-size:11px;color:var(--text-tertiary);margin-top:2px}
+.diag .st{margin-left:auto;font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:.04em}
+.diag .st.ok{color:var(--success)}.diag .st.wn{color:var(--warning)}
+.diag .ro{margin-left:auto;font-family:var(--font-mono);font-size:9px;color:var(--text-tertiary);border:1px solid var(--border-subtle);padding:2px 7px;border-radius:var(--radius-full)}
+.chat{display:grid;gap:11px}
+.bubble{max-width:84%;border-radius:var(--radius-md);padding:11px 13px;font-size:13px;line-height:1.5}
+.bubble.user{background:var(--surface);border:1px solid var(--border-subtle);justify-self:end;color:var(--text-primary)}
+.bubble.ai{background:var(--bg-canvas);border:1px solid var(--accent-line);justify-self:start}
+.bubble.ai .label{font-family:var(--font-mono);font-size:10px;color:var(--accent);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+.bubble.ai code{font-family:var(--font-mono);font-size:11.5px;color:var(--text-primary);display:block;line-height:1.7}
+.bubble.ai .kw{color:var(--accent)}
+.llm-note{margin-top:var(--space-4);display:flex;gap:10px;align-items:flex-start;background:var(--info-soft);border:1px solid rgba(90,143,196,0.25);border-radius:var(--radius-md);padding:11px 13px;font-size:12.5px;color:var(--text-secondary)}
+.llm-note svg{width:17px;height:17px;color:var(--info);flex:none;margin-top:1px}
+.fbottom{background:var(--bg-canvas);border-top:1px solid var(--border-subtle);padding:var(--space-24) 0;text-align:center}
+.fbottom h2{font-family:var(--font-head);font-weight:500;font-size:clamp(26px,3.4vw,38px);letter-spacing:-0.02em}
+.fbottom p{font-size:17px;color:var(--text-secondary);margin:var(--space-4) auto 0;max-width:34em}
+.fbottom .hero-cta{display:flex;justify-content:center;gap:var(--space-4);margin-top:var(--space-8);flex-wrap:wrap}
+.foot{background:var(--bg-primary);border-top:1px solid var(--border-subtle);padding:var(--space-16) 0 var(--space-8)}
+.foot-grid{display:grid;grid-template-columns:1.6fr 1fr 1fr 1fr;gap:var(--space-8)}
+.foot-brand .brand{margin-bottom:var(--space-4)}
+.foot-brand p{font-size:14px;color:var(--text-secondary);max-width:26em;line-height:1.6}
+.foot-col h5{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text-tertiary);margin-bottom:var(--space-4)}
+.foot-col a{display:block;font-size:14.5px;color:var(--text-secondary);padding:5px 0;transition:color .2s var(--ease)}
+.foot-col a:hover{color:var(--accent)}
+.foot-bottom{margin-top:var(--space-12);padding-top:var(--space-6);border-top:1px solid var(--border-subtle);display:flex;justify-content:space-between;flex-wrap:wrap;gap:var(--space-3);font-size:13px;color:var(--text-tertiary)}
+.foot-bottom .badges{display:flex;gap:var(--space-3);flex-wrap:wrap}
+.foot-bottom .badge{font-family:var(--font-mono);font-size:12px;background:var(--surface);padding:3px 10px;border-radius:var(--radius-full);color:var(--text-secondary)}
+@media(max-width:900px){.frow{grid-template-columns:1fr;gap:var(--space-12);padding:var(--space-16) 0}.frow:nth-child(even) .ftext,.frow:nth-child(even) .fvis{order:initial}.foot-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:680px){.nav-links,.nav-gh{display:none}.menu-toggle{display:block}.nav.open .nav-links{display:flex;position:absolute;top:64px;left:0;right:0;flex-direction:column;background:var(--bg-canvas);border-bottom:1px solid var(--border);padding:var(--space-4) var(--space-6);gap:0;margin:0}.nav.open .nav-links a{padding:12px 0;border-bottom:1px solid var(--border-subtle)}.nav.open .nav-links a.active::after{display:none}.foot-grid{grid-template-columns:1fr}.fhero{padding:var(--space-16) 0 var(--space-8)}.sizebar .sr{grid-template-columns:70px 1fr 56px}}
+
+/* ============ 스크롤 진입 애니메이션 (index.html과 동일 엔진) ============ */
+.js [data-reveal]{opacity:0;transition:opacity .7s var(--ease),transform .7s var(--ease),filter .7s var(--ease)}
+.js [data-reveal="up"]{transform:translateY(28px)}
+.js [data-reveal="blur"]{filter:blur(14px);transform:scale(1.02)}
+.js [data-reveal].in{opacity:1;transform:none;filter:none}
+.js [data-reveal="stagger"]{opacity:1}
+.js [data-reveal="stagger"]>*{opacity:0;transform:translateY(24px);transition:opacity .65s var(--ease),transform .65s var(--ease)}
+.js [data-reveal="stagger"].in>*{opacity:1;transform:none;transition-delay:calc(var(--i,0)*80ms)}
+@media(prefers-reduced-motion:reduce){
+  .js [data-reveal],.js [data-reveal="up"],.js [data-reveal="blur"],.js [data-reveal="stagger"]>*{opacity:1!important;transform:none!important;filter:none!important;transition:none!important}
+}
+</style>
+</head>
+<body>
+<header class="nav" id="nav">
+  <div class="nav-inner">
+    <a href="./index.html" class="brand"><span class="mark"><svg viewBox="0 0 24 24" fill="none"><path d="M5 7c0-1.7 3.1-3 7-3s7 1.3 7 3-3.1 3-7 3-7-1.3-7-3Z" stroke="#F2FBFA" stroke-width="1.6"/><path d="M5 7v10c0 1.7 3.1 3 7 3s7-1.3 7-3V7" stroke="#F2FBFA" stroke-width="1.6"/><path d="M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3" stroke="#F2FBFA" stroke-width="1.6"/></svg></span>SQLPreShift</a>
+    <nav class="nav-links"><a href="./index.html">홈</a><a href="./features.html" class="active">기능</a><a href="./download.html">다운로드</a><a href="./guide.html">가이드</a></nav>
+    <div class="nav-right"><a href="https://github.com/taehyunan-99/sql-preshift" class="nav-gh"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.58 2 12.25c0 4.53 2.87 8.37 6.84 9.73.5.1.68-.22.68-.49 0-.24-.01-.88-.01-1.73-2.78.62-3.37-1.37-3.37-1.37-.45-1.18-1.11-1.49-1.11-1.49-.91-.63.07-.62.07-.62 1 .07 1.53 1.06 1.53 1.06.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.63-1.37-2.22-.26-4.56-1.14-4.56-5.06 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.7 0 0 .84-.28 2.75 1.05a9.3 9.3 0 0 1 5 0c1.91-1.33 2.75-1.05 2.75-1.05.55 1.4.2 2.44.1 2.7.64.72 1.03 1.63 1.03 2.75 0 3.93-2.34 4.8-4.57 5.05.36.32.68.94.68 1.9 0 1.37-.01 2.48-.01 2.82 0 .27.18.6.69.49A10.02 10.02 0 0 0 22 12.25C22 6.58 17.52 2 12 2Z"/></svg>GitHub</a><a href="./download.html" class="btn btn-primary">다운로드</a></div>
+    <button class="menu-toggle" id="menuToggle" aria-label="메뉴"><span></span><span></span><span></span></button>
+  </div>
+</header>
+<section class="fhero">
+  <div class="wrap">
+    <div class="kicker">기능</div>
+    <h1>위험을 검토된 변경으로 바꾸는 다섯 가지 보장.</h1>
+    <p>스키마 변경이 실제 데이터베이스에 실행되기 전에 통과시키는 게이트. 무엇을 검사하고, 무엇을 막고, 어떻게 더 안전한 경로를 제안하는지 정확히 보여드립니다.</p>
+    <div class="feat-jump"><a href="#dry-run">01 dry-run 스택</a><a href="#risk-rules">02 위험 규칙</a><a href="#size-aware">03 규모 인식</a><a href="#diagnostics">04 진단</a><a href="#local-llm">05 로컬 LLM</a></div>
+  </div>
+</section>
+<div class="wrap">
+  <section class="frow" data-reveal="up" id="dry-run">
+    <div class="ftext">
+      <span class="fnum-big"><span class="ring">01</span> 누적 dry-run 스택</span>
+      <h2>모든 변경을 dry-run하고, 쌓은 뒤, 하나의 트랜잭션으로 전부 적용합니다.</h2>
+      <p>각 변경은 실제 데이터베이스를 대상으로 dry-run되어 검토 스택에 쌓입니다. 자유롭게 살펴보고, 순서를 바꾸고, Undo할 수 있습니다. 준비가 되면 Apply All이 스택 전체를 단일 트랜잭션으로 감쌉니다.</p>
+      <ul class="fpoints">
+        <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5 9-11" stroke="currentColor" stroke-width="2"/></svg><span><b>절반만 적용되는 마이그레이션이 없습니다.</b> 하나의 트랜잭션이므로 전부 커밋되거나 전혀 커밋되지 않습니다.</span></li>
+        <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5 9-11" stroke="currentColor" stroke-width="2"/></svg><span><b>커밋 전 검토.</b> 각 항목은 실제로 적용되기 전에 자신의 dry-run 결과를 보여줍니다.</span></li>
+        <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5 9-11" stroke="currentColor" stroke-width="2"/></svg><span><b>Undo와 롤백.</b> 스택에서 항목을 꺼내거나, 적용 전체를 롤백할 수 있습니다.</span></li>
+      </ul>
+      <a href="./guide.html#workflow" class="more">가이드에서 워크플로 보기 <svg viewBox="0 0 24 24" fill="none"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="2"/></svg></a>
+    </div>
+    <div class="fvis">
+      <div class="panel">
+        <div class="panel-bar"><span class="tl"></span><span class="tl"></span><span class="tl"></span><span class="title">dry-run 스택</span></div>
+        <div class="panel-body">
+          <div class="stack">
+            <div class="stack-item"><span class="num">1</span> ALTER TABLE orders ADD status text <span class="ok">dry-run 정상</span></div>
+            <div class="stack-item"><span class="num">2</span> UPDATE orders SET status='new' <span class="ok">dry-run 정상</span></div>
+            <div class="stack-item"><span class="num">3</span> CREATE INDEX CONCURRENTLY idx_st <span class="undo">Undo</span></div>
+          </div>
+          <div class="applybar"><span class="tx">3개 구문 · 1개 트랜잭션으로 묶임</span><span class="ab">Apply All</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section class="frow" data-reveal="up" id="risk-rules">
+    <div class="ftext">
+      <span class="fnum-big"><span class="ring">02</span> 17개 위험 규칙 + golden-path</span>
+      <h2>lock-queue 작업을 그냥 막는 데 그치지 않고, 더 안전한 경로를 제시합니다.</h2>
+      <p>SQLPreShift는 프로덕션에서 실제로 문제를 일으키는 지점, 즉 lock queue를 유발하는 작업에 맞춰 조정된 17개 규칙을 갖추고 있습니다. WHERE 없는 DELETE/UPDATE, DROP, 전체 테이블 재작성, 제약 조건 검증이 실행되기 전에 모두 표시됩니다.</p>
+      <ul class="fpoints">
+        <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5 9-11" stroke="currentColor" stroke-width="2"/></svg><span><b>lock-queue 인식.</b> 진짜 위험은 구문 자체가 아니라 그 뒤에 쌓이는 큐입니다.</span></li>
+        <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5 9-11" stroke="currentColor" stroke-width="2"/></svg><span><b>golden-path 대안.</b> <code style="font-family:var(--font-mono);font-size:12px">ADD CONSTRAINT … NOT VALID</code> 후 <code style="font-family:var(--font-mono);font-size:12px">VALIDATE</code>, 무중단으로요.</span></li>
+        <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5 9-11" stroke="currentColor" stroke-width="2"/></svg><span><b>벽이 아닙니다.</b> 모달은 빨간 X만 보여주는 게 아니라 위험과 그것을 우회하는 방법을 설명합니다.</span></li>
+      </ul>
+      <a href="./guide.html#workflow" class="more">위험 검사에 대해 읽기 <svg viewBox="0 0 24 24" fill="none"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="2"/></svg></a>
+    </div>
+    <div class="fvis">
+      <div class="riskcard">
+        <div class="rh"><svg viewBox="0 0 24 24" fill="none"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" stroke="currentColor" stroke-width="1.6"/></svg> 위험 검사 · ADD_CHECK_VALIDATING <span class="badge">LOCK QUEUE</span></div>
+        <div class="rb">
+          <div class="line">NOT VALID 없는 ADD CHECK는 <b>orders</b>에 ACCESS EXCLUSIVE 락을 잡고 전체 행을 스캔합니다.</div>
+          <div class="line">스캔이 끝날 때까지 읽기·쓰기를 차단합니다 · 약 1.2M행.</div>
+          <div class="gp"><div class="gl">golden-path</div><code><span style="color:var(--accent)">ALTER TABLE</span> orders ADD CONSTRAINT chk NOT VALID;<br><span style="color:var(--accent)">ALTER TABLE</span> orders VALIDATE CONSTRAINT chk;</code></div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section class="frow" data-reveal="up" id="size-aware">
+    <div class="ftext">
+      <span class="fnum-big"><span class="ring">03</span> 규모 인식 영향도</span>
+      <h2>같은 구문이라도 100행과 1억 행에서는 다르게 읽힙니다.</h2>
+      <p>락 시간이 테이블 크기에 비례하는 위험(전체 재작성, 인덱스 빌드, FK 검증, 타입 변경)에는 대상 테이블의 추정 행 수와 디스크 크기가 함께 표시됩니다. lookup 테이블에 대한 재작성은 괜찮지만, 가장 큰 fact 테이블에 대한 동일한 재작성은 점검 시간(maintenance window)이 됩니다.</p>
+      <ul class="fpoints">
+        <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5 9-11" stroke="currentColor" stroke-width="2"/></svg><span><b>추정 행 수와 크기</b>가 규모에 민감한 경고에 인라인으로 표시됩니다.</span></li>
+        <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5 9-11" stroke="currentColor" stroke-width="2"/></svg><span><b>잡음보다 맥락.</b> 심각도는 구문 유형만이 아니라 실제 영향에 따라 조정됩니다.</span></li>
+      </ul>
+    </div>
+    <div class="fvis">
+      <div class="panel">
+        <div class="panel-bar"><span class="tl"></span><span class="tl"></span><span class="tl"></span><span class="title">영향도 추정</span></div>
+        <div class="panel-body">
+          <div class="sizebar">
+            <div class="sr"><span>countries</span><div class="track"><div class="fill" style="width:6%"></div></div><span class="rn">195행</span></div>
+            <div class="sr"><span>products</span><div class="track"><div class="fill" style="width:22%"></div></div><span class="rn">48K행</span></div>
+            <div class="sr warn"><span>orders</span><div class="track"><div class="fill" style="width:74%"></div></div><span class="rn">1.2M행</span></div>
+            <div class="sr warn"><span>order_items</span><div class="track"><div class="fill" style="width:100%"></div></div><span class="rn">9.7M행</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section class="frow" data-reveal="up" id="diagnostics">
+    <div class="ftext">
+      <span class="fnum-big"><span class="ring">04</span> 읽기 전용 무결성 진단</span>
+      <h2>연결하는 순간 다섯 가지 검사가 실행되며, 아무것도 바꾸지 않습니다.</h2>
+      <p>연결 시 SQLPreShift는 깨진 참조 무결성을 포함한 다섯 가지 읽기 전용 진단을 실행합니다. 읽기만 합니다. 아무것도 기록되거나 변경되지 않으며, 곧 손댈 데이터베이스의 형태를 알려주기 위해 존재합니다.</p>
+      <ul class="fpoints">
+        <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5 9-11" stroke="currentColor" stroke-width="2"/></svg><span><b>설계상 읽기 전용.</b> 진단은 관찰할 뿐, 절대 기록하지 않습니다.</span></li>
+        <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5 9-11" stroke="currentColor" stroke-width="2"/></svg><span><b>현장에 맞춘 조정.</b> 제약 조건이 없는 것은 깨진 게 아니며, 정말로 고아가 된 참조만 경고합니다.</span></li>
+      </ul>
+    </div>
+    <div class="fvis">
+      <div class="panel">
+        <div class="panel-bar"><span class="tl"></span><span class="tl"></span><span class="tl"></span><span class="title">연결 시 진단</span></div>
+        <div class="panel-body">
+          <div class="diaglist">
+            <div class="diag"><span class="ic wn"><svg viewBox="0 0 24 24" fill="none"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" stroke="currentColor" stroke-width="1.6"/></svg></span><div><div class="dt">참조 무결성 깨짐</div><div class="dd">order_items.order_id · 고아 3개</div></div><span class="st wn">경고</span></div>
+            <div class="diag"><span class="ic wn"><svg viewBox="0 0 24 24" fill="none"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" stroke="currentColor" stroke-width="1.6"/></svg></span><div><div class="dt">Soft-delete된 부모 참조</div><div class="dd">orders.customer_id · deleted_at 설정됨</div></div><span class="st wn">정보</span></div>
+            <div class="diag"><span class="ic wn"><svg viewBox="0 0 24 24" fill="none"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" stroke="currentColor" stroke-width="1.6"/></svg></span><div><div class="dt">추정 외래 키</div><div class="dd">payments.order_id · FK 제약 없음</div></div><span class="st wn">정보</span></div>
+            <div class="diag"><span class="ic ok"><svg viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5 9-11" stroke="currentColor" stroke-width="2"/></svg></span><div><div class="dt">고립된 테이블</div><div class="dd">고립 테이블 없음</div></div><span class="st ok">통과</span></div>
+            <div class="diag"><span class="ic ok"><svg viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5 9-11" stroke="currentColor" stroke-width="2"/></svg></span><div><div class="dt">거의 채워지지 않는 외래 키</div><div class="dd">의심 컬럼 없음</div></div><span class="ro">읽기 전용</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section class="frow" data-reveal="up" id="local-llm">
+    <div class="ftext">
+      <span class="fnum-big"><span class="ring">05</span> 로컬 LLM <span class="opt">(선택)</span></span>
+      <h2>자연어를 SQL로, 모든 토큰이 사용자의 기기 안에 머뭅니다.</h2>
+      <p>로컬 Ollama 모델이 자연어를 SQL로 바꾸며, 스키마에 대한 RAG로 근거를 확보합니다. 자격증명과 추론은 절대 기기를 떠나지 않습니다. Ollama가 설치되어 있지 않다면? SQLPreShift는 SQL을 직접 입력하도록 안내합니다. 안전 코어는 LLM 없이도 작동합니다.</p>
+      <ul class="fpoints">
+        <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5 9-11" stroke="currentColor" stroke-width="2"/></svg><span><b>100% 로컬 추론.</b> Apple Silicon GPU에서 Ollama로 실행됩니다.</span></li>
+        <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5 9-11" stroke="currentColor" stroke-width="2"/></svg><span><b>RAG 임베딩</b>이 실제 스키마에 생성을 고정합니다 (1024-dim).</span></li>
+        <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5 9-11" stroke="currentColor" stroke-width="2"/></svg><span><b>완전히 선택 사항.</b> 핵심 기능은 LLM 없이도 전부 작동합니다.</span></li>
+      </ul>
+      <a href="./guide.html#llm" class="more">로컬 LLM 설정하기 <svg viewBox="0 0 24 24" fill="none"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="2"/></svg></a>
+    </div>
+    <div class="fvis">
+      <div class="panel">
+        <div class="panel-bar"><span class="tl"></span><span class="tl"></span><span class="tl"></span><span class="title">NL → SQL · 로컬</span></div>
+        <div class="panel-body">
+          <div class="chat">
+            <div class="bubble user">orders에 status 컬럼을 추가하고 락 없이 인덱스를 만들어줘.</div>
+            <div class="bubble ai"><div class="label">생성된 SQL · RAG로 근거 확보</div><code><span class="kw">ALTER TABLE</span> orders <span class="kw">ADD COLUMN</span> status text;<br><span class="kw">CREATE INDEX CONCURRENTLY</span> idx_orders_status<br>&nbsp;&nbsp;<span class="kw">ON</span> orders (status);</code></div>
+          </div>
+          <div class="llm-note"><svg viewBox="0 0 24 24" fill="none"><path d="M12 16v-4m0-4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" stroke="currentColor" stroke-width="1.6"/></svg><span>추론은 로컬 Ollama 모델에서 실행됩니다. 자격증명과 프롬프트는 절대 기기를 떠나지 않습니다.</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+<section class="fbottom">
+  <div class="wrap">
+    <h2>다음 마이그레이션을 게이트에 통과시킬 준비가 되셨나요?</h2>
+    <p>macOS 앱을 다운로드하거나, 먼저 가이드를 읽고 연결부터 롤백까지의 전체 흐름을 따라가 보세요.</p>
+    <div class="hero-cta"><a href="./download.html" class="btn btn-primary btn-lg">macOS용 다운로드</a><a href="./guide.html" class="btn btn-ghost btn-lg">가이드 읽기</a></div>
+  </div>
+</section>
+<footer class="foot">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div class="foot-brand"><a href="./index.html" class="brand"><span class="mark"><svg viewBox="0 0 24 24" fill="none"><path d="M5 7c0-1.7 3.1-3 7-3s7 1.3 7 3-3.1 3-7 3-7-1.3-7-3Z" stroke="#F2FBFA" stroke-width="1.6"/><path d="M5 7v10c0 1.7 3.1 3 7 3s7-1.3 7-3V7" stroke="#F2FBFA" stroke-width="1.6"/><path d="M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3" stroke="#F2FBFA" stroke-width="1.6"/></svg></span>SQLPreShift</a><p>PostgreSQL 스키마 마이그레이션을 위한 안전 게이트. 호스팅 서비스가 아닌 포트폴리오 데모로, 위험한 마이그레이션을 실수로 적용하는 일이 불가능하도록 만들었습니다.</p></div>
+      <div class="foot-col"><h5>제품</h5><a href="./index.html">홈</a><a href="./features.html">기능</a><a href="./download.html">다운로드</a><a href="./guide.html">가이드</a></div>
+      <div class="foot-col"><h5>리소스</h5><a href="./guide.html#install">설치 및 Gatekeeper</a><a href="./guide.html#workflow">핵심 워크플로</a><a href="./download.html#source">소스에서 실행</a><a href="https://github.com/taehyunan-99/sql-preshift">GitHub 저장소</a></div>
+      <div class="foot-col"><h5>소개</h5><a href="https://github.com/taehyunan-99/sql-preshift">릴리스</a><a href="https://github.com/taehyunan-99/sql-preshift/blob/main/LICENSE">MIT License</a><a href="./download.html#source">소스에서 빌드</a></div>
+    </div>
+    <div class="foot-bottom"><span>&copy; 2026 SQLPreShift &middot; MIT 라이선스 &middot; 완전 로컬 실행.</span><span class="badges"><span class="badge">PostgreSQL 16</span><span class="badge">macOS Apple Silicon</span><span class="badge">텔레메트리 없음</span></span></div>
+  </div>
+</footer>
+<script>(function(){var t=document.getElementById('menuToggle'),n=document.getElementById('nav');if(t)t.addEventListener('click',function(){n.classList.toggle('open');});})();</script>
+<script>
+/* 스크롤 진입 애니메이션 — index.html과 동일 엔진(콘텐츠 페이지용 간소). */
+(function(){
+  document.documentElement.classList.add('js');
+  document.querySelectorAll('[data-reveal="stagger"]').forEach(function(box){
+    Array.prototype.forEach.call(box.children,function(c,i){c.style.setProperty('--i',i);});
+  });
+  var io=new IntersectionObserver(function(entries){
+    entries.forEach(function(en){
+      if(!en.isIntersecting)return;
+      en.target.classList.add('in');
+      io.unobserve(en.target);
+    });
+  },{threshold:0.18,rootMargin:'0px 0px -8% 0px'});
+  document.querySelectorAll('[data-reveal]').forEach(function(el){io.observe(el);});
+})();
+</script>
+</body>
+</html>
