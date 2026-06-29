@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>가이드 · 0에서 첫 안전한 마이그레이션까지 · SQLPreShift</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+:root{
+  /* 앱 테마 계승 - Calm Clarity graphite dark + teal accent + glow (frontend/src/styles/tokens.css) */
+  --bg-primary:#1A2024;--bg-canvas:#161B1F;--surface:#222A30;--surface-2:#2E373E;
+  --text-primary:#E6EBEC;--text-secondary:#9BA8AD;--text-tertiary:#6B767B;
+  --border:#313B41;--border-subtle:#2A333A;
+  --accent:#2BA8A0;--accent-hover:#34C2B8;--accent-soft:rgba(43,168,160,0.12);--accent-line:rgba(43,168,160,0.45);
+  --warning:#C4955A;--warning-soft:rgba(196,149,90,0.12);--warning-line:rgba(196,149,90,0.32);--danger:#C45B5B;--danger-soft:rgba(196,91,91,0.12);--info:#5A8FC4;--info-soft:rgba(90,143,196,0.12);--info-line:rgba(90,143,196,0.28);--success:#5B9A6F;
+  --shadow-sm:0 2px 8px rgba(0,0,0,0.45);--shadow-md:0 8px 24px rgba(0,0,0,0.5);--shadow-lg:0 12px 40px rgba(0,0,0,0.65);--shadow-glow:0 0 36px rgba(43,168,160,0.28);
+  --font-head:'Plus Jakarta Sans',system-ui,sans-serif;--font-body:'Plus Jakarta Sans',system-ui,sans-serif;--font-mono:'Fira Code','JetBrains Mono',ui-monospace,monospace;
+  --space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-6:24px;--space-8:32px;--space-12:48px;--space-16:64px;--space-24:96px;
+  --radius-sm:6px;--radius-md:10px;--radius-lg:16px;--radius-xl:22px;--radius-full:9999px;--ease:cubic-bezier(0.25,0.1,0.25,1);
+  --maxw:1320px;--maxw-prose:820px;--maxw-wide:1600px;--gutter:40px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:var(--font-body);background:var(--bg-primary);color:var(--text-primary);line-height:1.6;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;word-break:keep-all;overflow-wrap:break-word}
+code,.font-mono,[class*="mono"]{word-break:normal;overflow-wrap:anywhere}
+a{color:inherit;text-decoration:none}
+img{max-width:100%;display:block}
+.wrap{max-width:var(--maxw);margin:0 auto;padding:0 var(--gutter)}
+.wrap-prose{max-width:var(--maxw-prose);margin:0 auto;padding:0 var(--gutter)}
+.wrap-wide{max-width:var(--maxw-wide);margin:0 auto;padding:0 var(--gutter)}
+.wrap-narrow{max-width:880px;margin:0 auto;padding:0 var(--gutter)}
+.nav{position:sticky;top:0;z-index:50;background:rgba(22,28,32,0.82);backdrop-filter:saturate(150%) blur(14px);border-bottom:1px solid var(--border-subtle)}
+.nav-inner{max-width:var(--maxw-wide);margin:0 auto;height:68px;padding:0 var(--gutter);display:flex;align-items:center;gap:var(--space-8)}
+.brand{display:flex;align-items:center;gap:10px;font-weight:600;font-size:17px;letter-spacing:-0.01em}
+.brand .mark{width:30px;height:30px;border-radius:9px;flex:none;background:linear-gradient(150deg,#34C2B8,#34C2B8);display:grid;place-items:center;box-shadow:var(--shadow-sm)}
+.brand .mark svg{width:17px;height:17px}
+.nav-links{display:flex;gap:var(--space-6);margin-left:var(--space-4)}
+.nav-links a{font-size:15px;color:var(--text-secondary);font-weight:500;padding:6px 2px;position:relative;transition:color .2s var(--ease)}
+.nav-links a:hover{color:var(--text-primary)}
+.nav-links a.active{color:var(--text-primary)}
+.nav-links a.active::after{content:"";position:absolute;left:0;right:0;bottom:-21px;height:2px;background:var(--accent);border-radius:2px}
+.nav-right{margin-left:auto;display:flex;align-items:center;gap:var(--space-4)}
+.nav-gh{display:flex;align-items:center;gap:7px;font-size:14px;color:var(--text-secondary);font-weight:500;transition:color .2s var(--ease)}
+.nav-gh:hover{color:var(--text-primary)}
+.nav-gh svg{width:18px;height:18px}
+.btn{display:inline-flex;align-items:center;gap:8px;font-family:var(--font-body);font-weight:600;font-size:15px;border-radius:var(--radius-full);border:none;cursor:pointer;transition:transform .15s var(--ease),box-shadow .2s var(--ease),background .2s var(--ease);white-space:nowrap}
+/* glow 독점 원칙: 공통 primary 버튼은 glow 없음. teal 발광은 이 페이지에서 #install의 .gn-dl(Download) 한 곳만 */
+.btn-primary{background:var(--accent);color:#F2FBFA;padding:10px 20px}
+.btn-primary:hover{background:var(--accent-hover);transform:translateY(-1px)}
+/* 페이지 유일 glow — #install Step 01 Download 버튼. 다른 어디에도 teal glow 없음. */
+.gn-dl{padding:14px 26px;font-size:16px;box-shadow:var(--shadow-glow),0 16px 44px -20px rgba(43,168,160,0.55)}
+.gn-dl svg{width:18px;height:18px}
+.btn-lg{padding:15px 30px;font-size:16px}
+.btn-ghost{background:transparent;color:var(--text-primary);padding:10px 18px;border:1px solid var(--border)}
+.btn-ghost:hover{background:var(--surface);border-color:var(--text-tertiary)}
+.menu-toggle{display:none;background:none;border:none;cursor:pointer;padding:6px;margin-left:auto}
+.menu-toggle span{display:block;width:22px;height:2px;background:var(--text-primary);border-radius:2px;margin:4px 0;transition:.2s}
+
+/* =========================================================================
+   가이드탭 - sticky TOC 2컬럼. 좌측 본문(GET STARTED basic → ADVANCED → REFERENCE),
+   우측 220px 목차. download.html 디자인 시스템 계승. glow는 #install Download 1곳만.
+   ========================================================================= */
+
+/* ----- 가이드 히어로 (SECTION 0) ----- */
+.g-hero{position:relative;padding:clamp(56px,8vw,104px) 0 clamp(40px,5vw,64px);
+  background:radial-gradient(1000px 540px at 50% 0%,rgba(43,168,160,0.07),transparent 62%),var(--bg-canvas);
+  border-bottom:1px solid var(--border-subtle)}
+.gh{display:flex;flex-direction:column;align-items:center;text-align:center}
+.gh .eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--accent);background:var(--accent-soft);padding:6px 14px;border-radius:var(--radius-full);margin-bottom:var(--space-6)}
+.gh .eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--accent)}
+.gh h1{font-family:var(--font-head);font-weight:500;font-size:clamp(32px,4.6vw,54px);line-height:1.08;letter-spacing:-0.03em}
+.gh>p{font-size:clamp(15px,1.4vw,18px);color:var(--text-secondary);margin-top:var(--space-6);max-width:44em;line-height:1.65}
+.gh .promise{margin-top:var(--space-6);font-family:var(--font-mono);font-size:13px;color:var(--accent);background:var(--surface);border:1px solid var(--accent-line);padding:7px 15px;border-radius:var(--radius-full)}
+
+/* ----- 멘탈모델 4박스 도식 (재사용: SECTION 0 + SECTION 6) ----- */
+.flow4{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--space-3);align-items:stretch;margin-top:var(--space-8)}
+.flow4 .node{position:relative;background:var(--bg-canvas);border:1px solid var(--border);border-radius:var(--radius-md);padding:var(--space-4) var(--space-3);text-align:center}
+.flow4 .node.warn{border-left:3px solid var(--warning)}
+.flow4 .node .nl{font-family:var(--font-mono);font-size:13px;font-weight:600;color:var(--text-primary)}
+.flow4 .node .ns{font-size:11.5px;color:var(--text-tertiary);margin-top:5px;line-height:1.45}
+.flow4 .node:not(:last-child)::after{content:"\2192";position:absolute;right:-13px;top:50%;transform:translateY(-50%);color:var(--text-tertiary);font-size:15px;z-index:1}
+.flow-cap{margin-top:var(--space-4);font-family:var(--font-mono);font-size:12px;color:var(--text-tertiary);text-align:center;line-height:1.6}
+@media(max-width:680px){.flow4{grid-template-columns:1fr 1fr}.flow4 .node:not(:last-child)::after{display:none}}
+
+/* ----- 2컬럼 본문 + sticky TOC ----- */
+.g-layout{display:grid;grid-template-columns:minmax(0,1fr) 220px;gap:clamp(32px,4vw,64px);max-width:var(--maxw);margin:0 auto;padding:var(--space-12) var(--gutter) var(--space-16)}
+.g-main{min-width:0}
+/* sticky 우측 TOC */
+.g-toc{position:sticky;top:88px;align-self:start;font-size:13px}
+.toc-mobile{display:none}
+.toc-group{margin-bottom:var(--space-6)}
+.toc-group .tg-label{font-family:var(--font-mono);font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--text-tertiary);margin-bottom:var(--space-3)}
+.toc-group ol{list-style:none}
+.toc-group a{display:block;padding:6px 0 6px 12px;color:var(--text-secondary);border-left:2px solid transparent;transition:color .18s var(--ease),border-color .18s var(--ease);line-height:1.4}
+.toc-group a:hover{color:var(--text-primary)}
+/* TOC active = 좌측 2px teal 라인. glow 아님 */
+.toc-group a.active{color:var(--text-primary);border-left-color:var(--accent);font-weight:600}
+
+/* ----- 섹션 컨테이너 ----- */
+.g-sec{padding:var(--space-12) 0;border-top:1px solid var(--border-subtle);scroll-margin-top:88px}
+.g-sec:first-child{border-top:none;padding-top:var(--space-2)}
+.g-sec .sec-k{font-family:var(--font-mono);font-size:12px;font-weight:500;color:var(--accent);text-transform:uppercase;letter-spacing:.05em;margin-bottom:var(--space-3)}
+.g-sec h2{font-family:var(--font-head);font-weight:500;font-size:clamp(23px,2.7vw,31px);letter-spacing:-0.02em;line-height:1.18}
+.g-sec h3{font-family:var(--font-head);font-weight:600;font-size:18px;letter-spacing:-0.01em;margin-top:var(--space-8);margin-bottom:var(--space-3)}
+.g-sec .lead{font-size:16px;color:var(--text-secondary);margin-top:var(--space-4);max-width:48em;line-height:1.65}
+.g-sec p{font-size:15px;color:var(--text-secondary);margin-top:var(--space-4);max-width:52em;line-height:1.7}
+.g-sec p b,.g-sec li b{color:var(--text-primary);font-weight:600}
+.g-sec ul,.g-sec ol{margin:var(--space-4) 0;padding-left:var(--space-6);max-width:52em}
+.g-sec li{font-size:15px;color:var(--text-secondary);line-height:1.7;margin-bottom:6px}
+.g-sec code,.kbd{font-family:var(--font-mono);font-size:12.5px;color:var(--text-primary);background:var(--surface);border:1px solid var(--border-subtle);border-radius:5px;padding:1px 6px;word-break:normal}
+.kbd{color:var(--accent)}
+.g-sec pre{font-family:var(--font-mono);font-size:12.5px;color:var(--text-secondary);background:var(--bg-canvas);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:var(--space-4) var(--space-6);margin:var(--space-4) 0;overflow-x:auto;line-height:1.7;max-width:52em}
+.g-sec pre code{background:none;border:none;padding:0;color:var(--text-secondary)}
+
+/* ----- Advanced 그룹 divider ----- */
+.adv-divider{margin:var(--space-16) 0 0;padding-top:var(--space-12);border-top:1px solid var(--border)}
+.adv-divider .eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-tertiary);background:var(--surface);border:1px solid var(--border-subtle);padding:6px 14px;border-radius:var(--radius-full)}
+.adv-divider h2{font-family:var(--font-head);font-weight:500;font-size:clamp(24px,3vw,34px);letter-spacing:-0.02em;margin-top:var(--space-4)}
+.adv-divider p{font-size:15px;color:var(--text-secondary);margin-top:var(--space-3);max-width:46em}
+
+/* ----- .callout (신규) — note/caution/danger. soft 배경만, glow 없음 ----- */
+.callout{border-radius:var(--radius-md);padding:var(--space-4) var(--space-6);border-left:4px solid var(--border);margin:var(--space-6) 0;background:var(--surface);max-width:52em}
+.callout .callout-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;display:block}
+.callout p{margin-top:0;font-size:14.5px;color:var(--text-secondary);line-height:1.65;max-width:none}
+.callout p+p{margin-top:var(--space-3)}
+.callout code{background:var(--bg-canvas)}
+.callout--note{border-left-color:var(--accent);background:var(--accent-soft)}
+.callout--note .callout-label{color:var(--accent)}
+.callout--caution{border-left-color:var(--warning);background:var(--warning-soft)}
+.callout--caution .callout-label{color:var(--warning)}
+.callout--danger{border-left-color:var(--danger);background:var(--danger-soft)}
+.callout--danger .callout-label{color:var(--danger)}
+
+/* ----- .step (신규) — WHY / STEPS / What you'll see ----- */
+.step{background:var(--bg-canvas);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);padding:var(--space-6) var(--space-8);margin:var(--space-6) 0}
+.step .step-num{font-family:var(--font-mono);font-size:12px;color:var(--accent);font-weight:600;letter-spacing:.03em}
+.step .step-title{font-family:var(--font-head);font-weight:600;font-size:17px;margin-top:6px;color:var(--text-primary)}
+.step-block{margin-top:var(--space-4)}
+.step-block .bl{font-family:var(--font-mono);font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-tertiary);margin-bottom:6px}
+.step-block .why{color:var(--text-secondary);font-size:14.5px;line-height:1.65}
+.step-block.step-steps ol,.step-block.step-steps ul{margin:0;padding-left:var(--space-6)}
+.step-block.step-steps li{font-size:14.5px;margin-bottom:5px}
+.step-see{border-left:3px solid var(--accent-line);padding:var(--space-2) 0 var(--space-2) var(--space-4);background:var(--surface);border-radius:0 var(--radius-sm) var(--radius-sm) 0}
+.step-see .se{font-size:14.5px;color:var(--text-secondary);line-height:1.65}
+
+/* ----- 2칼럼 동등 경로 (SECTION 2) ----- */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4);margin:var(--space-6) 0}
+.two-col .col{background:var(--bg-canvas);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);padding:var(--space-6)}
+.two-col .col h4{font-family:var(--font-head);font-weight:600;font-size:16px;color:var(--text-primary);margin-bottom:var(--space-3)}
+.demo-badges{display:flex;gap:var(--space-2);flex-wrap:wrap;margin:var(--space-3) 0}
+.demo-badges .b{font-family:var(--font-mono);font-size:11.5px;color:var(--text-secondary);background:var(--surface);border:1px solid var(--border-subtle);padding:4px 11px;border-radius:var(--radius-full)}
+@media(max-width:680px){.two-col{grid-template-columns:1fr}}
+
+/* ----- <details> 접이식 — ▸(U+25B8) 회전 ----- */
+details.adv{background:var(--bg-canvas);border:1px solid var(--border-subtle);border-radius:var(--radius-md);margin:var(--space-3) 0;overflow:hidden}
+details.adv>summary{list-style:none;cursor:pointer;padding:var(--space-4) var(--space-6);display:flex;align-items:center;gap:11px;font-family:var(--font-head);font-weight:600;font-size:15.5px;color:var(--text-primary);user-select:none}
+details.adv>summary::-webkit-details-marker{display:none}
+details.adv>summary::before{content:"\25B8";color:var(--accent);font-size:12px;transition:transform .2s var(--ease);flex:none}
+details.adv[open]>summary::before{transform:rotate(90deg)}
+details.adv>summary .tag{margin-left:auto;font-family:var(--font-mono);font-size:10.5px;color:var(--text-tertiary);background:var(--surface);border:1px solid var(--border-subtle);padding:2px 9px;border-radius:var(--radius-full);font-weight:500}
+details.adv .adv-body{padding:0 var(--space-6) var(--space-6)}
+details.adv .adv-body>*:first-child{margin-top:0}
+
+/* ----- .placeholder — dashed 자리표시 ----- */
+.placeholder{border:1.5px dashed var(--border);border-radius:var(--radius-md);background:var(--bg-canvas);padding:var(--space-12) var(--space-6);text-align:center;margin:var(--space-4) 0}
+.placeholder .ph-cap{font-family:var(--font-mono);font-size:12.5px;color:var(--text-tertiary);line-height:1.6}
+
+/* ----- diff 범례 칩 ----- */
+.diff-legend{display:flex;gap:var(--space-3);flex-wrap:wrap;margin:var(--space-4) 0}
+.diff-legend .dl{display:inline-flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:12.5px;color:var(--text-secondary);background:var(--bg-canvas);border:1px solid var(--border-subtle);padding:6px 13px;border-radius:var(--radius-full)}
+.diff-legend .sw{width:10px;height:10px;border-radius:3px;flex:none}
+.diff-legend .add .sw{background:var(--success)}.diff-legend .del .sw{background:var(--danger)}.diff-legend .mod .sw{background:var(--warning)}
+.detect-chip{display:inline-flex;align-items:center;gap:7px;font-family:var(--font-mono);font-size:12px;color:var(--accent);background:var(--accent-soft);border:1px solid var(--accent-line);padding:4px 12px;border-radius:var(--radius-full);margin:3px 6px 3px 0}
+
+/* ----- riskcard + gp (index.html 재사용) — 위계: Critical=danger, Warning=warning ----- */
+.riskcard{border:1px solid var(--warning-line);background:var(--bg-canvas);border-radius:var(--radius-lg);overflow:hidden;box-shadow:var(--shadow-md);margin:var(--space-4) 0}
+.riskcard .rh{padding:14px 18px;display:flex;align-items:center;gap:10px;font-size:14px;font-weight:600;color:var(--warning);background:var(--warning-soft);border-bottom:1px solid var(--warning-line)}
+.riskcard .rh svg{width:17px;height:17px;flex:none}
+.riskcard .rh .badge{margin-left:auto;font-family:var(--font-mono);font-size:10.5px;color:var(--warning);background:rgba(196,149,90,0.18);padding:3px 10px;border-radius:var(--radius-full);letter-spacing:.03em}
+.riskcard.crit{border-color:var(--danger)}
+.riskcard.crit .rh{color:var(--danger);background:var(--danger-soft);border-bottom-color:var(--danger)}
+.riskcard.crit .rh .badge{color:var(--danger);background:rgba(196,91,91,0.18)}
+.riskcard .rb{padding:18px;display:grid;gap:14px}
+.riskcard .line{font-family:var(--font-mono);font-size:12.5px;color:var(--text-secondary);line-height:1.65}
+.riskcard .line b{color:var(--text-primary)}
+.riskcard .gp{background:var(--surface);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:13px 15px}
+.riskcard .gp .gl{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text-tertiary);margin-bottom:7px;display:flex;align-items:center;gap:6px}
+.riskcard .gp .gl::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--warning)}
+.riskcard.crit .gp .gl::before{background:var(--danger)}
+.riskcard .gp code{font-family:var(--font-mono);font-size:12px;color:var(--text-secondary);display:block;line-height:1.8;background:none;border:none;padding:0}
+.riskcard .gp code .k{color:var(--text-primary);font-weight:500}
+
+/* ----- panel + stack + applybar (index.html 재사용) — #apply 목업 ----- */
+.panel{background:var(--bg-canvas);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-md);overflow:hidden;margin:var(--space-4) 0}
+.panel-bar{display:flex;align-items:center;gap:7px;padding:12px 16px;background:var(--surface);border-bottom:1px solid var(--border-subtle)}
+.panel-bar .tl{width:11px;height:11px;border-radius:50%;background:var(--border)}
+.panel-bar .tl:nth-child(1){background:#2BA8A0}.panel-bar .tl:nth-child(2){background:#C4955A}.panel-bar .tl:nth-child(3){background:#5B9A6F}
+.panel-bar .title{margin-left:10px;font-family:var(--font-mono);font-size:12.5px;color:var(--text-tertiary)}
+.panel-body{padding:var(--space-6)}
+.stack{display:grid;gap:10px}
+.stack-item{display:flex;align-items:center;gap:12px;font-family:var(--font-mono);font-size:12.5px;background:var(--bg-canvas);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:12px 14px;color:var(--text-secondary)}
+.stack-item .num{width:22px;height:22px;border-radius:5px;background:var(--accent-soft);color:var(--accent);font-size:12px;font-weight:600;display:grid;place-items:center;flex:none}
+.stack-item .ok{margin-left:auto;font-size:10.5px;color:var(--success);text-transform:uppercase;letter-spacing:.04em}
+.applybar{margin-top:var(--space-6);padding-top:var(--space-6);border-top:1px solid var(--border-subtle);display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.applybar .tx{font-family:var(--font-mono);font-size:12px;color:var(--text-tertiary)}
+.applybar .ab{margin-left:auto;font-family:var(--font-body);font-size:13px;font-weight:600;color:#F2FBFA;background:var(--accent);padding:8px 16px;border-radius:var(--radius-full)}
+
+/* ----- 표 (Reference) ----- */
+.tbl-wrap{overflow-x:auto;margin:var(--space-4) 0;border:1px solid var(--border-subtle);border-radius:var(--radius-md)}
+table.ref{width:100%;border-collapse:collapse;font-size:13.5px;min-width:560px}
+table.ref th,table.ref td{text-align:left;padding:11px 15px;border-bottom:1px solid var(--border-subtle);vertical-align:top;line-height:1.6}
+table.ref thead th{background:var(--surface);color:var(--text-tertiary);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+table.ref tbody tr:last-child td{border-bottom:none}
+table.ref td:first-child{color:var(--text-primary)}
+table.ref code{font-size:12px;background:var(--bg-canvas)}
+table.ref.crit thead th{color:var(--danger)}
+table.ref.warn thead th{color:var(--warning)}
+
+/* ----- What's next 3카드 (SECTION 13) ----- */
+.next-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-4);margin-top:var(--space-6)}
+.next-card{background:var(--bg-canvas);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);padding:var(--space-6);transition:border-color .2s var(--ease),transform .15s var(--ease)}
+.next-card:hover{border-color:var(--accent-line);transform:translateY(-2px)}
+.next-card .nt{font-family:var(--font-head);font-weight:600;font-size:16px;color:var(--text-primary)}
+.next-card .na{display:inline-flex;align-items:center;gap:6px;margin-top:var(--space-4);font-size:14px;font-weight:600;color:var(--accent)}
+.next-card .na svg{width:14px;height:14px}
+@media(max-width:680px){.next-grid{grid-template-columns:1fr}}
+
+/* ----- zoomable 라이트박스 ----- */
+.zoomable{cursor:zoom-in}
+.lightbox{position:fixed;inset:0;z-index:200;background:rgba(8,11,13,0.88);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;padding:var(--gutter)}
+.lightbox.open{display:flex}
+.lightbox .lb-inner{max-width:min(1100px,92vw);max-height:88vh;overflow:auto;background:var(--bg-canvas);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg)}
+.lightbox .lb-close{position:absolute;top:20px;right:24px;width:40px;height:40px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--text-primary);font-size:20px;cursor:pointer;display:grid;place-items:center;line-height:1}
+
+/* ----- footer (계승) ----- */
+.foot{background:var(--bg-canvas);border-top:1px solid var(--border-subtle);padding:var(--space-16) 0 var(--space-8)}
+.foot-grid{display:grid;grid-template-columns:1.6fr 1fr 1fr 1fr;gap:var(--space-8)}
+.foot-brand .brand{margin-bottom:var(--space-4)}
+.foot-brand p{font-size:14px;color:var(--text-secondary);max-width:26em;line-height:1.6}
+.foot-col h5{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text-tertiary);margin-bottom:var(--space-4)}
+.foot-col a{display:block;font-size:14.5px;color:var(--text-secondary);padding:5px 0;transition:color .2s var(--ease)}
+.foot-col a:hover{color:var(--accent)}
+.foot-bottom{margin-top:var(--space-12);padding-top:var(--space-6);border-top:1px solid var(--border-subtle);display:flex;justify-content:space-between;flex-wrap:wrap;gap:var(--space-3);font-size:13px;color:var(--text-tertiary)}
+.foot-bottom .badges{display:flex;gap:var(--space-3);flex-wrap:wrap}
+.foot-bottom .badge{font-family:var(--font-mono);font-size:12px;background:var(--surface);padding:3px 10px;border-radius:var(--radius-full);color:var(--text-secondary)}
+
+@media(max-width:980px){
+  .foot-grid{grid-template-columns:1fr 1fr}
+  /* 모바일: TOC를 본문 상단 접이식으로 강등 */
+  .g-layout{grid-template-columns:1fr;padding-top:var(--space-6)}
+  .g-toc{display:none}
+  .toc-mobile{display:block;position:sticky;top:74px;z-index:10;margin-bottom:var(--space-6)}
+  details.toc-mobile{background:var(--bg-canvas);border:1px solid var(--border);border-radius:var(--radius-md)}
+  details.toc-mobile>summary{list-style:none;cursor:pointer;padding:var(--space-4) var(--space-6);display:flex;align-items:center;gap:10px;font-family:var(--font-head);font-weight:600;font-size:15px;color:var(--text-primary)}
+  details.toc-mobile>summary::-webkit-details-marker{display:none}
+  details.toc-mobile>summary::before{content:"\25B8";color:var(--accent);font-size:12px;transition:transform .2s var(--ease)}
+  details.toc-mobile[open]>summary::before{transform:rotate(90deg)}
+  .toc-mobile .toc-inner{padding:0 var(--space-6) var(--space-6)}
+  .toc-mobile .toc-group a.active{border-left-color:var(--accent)}
+}
+@media(max-width:680px){
+  .nav-links,.nav-gh{display:none}.menu-toggle{display:block}.nav.open .nav-links{display:flex;position:absolute;top:64px;left:0;right:0;flex-direction:column;background:var(--bg-canvas);border-bottom:1px solid var(--border);padding:var(--space-4) var(--space-6);gap:0;margin:0}.nav.open .nav-links a{padding:12px 0;border-bottom:1px solid var(--border-subtle)}.nav.open .nav-links a.active::after{display:none}.foot-grid{grid-template-columns:1fr}
+  .gh h1{font-size:clamp(28px,8vw,38px)}
+  .step{padding:var(--space-4) var(--space-6)}
+}
+
+/* ============ 스크롤 진입 reveal - download.html과 동일 엔진. Torii식 1회성 fade. ============ */
+.js [data-reveal]{opacity:0;transition:opacity .7s var(--ease),transform .7s var(--ease)}
+.js [data-reveal="up"]{transform:translateY(22px)}
+.js [data-reveal].in{opacity:1;transform:none}
+@media(prefers-reduced-motion:reduce){
+  .js [data-reveal],.js [data-reveal="up"]{opacity:1!important;transform:none!important;transition:none!important}
+}
+</style>
+<!-- 새로고침 시 항상 최상단에서 시작 — 브라우저 기본 스크롤 복원을 끄고 즉시 맨 위로. -->
+<script>if('scrollRestoration' in history)history.scrollRestoration='manual';window.scrollTo(0,0);</script>
+</head>
+<body>
+<header class="nav" id="nav">
+  <div class="nav-inner">
+    <a href="./index.html" class="brand"><span class="mark"><svg viewBox="0 0 24 24" fill="none"><path d="M5 7c0-1.7 3.1-3 7-3s7 1.3 7 3-3.1 3-7 3-7-1.3-7-3Z" stroke="#F2FBFA" stroke-width="1.6"/><path d="M5 7v10c0 1.7 3.1 3 7 3s7-1.3 7-3V7" stroke="#F2FBFA" stroke-width="1.6"/><path d="M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3" stroke="#F2FBFA" stroke-width="1.6"/></svg></span>SQLPreShift</a>
+    <nav class="nav-links"><a href="./index.html">홈</a><a href="./features.html">기능</a><a href="./download.html">다운로드</a><a href="./guide.html" class="active">가이드</a></nav>
+    <div class="nav-right"><a href="https://github.com/taehyunan-99/sql-preshift" class="nav-gh"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.58 2 12.25c0 4.53 2.87 8.37 6.84 9.73.5.1.68-.22.68-.49 0-.24-.01-.88-.01-1.73-2.78.62-3.37-1.37-3.37-1.37-.45-1.18-1.11-1.49-1.11-1.49-.91-.63.07-.62.07-.62 1 .07 1.53 1.06 1.53 1.06.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.63-1.37-2.22-.26-4.56-1.14-4.56-5.06 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.7 0 0 .84-.28 2.75 1.05a9.3 9.3 0 0 1 5 0c1.91-1.33 2.75-1.05 2.75-1.05.55 1.4.2 2.44.1 2.7.64.72 1.03 1.63 1.03 2.75 0 3.93-2.34 4.8-4.57 5.05.36.32.68.94.68 1.9 0 1.37-.01 2.48-.01 2.82 0 .27.18.6.69.49A10.02 10.02 0 0 0 22 12.25C22 6.58 17.52 2 12 2Z"/></svg>GitHub</a></div>
+    <button class="menu-toggle" id="menuToggle" aria-label="Menu"><span></span><span></span><span></span></button>
+  </div>
+</header>
+
+<!-- ============ SECTION 0 — 히어로 + Requirements (basic) ============ -->
+<section class="g-hero" id="top">
+  <div class="wrap-narrow gh" data-reveal="up">
+    <span class="eyebrow"><span class="dot"></span> 시작 가이드</span>
+    <h1>0에서 첫 안전한 마이그레이션까지</h1>
+    <p>SQLPreShift는 PostgreSQL 스키마 변경(ALTER/DROP 등 DDL과 일부 DML)을 운영 DB에 적용하기 <b>전에</b> 미리보기하고, 결정적 규칙으로 위험을 진단하고, 안전하게 적용/롤백하는 macOS 데스크톱 앱입니다. 운영 DB에 ALTER를 던지기 전에 영향 범위를 먼저 보고 싶을 때 씁니다. 모든 작업은 로컬에서만 동작합니다.</p>
+    <span class="promise">About 5 minutes from download to your first risk report.</span>
+  </div>
+</section>
+
+<div class="g-layout">
+
+  <!-- 모바일 강등 TOC (980px 이하에서만 노출) -->
+  <details class="toc-mobile" id="tocMobile">
+    <summary>On this page</summary>
+    <div class="toc-inner" id="tocMobileInner"></div>
+  </details>
+
+  <!-- ===================== 본문 ===================== -->
+  <main class="g-main">
+
+    <!-- SECTION 0 본문: 멘탈모델 + Requirements -->
+    <section class="g-sec" data-toc="이 가이드를 읽는 법" data-group="GET STARTED">
+      <div class="sec-k">Section 0 · Overview</div>
+      <h2>이 앱을 어떻게 생각하면 되나</h2>
+      <p class="lead">SQLPreShift의 모든 작업은 네 단계로 흐릅니다. 이 흐름은 앱 상단 상태 표시와 1:1로 대응합니다.</p>
+
+      <div class="flow4" data-reveal="up">
+        <div class="node"><div class="nl">Input</div><div class="ns">SQL 또는 자연어 입력</div></div>
+        <div class="node"><div class="nl">Analyze</div><div class="ns">ERD diff 미리보기</div></div>
+        <div class="node warn"><div class="nl">Risk</div><div class="ns">결정적 위험 진단</div></div>
+        <div class="node"><div class="nl">Apply / Rollback</div><div class="ns">단일 트랜잭션 적용·되돌리기</div></div>
+      </div>
+      <div class="flow-cap">앱 상단 상태 표시와 1:1 대응 — <code>Ready</code> &rarr; <code>Analyzing</code> &rarr; <code>Preview</code> &rarr; <code>Applying</code> &rarr; <code>Applied</code>.</div>
+
+      <h3>받기 전에 — Requirements</h3>
+      <div class="callout callout--note">
+        <span class="callout-label">Requirements</span>
+        <p><code>macOS Apple Silicon</code> &middot; <code>~122 MiB</code> &middot; <code>macOS Big Sur 11+</code> (Sonoma 전용 아님) &middot; <code>PostgreSQL 16 target</code> &middot; runs fully local</p>
+        <p><b>필수</b>: 앱 본체 + 로컬 PostgreSQL 16 <b>또는</b> 내장 데모 DB.<br><b>선택</b>: Ollama + 모델(<code>gemma4:latest</code> 등)로 자연어 입력 강화.</p>
+        <p>자연어를 쓰지 않아도 첫 분석은 가능합니다 — Ollama는 전제가 아닙니다.</p>
+      </div>
+    </section>
+
+    <!-- ============ SECTION 1 — #install (basic) [필수 앵커] ============ -->
+    <section class="g-sec" id="install" data-toc="앱 설치하고 처음 열기" data-group="GET STARTED">
+      <div class="sec-k">Section 1 · Install</div>
+      <h2>앱 설치하고 처음 열기 (Gatekeeper 통과)</h2>
+      <p class="lead">다운로드 &rarr; 우클릭으로 열기 &rarr; 첫 화면까지의 happy path만 다룹니다.</p>
+
+      <div class="step" data-reveal="up">
+        <div class="step-num">Step 01</div>
+        <div class="step-title">Download the app</div>
+        <div class="step-block"><div class="bl">Why</div><div class="why">앱 본체부터 받아야 시작할 수 있습니다.</div></div>
+        <div class="step-block step-steps"><div class="bl">Steps</div>
+          <p style="margin-top:0">아래 <b>Download 버튼</b>(teal, 페이지 유일 1차 액션)을 눌러 다운로드 페이지로 이동한 뒤 빌드를 내려받습니다. 용량은 약 <code>~122 MiB</code>입니다. 소스 빌드가 필요하면 <a href="./download.html#source" style="color:var(--accent)">download.html#source</a>를 참고하세요(현재 저장소는 비공개라 본 가이드에 clone 단계는 없습니다).</p>
+          <p style="margin-top:var(--space-4)"><a href="./download.html" class="btn btn-primary gn-dl"><svg viewBox="0 0 24 24" fill="none" style="width:18px;height:18px"><path d="M12 3v12m0 0 4.5-4.5M12 15l-4.5-4.5M5 19h14" stroke="#F2FBFA" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg> Download for macOS</a></p>
+        </div>
+        <div class="step-block"><div class="bl">What you'll see</div><div class="step-see"><span class="se">다운로드된 <code>.app</code>(또는 <code>.dmg</code>) 파일.</span></div></div>
+      </div>
+
+      <div class="step" data-reveal="up">
+        <div class="step-num">Step 02</div>
+        <div class="step-title">Open past Gatekeeper (우클릭 Open)</div>
+        <div class="step-block"><div class="bl">Why</div><div class="why">macOS가 <code>the developer cannot be verified</code>라고 말하는 것은 코드서명이 없는 locally-signed build의 <b>예상된 동작</b>이며, 악성이라는 뜻이 아닙니다.</div></div>
+        <div class="callout callout--caution">
+          <span class="callout-label">Caution</span>
+          <p>This message — <code>the developer cannot be verified</code> — is expected for a locally-signed build, not a sign something is wrong.</p>
+        </div>
+        <div class="step-block step-steps"><div class="bl">Steps</div>
+          <ol>
+            <li>Finder에서 <code>SQLPreShift.app</code>을 <b>우클릭</b> &rarr; 메뉴에서 <code>Open</code>.</li>
+            <li>경고 대화상자가 뜨면 다시 <code>Open</code> 버튼을 누릅니다.</li>
+            <li>macOS Big Sur 11에서는 우클릭 <code>Open</code>을 <b>두 번</b> 반복해야 확인 다이얼로그가 나타납니다.</li>
+          </ol>
+        </div>
+        <div class="step-block"><div class="bl">What you'll see</div><div class="step-see"><span class="se">시스템 흰색 대화상자. 여기서 <code>Open</code>을 누르면 앱이 실행됩니다.</span></div></div>
+        <details class="adv">
+          <summary>Stuck? 다른 방법</summary>
+          <div class="adv-body">
+            <p style="margin-top:0">터미널로 quarantine 속성 제거:</p>
+            <pre><code>xattr -dr com.apple.quarantine /Applications/SQLPreShift.app</code></pre>
+            <p>또는 <code>System Settings &rarr; Privacy &amp; Security</code>에서 차단 메시지 옆 <code>Open Anyway</code>.</p>
+          </div>
+        </details>
+      </div>
+
+      <div class="step" data-reveal="up">
+        <div class="step-num">Step 03</div>
+        <div class="step-title">First launch (온보딩 시작)</div>
+        <div class="step-block"><div class="bl">Why</div><div class="why">앱이 열리면 온보딩 게이트(DatabaseConnect)가 먼저 떠 DB 연결을 요구합니다 — 정상입니다.</div></div>
+        <div class="step-block step-steps"><div class="bl">Steps</div><p style="margin-top:0">앱을 실행합니다.</p></div>
+        <div class="step-block"><div class="bl">What you'll see</div><div class="step-see"><span class="se">온보딩 화면과 부제: <code>Preview schema changes against a live PostgreSQL database — safely, before they ship.</code></span></div></div>
+      </div>
+    </section>
+
+    <!-- ============ SECTION 2 — #connect (basic) ============ -->
+    <section class="g-sec" id="connect" data-toc="데이터베이스에 연결하기" data-group="GET STARTED">
+      <div class="sec-k">Section 2 · Connect</div>
+      <h2>데이터베이스에 연결하기 (또는 데모 DB로 시작)</h2>
+      <p class="lead">SQLPreShift는 항상 살아있는 target DB에 붙어 동작합니다. 첫 화면 온보딩 게이트가 연결을 요구합니다. 붙을 DB가 없어도 내장 데모 DB로 바로 시작할 수 있습니다.</p>
+
+      <div class="two-col" data-reveal="up">
+        <div class="col">
+          <h4>Step 01 · Connect your PostgreSQL 16</h4>
+          <div class="step-block"><div class="bl">Why</div><div class="why">실제 작업은 연결된 target DB에서만 일어납니다.</div></div>
+          <div class="step-block step-steps"><div class="bl">Steps</div>
+            <p style="margin-top:0">DatabaseConnect 폼에 아래 5개 필드를 입력합니다:</p>
+            <ol>
+              <li><code>Host</code> (예: <code>localhost</code>)</li>
+              <li><code>Port</code> (예: <code>5432</code>)</li>
+              <li><code>Database</code></li>
+              <li><code>User</code></li>
+              <li><code>Password</code></li>
+            </ol>
+            <p>입력 후 <code>Test Connection</code> 버튼을 눌러 연결을 확인하고, 성공하면 <code>Connect</code> 버튼을 눌러 진입합니다. <b>순서는 반드시 입력 &rarr; <code>Test Connection</code> &rarr; <code>Connect</code>입니다.</b></p>
+          </div>
+          <div class="step-block"><div class="bl">What you'll see</div><div class="step-see"><span class="se">연결 성공 시 좌측에 ERD 캔버스가 뜨고, 데모 ERP DB라면 92개 테이블이 나열됩니다.</span></div></div>
+        </div>
+        <div class="col">
+          <h4>No database yet? Try with demo data</h4>
+          <div class="demo-badges"><span class="b">ERP — 92 tables</span><span class="b">Pagila</span></div>
+          <p style="margin-top:var(--space-3)">앱 내장 로컬 데모입니다 — 외부/GitHub 의존이 전혀 없습니다.</p>
+          <div class="placeholder"><div class="ph-cap">[ DatabaseConnect — Host / Port / Database / User / Password<br>+ Test Connection · Connect ]</div></div>
+        </div>
+      </div>
+
+      <div class="callout callout--note">
+        <span class="callout-label">Note</span>
+        <p>Your SQL runs only against the connected target DB — the app's own metadata DB (local SQLite) is never touched.</p>
+      </div>
+
+      <p>Language model 선택은 <b>선택 사항이며 지금 고를 필요가 없습니다</b>. 연결 직후 온보딩 ModelPicker에서, 또는 나중에 언제든 TopBar의 <code>Model</code>에서 켤 수 있습니다(자세히는 <a href="#advanced-models" style="color:var(--accent)">Turn on natural-language input</a>).</p>
+
+      <details class="adv">
+        <summary>Stuck?</summary>
+        <div class="adv-body">
+          <p style="margin-top:0"><code>Connection refused</code> &rarr; 로컬 PostgreSQL이 <code>:5432</code>에서 실행 중인지 확인하세요. 붙을 DB가 없으면 데모 DB(<code>:5433</code> ERP / <code>:5434</code> Pagila)로 전환하세요.</p>
+        </div>
+      </details>
+    </section>
+
+    <!-- ============ SECTION 3 — #analyze (basic) ============ -->
+    <section class="g-sec" id="analyze" data-toc="첫 변경 미리보기 — diff 읽기" data-group="GET STARTED">
+      <div class="sec-k">Section 3 · Analyze</div>
+      <h2>첫 변경 미리보기 — 입력하고 diff 읽기</h2>
+      <p class="lead">입력한 변경을 적용 없이 먼저 그려봅니다. DB는 아직 바뀌지 않습니다.</p>
+
+      <div class="step" data-reveal="up">
+        <div class="step-num">Step 01</div>
+        <div class="step-title">Type SQL or natural language</div>
+        <div class="step-block"><div class="bl">Why</div><div class="why">입력을 적용하지 않고 영향만 먼저 봅니다.</div></div>
+        <div class="callout callout--note">
+          <span class="callout-label">Prerequisite</span>
+          <p>자연어 입력(예: <code>nickname</code> 컬럼 추가를 영어/한국어 문장으로 쓰기)을 쓰려면 두 가지가 필요합니다 — (1) DB 연결 완료, (2) Language model이 선택되고 다운로드되어 <b>ready</b> 상태(자연어 &rarr; SQL 변환은 로컬 Ollama 모델을 씁니다). <b>모델을 고르지 않았거나 Ollama가 감지되지 않으면 자연어 입력은 비활성이며, SQL 직접 입력만 동작합니다(SQL only).</b></p>
+        </div>
+        <div class="step-block step-steps"><div class="bl">Steps</div>
+          <ol>
+            <li>하단 입력 pill에 SQL을 직접 타이핑하거나, 모델이 ready라면 자연어 문장을 타이핑합니다.</li>
+            <li>타이핑하면 자동 감지 칩이 뜹니다 — <span class="detect-chip">Detected: SQL 92%</span> 또는 <span class="detect-chip">Detected: Natural Language 87%</span>.</li>
+            <li><span class="kbd">Cmd/Ctrl+Enter</span>로 제출합니다. 줄바꿈은 <span class="kbd">Enter</span>, 들여쓰기는 <span class="kbd">Tab</span> / <span class="kbd">Shift+Tab</span>.</li>
+          </ol>
+        </div>
+        <div class="step-block"><div class="bl">What you'll see</div><div class="step-see"><span class="se">자동 감지 칩과 placeholder <code>Enter natural language or SQL (auto-detected) — Cmd/Ctrl+Enter to analyze</code>. 제출하면 stage가 <code>Analyzing</code> &rarr; <code>Preview</code>로 전이됩니다.</span></div></div>
+      </div>
+
+      <h3>자연어를 제출하면 무슨 일이 일어나나</h3>
+      <p>자연어를 제출하면 &rarr; 자동 감지(<code>Detected: Natural Language 87%</code>) &rarr; 모델이 자연어를 SQL로 변환 &rarr; <code>Analyzing</code> &rarr; <code>Preview</code>(ERD diff 시각화) &rarr; 위험 진단으로 이어집니다. 예를 들어 <code>users</code> 테이블에 <code>nickname</code> 컬럼을 추가하는 변경은 대개 위험이 없거나, <code>NOT NULL</code>로 추가하면 <code>ADD_NOT_NULL_NO_DEFAULT</code>(Warning, 주황)가 붙습니다.</p>
+
+      <div class="callout callout--caution">
+        <span class="callout-label">Safety guards</span>
+        <p>Safety guards run on every input: one SQL statement at a time (no multi-statement), system schemas (<code>pg_catalog</code> / <code>information_schema</code> / <code>pg_toast</code>) are blocked, and syntax is parsed (<code>sqlglot</code>) before anything runs. Natural-language &rarr; SQL output is held to the same deterministic checks — the LLM only drafts; the safety verdict is code, not the model.</p>
+      </div>
+
+      <div class="step" data-reveal="up">
+        <div class="step-num">Step 02</div>
+        <div class="step-title">Read the ERD diff</div>
+        <div class="step-block"><div class="bl">Why</div><div class="why">변경이 ERD에 어떻게 반영되는지 색으로 읽습니다.</div></div>
+        <div class="step-block step-steps"><div class="bl">Steps</div><p style="margin-top:0"><code>Analyzing</code> &rarr; <code>Preview</code> 전이를 기다립니다.</p></div>
+        <div class="step-block"><div class="bl">What you'll see</div>
+          <div class="diff-legend">
+            <span class="dl add"><span class="sw"></span> Added</span>
+            <span class="dl del"><span class="sw"></span> Removed</span>
+            <span class="dl mod"><span class="sw"></span> Modified</span>
+          </div>
+          <div class="step-see"><span class="se">ERD diff 범례 — <code>Added</code>(초록) / <code>Removed</code>(빨강) / <code>Modified</code>(주황). stage = <code>Preview</code>.</span></div>
+        </div>
+        <div class="callout callout--note">
+          <span class="callout-label">Note</span>
+          <p>This is read-only — your database is not modified yet.</p>
+        </div>
+      </div>
+
+      <p><b>No model? Skip it</b> — 분석은 Ollama 없이도 동작합니다. SQL을 직접 입력하세요.</p>
+      <p>TopBar의 <code>EN / 한국어</code> 토글로 UI 전체와 위험/설명 콘텐츠를 한&harr;영으로 바꿀 수 있습니다.</p>
+    </section>
+
+    <!-- ============ SECTION 4 — #risk (basic) ============ -->
+    <section class="g-sec" id="risk" data-toc="위험 진단 읽기" data-group="GET STARTED">
+      <div class="sec-k">Section 4 · Risk</div>
+      <h2>위험 진단 읽기 — Critical은 막고, Warning은 알리고</h2>
+      <p class="lead">위험 판정은 <b>100% 결정적인 규칙 기반</b>입니다. 같은 입력에는 항상 같은 판정이 나오며 재현 가능하고 환각이 없습니다. <b>LLM은 판정에 관여하지 않고 해설만 덧붙입니다.</b> 각 위험은 작업을 무조건 막는 게 아니라 더 안전한 <b>golden-path(안전 대안)</b>를 제시합니다.</p>
+
+      <h3>Critical vs Warning — 두 단계 위계</h3>
+      <ul>
+        <li><b>Critical / Destructive</b> (빨강 좌측 바): 파괴적이거나 비가역적인 변경. <b>Apply 전에 명시적인 확인을 강제</b>합니다(그냥 적용 버튼만 눌러서는 넘어가지 않음). 7개 규칙이 여기 속합니다. 예: <code>DROP_TABLE</code>, <code>DELETE_WITHOUT_WHERE</code>, <code>DROP_COLUMN</code>, <code>UPDATE_WITHOUT_WHERE</code>, <code>TRUNCATE</code>, <code>ADD_FK_VALIDATING</code>, <code>TABLE_REWRITE_FULL</code>.</li>
+        <li><b>Warning</b> (주황 좌측 바): 정보성. <b>Apply를 차단하지 않습니다.</b> 잠금/재작성 등 주의 사항을 알리되 그대로 진행할 수 있습니다.</li>
+      </ul>
+      <p>두 단계는 라벨 단어(<code>Critical</code> / <code>Warning</code>)로 구분됩니다.</p>
+
+      <h3>DROP TABLE을 입력하면</h3>
+      <p><code>DROP TABLE</code> 입력은 <b>CRITICAL 규칙으로 감지</b>되어 위험 모달에 표시됩니다. 모달은 안전 대안으로 <b>expand-contract</b>를 제시합니다 — 먼저 코드에서 그 테이블 참조를 모두 제거하고, 다음 릴리스에서 실제 <code>DROP</code>을 수행하는 순서입니다. Critical이므로 <b>Apply 전에 명시 확인을 거쳐야</b> 적용됩니다. 판정 자체는 모델과 무관하게 결정적입니다.</p>
+
+      <h3>Size-aware 안내</h3>
+      <p>일부 위험은 실제 행 수/크기를 주입해 보여줍니다 — 예 <code>Rewrites ~12M rows (4 GB)</code>.</p>
+
+      <h3>대표 위험 두 가지 — 읽는 법</h3>
+      <div class="riskcard" data-reveal="up">
+        <div class="rh"><svg viewBox="0 0 24 24" fill="none"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" stroke="currentColor" stroke-width="1.6"/></svg> Warning · ADD_CHECK_VALIDATING <span class="badge">LOCK QUEUE</span></div>
+        <div class="rb">
+          <div class="line"><b>NOT VALID 없는 CHECK</b>는 대상 테이블에 <b>ACCESS EXCLUSIVE</b> 락과 전체 스캔을 일으킵니다.</div>
+          <div class="gp"><div class="gl">golden-path</div><code><span class="k">ALTER TABLE</span> ... ADD CONSTRAINT chk ... NOT VALID;<br><span class="k">ALTER TABLE</span> ... VALIDATE CONSTRAINT chk;</code></div>
+        </div>
+      </div>
+      <div class="riskcard crit" data-reveal="up">
+        <div class="rh"><svg viewBox="0 0 24 24" fill="none"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" stroke="currentColor" stroke-width="1.6"/></svg> Critical · DROP_COLUMN <span class="badge">DESTRUCTIVE</span></div>
+        <div class="rb">
+          <div class="line"><b>ALTER ... DROP COLUMN</b>은 비가역적이라 Apply 전 명시 확인을 강제합니다.</div>
+          <div class="gp"><div class="gl">golden-path · expand-contract</div><code>앱이 미참조를 확인한 뒤 다음 릴리스에 <span class="k">DROP</span>.</code></div>
+        </div>
+      </div>
+
+      <p>전체 17개 카탈로그는 <a href="#reference" style="color:var(--accent)">Reference</a>에 있습니다. 여기서는 "읽는 법"만 다룹니다.</p>
+    </section>
+
+    <!-- ============ SECTION 5 — #apply (basic) ============ -->
+    <section class="g-sec" id="apply" data-toc="변경 적용하고 되돌리기" data-group="GET STARTED">
+      <div class="sec-k">Section 5 · Apply &amp; Rollback</div>
+      <h2>변경 적용하고 되돌리기 — 단일 트랜잭션 Apply와 두 가지 Rollback</h2>
+      <p class="lead">미리보기에 만족하면 적용합니다. <b>적용은 단일 트랜잭션입니다 — 하나라도 실패하면 전부 롤백됩니다(all-or-nothing).</b></p>
+
+      <div class="step" data-reveal="up">
+        <div class="step-num">Step 01</div>
+        <div class="step-title">Review then Apply All</div>
+        <div class="step-block"><div class="bl">Why</div><div class="why">미리본 변경을 실제 DB에 씁니다.</div></div>
+        <div class="step-block step-steps"><div class="bl">Steps</div>
+          <ol>
+            <li>여러 SQL을 적용하려면 각 변경을 <code>Add to preview</code>로 스택에 누적합니다(누적 dry-run).</li>
+            <li><code>Apply</code> 또는 <code>Apply All</code> 버튼을 누릅니다.</li>
+            <li>Critical 위험이 포함돼 있으면 Apply 전 명시 확인을 강제합니다.</li>
+          </ol>
+        </div>
+        <div class="panel" data-reveal="up">
+          <div class="panel-bar"><span class="tl"></span><span class="tl"></span><span class="tl"></span><span class="title">Preview stack · Apply All</span></div>
+          <div class="panel-body">
+            <div class="stack">
+              <div class="stack-item"><span class="num">1</span> ALTER TABLE orders ADD status text <span class="ok">dry-run ok</span></div>
+              <div class="stack-item"><span class="num">2</span> UPDATE orders SET status='new' WHERE id&lt;100 <span class="ok">dry-run ok</span></div>
+              <div class="stack-item"><span class="num">3</span> CREATE INDEX CONCURRENTLY idx_st <span class="ok">dry-run ok</span></div>
+            </div>
+            <div class="applybar"><span class="tx">3 statements · wrapped in one transaction</span><span class="ab">Apply All</span></div>
+          </div>
+        </div>
+        <p><b>단일 트랜잭션 동작</b>: <code>Apply All</code>은 스택의 모든 statement를 <b>하나의 트랜잭션으로 묶어</b> 적용합니다. <b>하나라도 실패하면 전부 롤백되어 아무것도 적용되지 않습니다.</b> 부분 적용은 발생하지 않습니다.</p>
+        <div class="step-block"><div class="bl">What you'll see</div><div class="step-see"><span class="se">확인 문구 — <code>All N previewed changes will be applied in a single transaction. If any statement fails, none of them are applied.</code></span></div></div>
+        <div class="callout callout--danger">
+          <span class="callout-label">Destructive</span>
+          <p>Applying writes the change to your connected PostgreSQL 16 target DB. This is the real change, not a preview.</p>
+          <p>전부 로컬이며, 연결된 target DB에만 적용됩니다(메타 DB는 건드리지 않습니다).</p>
+        </div>
+      </div>
+
+      <div class="step" data-reveal="up">
+        <div class="step-num">Step 02</div>
+        <div class="step-title">Confirmation</div>
+        <div class="step-block step-steps"><div class="bl">Steps</div><p style="margin-top:0">토스트와 바를 확인합니다.</p></div>
+        <div class="step-block"><div class="bl">What you'll see</div><div class="step-see"><span class="se">stage = <code>Applied</code> + 토스트 <code>N changes applied</code> + CompletedBar(<code>Applied</code> · <code>Rollback</code> · <code>New</code>).</span></div></div>
+      </div>
+
+      <div class="step" data-reveal="up">
+        <div class="step-num">Step 03</div>
+        <div class="step-title">Roll back (두 가지 경로)</div>
+        <div class="step-block"><div class="bl">두 경로는 서로 다릅니다</div>
+          <ol style="padding-left:var(--space-6)">
+            <li><b>방금 적용분 전체 롤백 — CompletedBar의 <code>Rollback</code></b>: 방금 <code>Apply</code>/<code>Apply All</code>로 적용한 변경 전체를 <b>역순으로</b> 한 번에 되돌립니다. 적용 직후 "방금 그거 취소" 용도입니다.</li>
+            <li><b>과거 항목별 개별 롤백 — AuditDrawer / <code>History</code></b>: 감사 이력 타임라인에서 <b>과거의 특정 적용 항목을 골라</b> 개별적으로 <code>Rollback</code>합니다. 방금 것이 아니라 이력 속 임의 항목을 되돌릴 때 씁니다.</li>
+          </ol>
+        </div>
+        <p>두 경로 모두, 앱이 적용 시 자동 생성한 롤백 스크립트(<code>down_script</code>)로 되돌립니다.</p>
+        <div class="callout callout--caution">
+          <span class="callout-label">자동 롤백 한계</span>
+          <p>익명 제약(제약명을 지정하지 않은 제약)은 자동 롤백이 불가능해 <code>down_script</code>에 주석으로 표시됩니다. <b>이 한계는 "위험을 사전 차단하는 것"과는 다릅니다</b> — 사전 차단(위험 모달의 Critical 확인)은 롤백이 아니라 적용 전 단계입니다. 위 두 Rollback은 이미 적용된 변경을 되돌리는 사후 경로입니다.</p>
+        </div>
+      </div>
+
+      <p>여기까지가 0에서 첫 안전한 적용/롤백입니다. 다음은 Advanced 또는 <a href="#next" style="color:var(--accent)">What's next</a>.</p>
+    </section>
+
+    <!-- ============ SECTION 6 — #workflow (basic, 브리지) [필수 앵커] ============ -->
+    <section class="g-sec" id="workflow" data-toc="핵심 워크플로 한눈에" data-group="GET STARTED">
+      <div class="sec-k">Section 6 · Workflow</div>
+      <h2>핵심 워크플로 한눈에</h2>
+      <p class="lead">입력 &rarr; 미리보기(read-only) &rarr; 위험 진단 &rarr; 단일 트랜잭션 <code>Apply</code> / 전체 <code>Rollback</code>.</p>
+
+      <div class="flow4" data-reveal="up">
+        <a class="node" href="#analyze" style="text-decoration:none"><div class="nl">Input</div><div class="ns">SQL · 자연어 입력</div></a>
+        <a class="node" href="#analyze" style="text-decoration:none"><div class="nl">Preview</div><div class="ns">read-only diff</div></a>
+        <a class="node warn" href="#risk" style="text-decoration:none"><div class="nl">Risk</div><div class="ns">결정적 진단</div></a>
+        <a class="node" href="#apply" style="text-decoration:none"><div class="nl">Apply / Rollback</div><div class="ns">단일 트랜잭션</div></a>
+      </div>
+      <p>각 단계는 위에서 자세히 다룹니다 — 처음이라면 <a href="#install" style="color:var(--accent)">설치</a>부터 순서대로 읽으세요.</p>
+    </section>
+
+    <!-- ============ ADVANCED 그룹 구분 헤더 ============ -->
+    <div class="adv-divider" data-reveal="up">
+      <span class="eyebrow">Advanced</span>
+      <h2>Advanced — 더 깊이 쓰기</h2>
+      <p>여기부터는 기본 워크플로를 익힌 뒤 필요할 때 펼쳐 보는 고급 기능입니다. 각 항목은 기본 접힘 상태이며, 헤더를 눌러 펼칩니다.</p>
+    </div>
+
+    <!-- ============ SECTION 7 — #advanced-changes (advanced) ============ -->
+    <section class="g-sec" id="advanced-changes" data-toc="여러 변경 누적·diff 모드·n홉" data-group="ADVANCED">
+      <div class="sec-k">Section 7 · Advanced changes</div>
+      <h2>여러 변경 누적 · diff 모드 · n홉</h2>
+
+      <details class="adv"><summary>누적 dry-run (Apply All) <span class="tag">A1</span></summary>
+        <div class="adv-body"><p style="margin-top:0">여러 SQL을 <code>Add to preview</code>로 스택에 쌓아 누적 효과를 한 화면에서 검토한 뒤 all-or-nothing으로 일괄 적용합니다.</p></div>
+      </details>
+      <details class="adv"><summary>Split / Unified diff <span class="tag">A2</span></summary>
+        <div class="adv-body"><p style="margin-top:0">DiffControls 우상단 토글. <code>Split</code> = 직전 1건 before/after, <code>Unified</code> = 누적 전체 after.</p></div>
+      </details>
+      <details class="adv"><summary>n홉 부분집합 — 변경 관련 테이블만 보기 <span class="tag">A3</span></summary>
+        <div class="adv-body"><p style="margin-top:0">큰 DB에서 변경에 <b>관련된 테이블만</b> 2~3 levels 깊이로 골라 표시합니다. DiffControls의 카운터에 <code>Showing 12 of 150</code>처럼 표시되어 150개 테이블 중 변경과 무관한 노이즈를 숨깁니다.</p></div>
+      </details>
+    </section>
+
+    <!-- ============ SECTION 8 — #advanced-diagnostics (advanced) ============ -->
+    <section class="g-sec" id="advanced-diagnostics" data-toc="무결성 진단과 생성 SQL/롤백" data-group="ADVANCED">
+      <div class="sec-k">Section 8 · Diagnostics</div>
+      <h2>무결성 진단과 생성된 SQL/롤백 확인</h2>
+
+      <details class="adv"><summary>무결성 진단 5종 — 고아 행 등 점검 <span class="tag">A4</span></summary>
+        <div class="adv-body">
+          <p style="margin-top:0">DiagnosticsPanel에서 스키마 무결성을 5가지로 진단합니다 — <code>Broken refs</code>(끊긴 참조 = 고아 행), <code>Soft-del refs</code>(소프트 삭제 참조), <code>Isolated</code>(고립 테이블), <code>Estimated FK</code>(추정 FK), <code>Rarely used</code>(거의 안 쓰는 객체). 각 항목에서 <code>Locate in ERD</code>로 해당 노드로 점프합니다. 고아 행 점검은 <code>Broken refs</code>에 해당합니다.</p>
+        </div>
+      </details>
+      <details class="adv"><summary>SQL 탭 (Up/Down) — 실행 SQL과 롤백 SQL 확인 위치 <span class="tag">A5</span></summary>
+        <div class="adv-body">
+          <p style="margin-top:0">실행될 SQL과 자동 생성된 롤백 SQL을 확인하는 곳은 <b>DiagnosticsPanel의 SQL 탭</b>입니다. <code>Up</code>이 실제 실행될 SQL, <code>Down</code>이 앱이 자동 생성한 롤백 SQL이며, 둘 다 Monaco 에디터에 <b>읽기 전용</b>으로 표시됩니다. (이 <code>down_script</code>는 메타 DB의 <code>migration_history</code>에 저장됩니다.)</p>
+        </div>
+      </details>
+      <details class="adv"><summary>변경 설명 <span class="tag">A6</span></summary>
+        <div class="adv-body"><p style="margin-top:0">DiagnosticsPanel의 Explanation이 SQL을 한 문장 자연어로 설명합니다. Ollama 폴백 시 토큰 기반으로 동작하므로 모델이 없어도 됩니다.</p></div>
+      </details>
+    </section>
+
+    <!-- ============ SECTION 9 — #advanced-history (advanced) ============ -->
+    <section class="g-sec" id="advanced-history" data-toc="감사 이력과 개별 롤백" data-group="ADVANCED">
+      <div class="sec-k">Section 9 · Audit history</div>
+      <h2>감사 이력과 개별 롤백</h2>
+
+      <details class="adv"><summary>History 드로어 <span class="tag">A7</span></summary>
+        <div class="adv-body"><p style="margin-top:0">AuditDrawer(<code>History</code>)에서 과거 apply/rollback 액션 타임라인을 보고, 항목별로 개별 <code>Rollback</code>을 실행합니다(Section 5 Step 03의 두 번째 롤백 경로).</p></div>
+      </details>
+      <details class="adv"><summary>메타 DB가 추적하는 것</summary>
+        <div class="adv-body"><p style="margin-top:0"><code>audit_log</code>(액션 타임라인 &rarr; 이 드로어), <code>migration_history</code>(적용 SQL + 자동 생성 <code>down_script</code>). 전부 로컬 메타 DB(설치형 SQLite).</p></div>
+      </details>
+      <details class="adv"><summary>자동 롤백 한계 재확인</summary>
+        <div class="adv-body"><p style="margin-top:0">익명 제약은 자동 롤백 불가 &rarr; <code>down_script</code>에 주석으로 남습니다.</p></div>
+      </details>
+    </section>
+
+    <!-- ============ SECTION 10 — #advanced-models (advanced) [필수 앵커] 별칭 #llm ============ -->
+    <section class="g-sec" id="advanced-models" data-toc="자연어 입력 켜기와 모델 관리" data-group="ADVANCED">
+      <span id="llm"></span>
+      <div class="sec-k">Section 10 · Natural-language &amp; models</div>
+      <h2>자연어 입력 켜기와 모델 관리</h2>
+      <p class="lead">자연어 입력은 로컬 모델이 ready여야 켜집니다. 여기서 모델을 고르고, 다운로드하고, 교체합니다.</p>
+
+      <details class="adv"><summary>모델 선택 <span class="tag">B2</span></summary>
+        <div class="adv-body">
+          <p style="margin-top:0">온보딩 ModelPicker 또는 TopBar <code>Model</code>에서 큐레이션 카드를 선택+다운로드, 또는 <code>None</code>(<code>Direct SQL only</code>).</p>
+          <div class="tbl-wrap">
+            <table class="ref">
+              <thead><tr><th>Tier</th><th>태그</th><th>용량</th><th>설명</th></tr></thead>
+              <tbody>
+                <tr><td>Light</td><td><code>qwen3:4b</code></td><td>3.7GB</td><td>Fastest. 짧은 질문/작은 스키마</td></tr>
+                <tr><td>Balanced</td><td><code>gemma4:e2b</code></td><td>8.4GB</td><td>정확도-속도 균형</td></tr>
+                <tr><td>Quality</td><td><code>gemma4:latest</code></td><td>10.8GB</td><td>복잡 조인/큰 스키마 최고 정확도</td></tr>
+                <tr><td>None</td><td>—</td><td>—</td><td><code>Direct SQL only</code></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </details>
+      <details class="adv"><summary>모델 관리 (ModelSettings) <span class="tag">A8</span></summary>
+        <div class="adv-body"><p style="margin-top:0">모델 교체/다운로드(인앱 SSE 진행률 <code>1/2 chat</code> &rarr; <code>2/2 embed</code>, <code>manifest &rarr; verifying &rarr; success</code>, 취소 가능)/Advanced 직접 태그 입력/<code>None</code>.</p></div>
+      </details>
+      <details class="adv"><summary>임베딩 모델 고정</summary>
+        <div class="adv-body"><p style="margin-top:0"><code>bge-m3</code>(1.2GB)는 고정·자동 동반되며 사용자가 변경할 수 없습니다.</p></div>
+      </details>
+      <details class="adv"><summary>NL 활성 조건</summary>
+        <div class="adv-body"><p style="margin-top:0">모델이 ready여야 자연어 입력이 활성화됩니다. 미선택/Ollama 미감지 시 SQL only로 동작합니다.</p></div>
+      </details>
+      <details class="adv"><summary>RAG 재색인 <span class="tag">A11</span></summary>
+        <div class="adv-body"><p style="margin-top:0">NL 정확도를 위해 스키마 임베딩(<code>schema_embeddings</code>, numpy 코사인)을 재색인하며, 스키마가 바뀌면 <b>백그라운드에서 자동</b>으로 갱신됩니다.</p></div>
+      </details>
+    </section>
+
+    <!-- ============ SECTION 11 — #advanced-db (advanced) ============ -->
+    <section class="g-sec" id="advanced-db" data-toc="런타임 DB 교체·전체 스키마" data-group="ADVANCED">
+      <div class="sec-k">Section 11 · Runtime DB</div>
+      <h2>런타임 DB 교체·해제와 전체 스키마 보기</h2>
+
+      <details class="adv"><summary>DB 교체 / 연결 해제 <span class="tag">A9</span></summary>
+        <div class="adv-body"><p style="margin-top:0">TopBar DB pill에서 런타임 중 다른 DB로 교체(파이프라인 초기화) 또는 <code>Disconnect</code>.</p></div>
+      </details>
+      <details class="adv"><summary>View full schema <span class="tag">A10</span></summary>
+        <div class="adv-body"><p style="margin-top:0">idle 입력창 아래 <code>View full schema</code>로 분석 없이 전체 스키마 ERD를 로드합니다. 200+ 테이블이면 성능 경고가 뜨며, n홉 부분집합(<a href="#advanced-changes" style="color:var(--accent)">A3</a>)을 권합니다.</p></div>
+      </details>
+    </section>
+
+    <!-- ============ SECTION 12 — #reference (advanced) ============ -->
+    <section class="g-sec" id="reference" data-toc="레퍼런스" data-group="REFERENCE">
+      <div class="sec-k">Section 12 · Reference</div>
+      <h2>레퍼런스</h2>
+
+      <h3>위험 규칙 — CRITICAL 7 (Apply 전 명시 확인 강제, 100% 결정적)</h3>
+      <div class="tbl-wrap">
+        <table class="ref crit">
+          <thead><tr><th>Rule</th><th>감지</th><th>golden-path</th></tr></thead>
+          <tbody>
+            <tr><td><code>DELETE_WITHOUT_WHERE</code></td><td>WHERE 없는 DELETE</td><td>범위 명시, 대량은 배치 루프</td></tr>
+            <tr><td><code>UPDATE_WITHOUT_WHERE</code></td><td>WHERE 없는 UPDATE</td><td>범위 명시, 배치 루프</td></tr>
+            <tr><td><code>DROP_TABLE</code></td><td>DROP TABLE</td><td>expand-contract: 코드 참조 제거 후 다음 릴리스에 DROP</td></tr>
+            <tr><td><code>DROP_COLUMN</code></td><td>ALTER ... DROP COLUMN</td><td>앱이 미참조 확인 후 다음 릴리스에 DROP</td></tr>
+            <tr><td><code>TRUNCATE</code></td><td>TRUNCATE</td><td>WHERE로 특정 행만 삭제</td></tr>
+            <tr><td><code>ADD_FK_VALIDATING</code></td><td>NOT VALID 없는 FK 추가</td><td>NOT VALID &rarr; VALIDATE CONSTRAINT</td></tr>
+            <tr><td><code>TABLE_REWRITE_FULL</code></td><td>VACUUM FULL</td><td>pg_repack / 점검창</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>위험 규칙 — WARNING 10 (정보성·비차단, 100% 결정적)</h3>
+      <div class="tbl-wrap">
+        <table class="ref warn">
+          <thead><tr><th>Rule</th><th>위험</th><th>golden-path</th></tr></thead>
+          <tbody>
+            <tr><td><code>ADD_NOT_NULL_NO_DEFAULT</code></td><td>기존 행 오류</td><td>nullable 추가 &rarr; 백필 &rarr; CHECK &rarr; SET NOT NULL</td></tr>
+            <tr><td><code>ADD_COLUMN_VOLATILE_DEFAULT</code></td><td>전체 재작성+락</td><td>기본값 없이 추가 &rarr; 배치 백필 &rarr; SET DEFAULT</td></tr>
+            <tr><td><code>ALTER_COLUMN_TYPE</code></td><td>전체 재작성+ACCESS EXCLUSIVE 락</td><td>expand-contract</td></tr>
+            <tr><td><code>SET_NOT_NULL</code></td><td>전체 스캔+락</td><td>CHECK NOT VALID &rarr; VALIDATE &rarr; SET NOT NULL</td></tr>
+            <tr><td><code>RENAME_COLUMN_OR_TABLE</code></td><td>앱 코드 즉시 깨짐</td><td>expand-contract</td></tr>
+            <tr><td><code>ADD_PK_OR_UNIQUE</code></td><td>인덱스 빌드 중 쓰기 차단</td><td>CREATE UNIQUE INDEX CONCURRENTLY &rarr; ADD CONSTRAINT USING INDEX</td></tr>
+            <tr><td><code>ADD_CHECK_VALIDATING</code></td><td>전체 스캔+락</td><td>NOT VALID &rarr; VALIDATE CONSTRAINT</td></tr>
+            <tr><td><code>CREATE_INDEX_BLOCKING</code></td><td>빌드 중 쓰기 차단</td><td>CREATE INDEX CONCURRENTLY</td></tr>
+            <tr><td><code>CONCURRENTLY_IN_TRANSACTION</code></td><td>TX 안 CONCURRENTLY &rarr; 런타임 실패</td><td>autocommit 단독 실행</td></tr>
+            <tr><td><code>CASCADE</code></td><td>의존객체 조용히 드롭</td><td>RESTRICT 먼저 &rarr; 영향 확인 &rarr; CASCADE</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="font-size:13.5px">판정은 100% 결정적(LLM 무관). LLM은 해설만 덧붙입니다. <code>CONCURRENTLY_IN_TRANSACTION</code>은 CREATE/DROP 두 경로에 등장 — 고유 rule 이름 기준 warning 10종.</p>
+
+      <h3>하드 가드 (입력 단계 콜아웃과 이중 배치)</h3>
+      <ul>
+        <li>멀티 statement 금지(한 번에 1개 SQL).</li>
+        <li>시스템 스키마 차단: <code>pg_catalog</code> / <code>information_schema</code> / <code>pg_toast</code>.</li>
+        <li>구문 오류 차단(<code>sqlglot</code> 파싱).</li>
+        <li>NL&rarr;SQL의 LLM 출력도 동일 결정적 검증(LLM은 초안만).</li>
+      </ul>
+
+      <h3>Requirements 표</h3>
+      <div class="tbl-wrap">
+        <table class="ref">
+          <tbody>
+            <tr><td>Chip</td><td><code>macOS Apple Silicon</code></td></tr>
+            <tr><td>Download</td><td><code>~122 MiB</code></td></tr>
+            <tr><td>OS</td><td><code>macOS Big Sur 11+</code></td></tr>
+            <tr><td>Target DB</td><td><code>PostgreSQL 16 target</code></td></tr>
+            <tr><td>Network</td><td><code>runs fully local</code></td></tr>
+            <tr><td>Meta DB</td><td>SQLite (설치형)</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>키보드 단축키</h3>
+      <p><span class="kbd">Cmd/Ctrl+Enter</span> 제출 · <span class="kbd">Enter</span> 줄바꿈 · <span class="kbd">Tab</span>/<span class="kbd">Shift+Tab</span> 들여쓰기.</p>
+
+      <h3>Troubleshooting</h3>
+      <ul>
+        <li>macOS <code>the developer cannot be verified</code> &rarr; 우클릭 <code>Open</code>(Big Sur 11은 2회).</li>
+        <li><code>Connection refused</code> &rarr; PostgreSQL <code>:5432</code> 기동 확인 또는 데모 DB(<code>:5433</code>/<code>:5434</code>).</li>
+        <li>No model &rarr; SQL only로 동작.</li>
+        <li>빈 분석 결과 &rarr; 데모 DB 전환.</li>
+      </ul>
+
+      <h3>FAQ</h3>
+      <details class="adv"><summary>Does my data leave the machine?</summary>
+        <div class="adv-body"><p style="margin-top:0">아니오, 전부 로컬(접속 정보·추론 모두 기기 밖으로 안 나감).</p></div>
+      </details>
+      <details class="adv"><summary>Do I need Ollama?</summary>
+        <div class="adv-body"><p style="margin-top:0">아니오, 자연어 입력에만 필요합니다. SQL 직접 입력은 모델 없이 동작합니다.</p></div>
+      </details>
+      <details class="adv"><summary>Can a bad migration half-apply?</summary>
+        <div class="adv-body"><p style="margin-top:0">아니오, <code>Apply All</code>은 단일 트랜잭션 all-or-nothing입니다.</p></div>
+      </details>
+      <details class="adv"><summary>Is the risk check AI or rules?</summary>
+        <div class="adv-body"><p style="margin-top:0">100% 결정적 규칙 기반입니다(LLM 무관). LLM은 해설만 덧붙입니다 — 그래서 같은 입력엔 같은 판정이 나오고 재현 가능하며 환각이 없습니다.</p></div>
+      </details>
+      <details class="adv"><summary>언어를 바꿀 수 있나요?</summary>
+        <div class="adv-body"><p style="margin-top:0">TopBar <code>EN / 한국어</code> 토글로 UI와 위험/설명을 한&harr;영 전환합니다.</p></div>
+      </details>
+    </section>
+
+    <!-- ============ SECTION 13 — #next (basic) ============ -->
+    <section class="g-sec" id="next" data-toc="다음 단계" data-group="REFERENCE">
+      <div class="sec-k">Section 13 · What's next</div>
+      <h2>What's next</h2>
+      <div class="next-grid" data-reveal="up">
+        <a class="next-card" href="#connect">
+          <div class="nt">Connect your real database</div>
+          <span class="na">데모에서 운영 DB로 <svg viewBox="0 0 24 24" fill="none"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="2"/></svg></span>
+        </a>
+        <a class="next-card" href="#advanced-models">
+          <div class="nt">Turn on natural-language input</div>
+          <span class="na">모델 켜기 <svg viewBox="0 0 24 24" fill="none"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="2"/></svg></span>
+        </a>
+        <a class="next-card" href="#advanced-history">
+          <div class="nt">Explore rollback &amp; audit history</div>
+          <span class="na">이력·롤백 살펴보기 <svg viewBox="0 0 24 24" fill="none"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="2"/></svg></span>
+        </a>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ===================== sticky TOC (데스크톱) ===================== -->
+  <aside class="g-toc" id="toc">
+    <nav id="tocNav"></nav>
+  </aside>
+
+</div>
+
+<footer class="foot">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div class="foot-brand"><a href="./index.html" class="brand"><span class="mark"><svg viewBox="0 0 24 24" fill="none"><path d="M5 7c0-1.7 3.1-3 7-3s7 1.3 7 3-3.1 3-7 3-7-1.3-7-3Z" stroke="#F2FBFA" stroke-width="1.6"/><path d="M5 7v10c0 1.7 3.1 3 7 3s7-1.3 7-3V7" stroke="#F2FBFA" stroke-width="1.6"/><path d="M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3" stroke="#F2FBFA" stroke-width="1.6"/></svg></span>SQLPreShift</a><p>PostgreSQL 스키마 마이그레이션을 위한 안전 게이트. 호스팅 서비스가 아닌 포트폴리오 데모로, 위험한 마이그레이션을 실수로 적용하는 일이 불가능하도록 만들었습니다.</p></div>
+      <div class="foot-col"><h5>제품</h5><a href="./index.html">홈</a><a href="./features.html">기능</a><a href="./download.html">다운로드</a><a href="./guide.html">가이드</a></div>
+      <div class="foot-col"><h5>리소스</h5><a href="./guide.html#install">설치 &amp; Gatekeeper</a><a href="./guide.html#workflow">핵심 워크플로</a><a href="./download.html#source">소스에서 실행</a><a href="https://github.com/taehyunan-99/sql-preshift">GitHub 저장소</a></div>
+      <div class="foot-col"><h5>정보</h5><a href="https://github.com/taehyunan-99/sql-preshift/releases">릴리즈</a><a href="https://github.com/taehyunan-99/sql-preshift/blob/main/LICENSE">MIT 라이선스</a><a href="./download.html#source">소스에서 빌드</a></div>
+    </div>
+    <div class="foot-bottom"><span>&copy; 2026 SQLPreShift &middot; MIT 라이선스 &middot; 완전히 로컬에서 동작.</span><span class="badges"><span class="badge">PostgreSQL 16</span><span class="badge">macOS Apple Silicon</span><span class="badge">텔레메트리 없음</span></span></div>
+  </div>
+</footer>
+
+<!-- 라이트박스 오버레이 (alert/confirm/prompt 미사용 — div 오버레이만) -->
+<div class="lightbox" id="lightbox" aria-hidden="true">
+  <button class="lb-close" id="lbClose" aria-label="Close">&times;</button>
+  <div class="lb-inner" id="lbInner"></div>
+</div>
+
+<script>
+(function(){var t=document.getElementById('menuToggle'),n=document.getElementById('nav');if(t)t.addEventListener('click',function(){n.classList.toggle('open');});})();
+
+/* ===== TOC 자동 생성 — 본문 [data-toc][data-group][id] 섹션을 그룹별로 묶어 데스크톱/모바일 TOC를 동시 빌드 ===== */
+(function(){
+  var secs=[].slice.call(document.querySelectorAll('.g-sec[data-toc][id]'));
+  if(!secs.length) return;
+  var groups=[]; // 순서 보존: [{name, items:[{id,label}]}]
+  secs.forEach(function(s){
+    var g=s.getAttribute('data-group')||'';
+    var bucket=null;
+    for(var i=0;i<groups.length;i++){ if(groups[i].name===g){ bucket=groups[i]; break; } }
+    if(!bucket){ bucket={name:g,items:[]}; groups.push(bucket); }
+    bucket.items.push({id:s.id,label:s.getAttribute('data-toc')});
+  });
+  function build(){
+    var frag=document.createDocumentFragment();
+    groups.forEach(function(g){
+      var wrap=document.createElement('div'); wrap.className='toc-group';
+      var lab=document.createElement('div'); lab.className='tg-label'; lab.textContent=g.name; wrap.appendChild(lab);
+      var ol=document.createElement('ol');
+      g.items.forEach(function(it){
+        var li=document.createElement('li');
+        var a=document.createElement('a'); a.href='#'+it.id; a.textContent=it.label; a.setAttribute('data-toc-link',it.id);
+        li.appendChild(a); ol.appendChild(li);
+      });
+      wrap.appendChild(ol); frag.appendChild(wrap);
+    });
+    return frag;
+  }
+  var nav=document.getElementById('tocNav');
+  var mob=document.getElementById('tocMobileInner');
+  if(nav) nav.appendChild(build());
+  if(mob) mob.appendChild(build());
+
+  // 모바일 TOC: 링크 클릭 시 접기
+  var tocM=document.getElementById('tocMobile');
+  if(tocM){ tocM.addEventListener('click',function(e){ if(e.target.tagName==='A') tocM.removeAttribute('open'); }); }
+
+  /* active 표시 — IntersectionObserver로 현재 섹션 추적. glow 아님, 좌측 2px teal 라인(CSS .active). */
+  var links=[].slice.call(document.querySelectorAll('[data-toc-link]'));
+  function setActive(id){
+    links.forEach(function(a){ a.classList.toggle('active', a.getAttribute('data-toc-link')===id); });
+  }
+  if('IntersectionObserver' in window){
+    var visible={};
+    var io=new IntersectionObserver(function(entries){
+      entries.forEach(function(en){ visible[en.target.id]=en.isIntersecting?en.intersectionRatio:0; });
+      // 화면에 보이는 섹션 중 가장 위(문서 순서 빠른)를 active로
+      var best=null;
+      secs.forEach(function(s){ if(visible[s.id]>0 && best===null) best=s.id; });
+      if(best) setActive(best);
+    },{rootMargin:'-88px 0px -55% 0px',threshold:[0,0.1,0.5,1]});
+    secs.forEach(function(s){ io.observe(s); });
+  }
+})();
+
+/* ===== 스크롤 진입 reveal — download.html과 동일 엔진. ===== */
+(function(){
+  document.documentElement.classList.add('js');
+  var io=new IntersectionObserver(function(entries){
+    entries.forEach(function(en){ if(!en.isIntersecting)return; en.target.classList.add('in'); io.unobserve(en.target); });
+  },{threshold:0.14,rootMargin:'0px 0px -8% 0px'});
+  document.querySelectorAll('[data-reveal]').forEach(function(el){io.observe(el);});
+})();
+
+/* ===== zoomable 라이트박스 — vanilla. alert/confirm/prompt 미사용, div 오버레이만. ESC/배경클릭/닫기버튼으로 닫기. ===== */
+(function(){
+  var lb=document.getElementById('lightbox'), inner=document.getElementById('lbInner'), close=document.getElementById('lbClose');
+  if(!lb) return;
+  function open(node){
+    inner.innerHTML='';
+    var clone=node.cloneNode(true);
+    clone.classList.remove('zoomable');
+    clone.style.cursor='default';
+    inner.appendChild(clone);
+    lb.classList.add('open'); lb.setAttribute('aria-hidden','false');
+  }
+  function hide(){ lb.classList.remove('open'); lb.setAttribute('aria-hidden','true'); inner.innerHTML=''; }
+  document.querySelectorAll('.zoomable').forEach(function(z){ z.addEventListener('click',function(){ open(z); }); });
+  close.addEventListener('click',hide);
+  lb.addEventListener('click',function(e){ if(e.target===lb) hide(); }); // 배경 클릭
+  document.addEventListener('keydown',function(e){ if(e.key==='Escape' && lb.classList.contains('open')) hide(); });
+})();
+</script>
+</body>
+</html>
