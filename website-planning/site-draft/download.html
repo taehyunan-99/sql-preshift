@@ -45,7 +45,8 @@ a{color:inherit;text-decoration:none}
 .nav-gh:hover{color:var(--text-primary)}
 .nav-gh svg{width:18px;height:18px}
 .btn{display:inline-flex;align-items:center;gap:8px;font-family:var(--font-body);font-weight:600;font-size:15px;border-radius:var(--radius-full);border:none;cursor:pointer;transition:transform .15s var(--ease),box-shadow .2s var(--ease),background .2s var(--ease);white-space:nowrap}
-.btn-primary{background:var(--accent);color:#F2FBFA;padding:10px 20px;box-shadow:var(--shadow-glow)}
+/* glow 독점 원칙: 공통 primary 버튼은 glow 없음. teal 발광은 이 페이지에서 .gn-dl(1차 다운로드) 한 곳만 */
+.btn-primary{background:var(--accent);color:#F2FBFA;padding:10px 20px}
 .btn-primary:hover{background:var(--accent-hover);transform:translateY(-1px)}
 .btn-lg{padding:16px 32px;font-size:17px}
 .btn-ghost{background:transparent;color:var(--text-primary);padding:10px 18px;border:1px solid var(--border)}
@@ -64,7 +65,7 @@ a{color:inherit;text-decoration:none}
 .get-now{position:relative;padding:clamp(48px,7vw,84px) 0 clamp(40px,5vw,64px);
   background:radial-gradient(1100px 560px at 22% 8%,rgba(43,168,160,0.08),transparent 64%),var(--bg-canvas);
   border-bottom:1px solid var(--border-subtle)}
-.get-grid{display:grid;grid-template-columns:1.05fr 0.95fr;gap:clamp(40px,5vw,80px);align-items:start}
+.get-grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,0.95fr);gap:clamp(40px,5vw,80px);align-items:start}
 /* 좌: 1차 액션 컬럼 - 버전 배지 + 헤드라인 + 압도적 다운로드 버튼 + 신뢰 배지 */
 .gn-lead{min-width:0}
 .gn-ver{display:inline-flex;align-items:center;gap:9px;font-family:var(--font-mono);font-size:13px;color:var(--text-secondary);background:var(--surface);border:1px solid var(--border-subtle);padding:6px 14px;border-radius:var(--radius-full);margin-bottom:var(--space-6)}
@@ -203,9 +204,27 @@ section.blk:first-of-type{border-top:none}
 .foot-bottom{margin-top:var(--space-12);padding-top:var(--space-6);border-top:1px solid var(--border-subtle);display:flex;justify-content:space-between;flex-wrap:wrap;gap:var(--space-3);font-size:13px;color:var(--text-tertiary)}
 .foot-bottom .badges{display:flex;gap:var(--space-3);flex-wrap:wrap}
 .foot-bottom .badge{font-family:var(--font-mono);font-size:12px;background:var(--surface);padding:3px 10px;border-radius:var(--radius-full);color:var(--text-secondary)}
-@media(max-width:980px){.get-grid{grid-template-columns:1fr;gap:var(--space-12)}.foot-grid{grid-template-columns:1fr 1fr}}
+/* 모바일: 2단 → 1단. .gn-lead를 flex column으로 풀고 신뢰배지(.gn-trust)를 order:9로
+   컬럼 맨 끝에 보내, 버튼 직후 흐름이 우 컬럼(요구사항·설치요약)으로 자연히 이어지게 한다.
+   gap을 좁혀 버튼과 요구사항을 한 스크롤 흐름으로. */
+@media(max-width:980px){
+  /* minmax(0,1fr): 트랙이 자식 콘텐츠(풀폭 버튼·긴 mono 메타)의 최소폭을 따라 넘치지 않게 함 */
+  .get-grid{grid-template-columns:minmax(0,1fr);gap:var(--space-6)}
+  .gn-lead{display:flex;flex-direction:column;min-width:0}
+  .gn-trust{order:9}
+  .gn-aside{margin-top:0;min-width:0}
+  .foot-grid{grid-template-columns:1fr 1fr}
+}
 @media(max-width:760px){.src-grid{grid-template-columns:1fr}.zone-edge .jump{margin-left:0;width:100%}}
-@media(max-width:680px){.nav-links,.nav-gh{display:none}.menu-toggle{display:block}.nav.open .nav-links{display:flex;position:absolute;top:64px;left:0;right:0;flex-direction:column;background:var(--bg-canvas);border-bottom:1px solid var(--border);padding:var(--space-4) var(--space-6);gap:0;margin:0}.nav.open .nav-links a{padding:12px 0;border-bottom:1px solid var(--border-subtle)}.nav.open .nav-links a.active::after{display:none}.foot-grid{grid-template-columns:1fr}}
+@media(max-width:680px){
+  .nav-links,.nav-gh{display:none}.menu-toggle{display:block}.nav.open .nav-links{display:flex;position:absolute;top:64px;left:0;right:0;flex-direction:column;background:var(--bg-canvas);border-bottom:1px solid var(--border);padding:var(--space-4) var(--space-6);gap:0;margin:0}.nav.open .nav-links a{padding:12px 0;border-bottom:1px solid var(--border-subtle)}.nav.open .nav-links a.active::after{display:none}.foot-grid{grid-template-columns:1fr}
+  /* 좁은 폭 텍스트 보정: 헤드라인 하한·메타 줄바꿈·요구사항 행을 세로 스택으로(값 잘림 방지) */
+  .gn-lead h1{font-size:clamp(30px,8vw,40px)}
+  .gn-lead>p{max-width:none}
+  .gn-meta{white-space:normal;line-height:1.7}
+  .spec-rows .r{flex-direction:column;align-items:flex-start;gap:3px}
+  .spec-rows .r .val{text-align:left}
+}
 
 /* ============ 스크롤 진입 reveal - index.html/features.html과 동일 엔진. Torii식 절제: 1회성 opacity+미세 translate만 ============ */
 .js [data-reveal]{opacity:0;transition:opacity .7s var(--ease),transform .7s var(--ease)}
@@ -308,8 +327,8 @@ section.blk:first-of-type{border-top:none}
 
 <section class="blk" id="gatekeeper">
   <div class="blk-head" data-reveal="up"><div class="k">첫 실행</div><h2>Gatekeeper, 한 번만 통과하기.</h2><p>SQLPreShift는 공증(notarize)되지 않았기 때문에 macOS가 첫 실행을 차단합니다. 정상적인 동작입니다. macOS 버전에 맞는 방법을 선택하세요. 한 번 연 뒤부터는 더블 클릭으로 평소처럼 실행됩니다.</p></div>
-  <div class="callout warn" data-reveal="up"><svg viewBox="0 0 24 24" fill="none"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" stroke="currentColor" stroke-width="1.6"/></svg><div><div class="ct">미서명 빌드</div><p>이 앱은 포트폴리오 앱이며 Apple 공증을 받지 않았기 때문에 첫 실행이 Gatekeeper에 의해 차단됩니다. 정상입니다. 한 번만 해제하면 되며, 이후 모든 실행은 더블 클릭으로 열립니다.</p></div></div>
-  <div class="gk-tabs" data-reveal="up">
+  <div class="callout warn"><svg viewBox="0 0 24 24" fill="none"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" stroke="currentColor" stroke-width="1.6"/></svg><div><div class="ct">미서명 빌드</div><p>이 앱은 포트폴리오 앱이며 Apple 공증을 받지 않았기 때문에 첫 실행이 Gatekeeper에 의해 차단됩니다. 정상입니다. 한 번만 해제하면 되며, 이후 모든 실행은 더블 클릭으로 열립니다.</p></div></div>
+  <div class="gk-tabs">
     <div class="gk-tabbar" role="tablist">
       <button class="on" data-gk="a">우클릭 &middot; 열기(Open) (Sonoma 이하)</button>
       <button data-gk="b">개인정보 보호 및 보안(Privacy &amp; Security) (Sequoia 15+)</button>
@@ -359,7 +378,7 @@ section.blk:first-of-type{border-top:none}
 
 <section class="blk" id="source">
   <div class="blk-head" data-reveal="up"><div class="k">소스에서 실행</div><h2>직접 빌드하고 싶으신가요?</h2><p>저장소를 클론하고 Docker Compose로 전체 스택을 기동하세요. 데모 데이터베이스가 포함되어 있어 자신의 데이터를 연결하지 않고도 전체 흐름을 체험할 수 있습니다.</p></div>
-  <div class="codeblock" data-reveal="up">
+  <div class="codeblock">
     <div class="cb-bar"><span class="lbl">터미널 · 클론 &amp; 실행</span><button class="copy" data-copy="cp .env.example .env && docker compose up -d">복사</button></div>
     <pre><code><span class="c"># 클론한 저장소 루트에서</span>
 <span class="p">cp</span> .env.example .env
