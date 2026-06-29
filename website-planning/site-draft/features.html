@@ -288,7 +288,7 @@ a{color:inherit;text-decoration:none}
     <div class="ftext">
       <span class="fnum-big"><span class="ring">05</span> 로컬 LLM <span class="opt">(선택)</span></span>
       <h2>자연어를 SQL로, 모든 토큰이 사용자의 기기 안에 머뭅니다.</h2>
-      <p>로컬 Ollama 모델이 자연어를 SQL로 바꾸며, 스키마에 대한 RAG로 근거를 확보합니다. 자격증명과 추론은 절대 기기를 떠나지 않습니다. Ollama가 설치되어 있지 않다면? SQLPreShift는 SQL을 직접 입력하도록 안내합니다. 안전 코어는 LLM 없이도 작동합니다.</p>
+      <p>로컬 Ollama 모델이 자연어를 SQL로 바꾸며, 스키마에 대한 RAG로 근거를 확보합니다. DB 접속 정보와 추론은 절대 기기를 떠나지 않습니다. Ollama가 설치되어 있지 않다면? SQLPreShift는 SQL을 직접 입력하도록 안내합니다. 안전 코어는 LLM 없이도 작동합니다.</p>
       <ul class="fpoints">
         <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5 9-11" stroke="currentColor" stroke-width="2"/></svg><span><b>100% 로컬 추론.</b> Apple Silicon GPU에서 Ollama로 실행됩니다.</span></li>
         <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5 9-11" stroke="currentColor" stroke-width="2"/></svg><span><b>RAG 임베딩</b>이 실제 스키마에 생성을 고정합니다 (1024-dim).</span></li>
@@ -304,7 +304,7 @@ a{color:inherit;text-decoration:none}
             <div class="bubble user">orders에 status 컬럼을 추가하고 락 없이 인덱스를 만들어줘.</div>
             <div class="bubble ai"><div class="label">생성된 SQL · RAG로 근거 확보</div><code><span class="kw">ALTER TABLE</span> orders <span class="kw">ADD COLUMN</span> status text;<br><span class="kw">CREATE INDEX CONCURRENTLY</span> idx_orders_status<br>&nbsp;&nbsp;<span class="kw">ON</span> orders (status);</code></div>
           </div>
-          <div class="llm-note"><svg viewBox="0 0 24 24" fill="none"><path d="M12 16v-4m0-4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" stroke="currentColor" stroke-width="1.6"/></svg><span>추론은 로컬 Ollama 모델에서 실행됩니다. 자격증명과 프롬프트는 절대 기기를 떠나지 않습니다.</span></div>
+          <div class="llm-note"><svg viewBox="0 0 24 24" fill="none"><path d="M12 16v-4m0-4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" stroke="currentColor" stroke-width="1.6"/></svg><span>추론은 로컬 Ollama 모델에서 실행됩니다. DB 접속 정보와 프롬프트는 절대 기기를 떠나지 않습니다.</span></div>
         </div>
       </div>
     </div>
