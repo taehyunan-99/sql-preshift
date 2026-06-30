@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>가이드 · 0에서 첫 안전한 마이그레이션까지 · SQLPreShift</title>
+<title>SQLPreShift 가이드 · 레퍼런스</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -312,19 +312,18 @@ table.ref.warn thead th{color:var(--warning)}
 <!-- 가이드 3페이지 서브바 — 시작하기 / 고급 기능 / 레퍼런스 -->
 <nav class="gsub" aria-label="가이드 페이지">
   <div class="gsub-inner">
-    <a href="./guide.html" class="active">시작하기</a>
+    <a href="./guide.html">시작하기</a>
     <a href="./guide-advanced.html">고급 기능</a>
-    <a href="./guide-reference.html">레퍼런스</a>
+    <a href="./guide-reference.html" class="active">레퍼런스</a>
   </div>
 </nav>
 
 <!-- ============ SECTION 0 — 히어로 + Requirements (basic) ============ -->
 <section class="g-hero" id="top">
   <div class="wrap-narrow gh" data-reveal="up">
-    <span class="eyebrow"><span class="dot"></span> 시작 가이드</span>
-    <h1>0에서 첫 안전한 마이그레이션까지</h1>
-    <p>SQLPreShift는 PostgreSQL 스키마 변경(ALTER/DROP 등 DDL과 일부 DML)을 운영 DB에 적용하기 <b>전에</b> 미리보기하고, 결정적 규칙으로 위험을 진단하고, 안전하게 적용/롤백하는 macOS 데스크톱 앱입니다. 운영 DB에 ALTER를 던지기 전에 영향 범위를 먼저 보고 싶을 때 씁니다. 모든 작업은 로컬에서만 동작합니다.</p>
-    <span class="promise">About 5 minutes from download to your first risk report.</span>
+    <span class="eyebrow"><span class="dot"></span> 레퍼런스</span>
+    <h1>찾아보는 규칙과 표</h1>
+    <p>위험 규칙 17종(Critical 7 · Warning 10)의 전체 카탈로그, 하드 가드, 요구사항, 키보드 단축키, troubleshooting, FAQ를 한곳에 모았습니다. 기능 사용법은 <a href="./guide.html" style="color:var(--accent)">시작하기</a>와 <a href="./guide-advanced.html" style="color:var(--accent)">고급 기능</a>을 보세요.</p>
   </div>
 </section>
 
@@ -338,321 +337,96 @@ table.ref.warn thead th{color:var(--warning)}
 
   <!-- ===================== 본문 ===================== -->
   <main class="g-main">
+    <!-- ============ SECTION 12 — #reference (advanced) ============ -->
+    <section class="g-sec" id="reference" data-toc="레퍼런스" data-group="REFERENCE">
+      <div class="sec-k">Section 12 · Reference</div>
+      <h2>레퍼런스</h2>
 
-    <!-- SECTION 0 본문: 멘탈모델 + Requirements -->
-    <section class="g-sec" data-toc="이 가이드를 읽는 법" data-group="GET STARTED">
-      <div class="sec-k">Section 0 · Overview</div>
-      <h2>이 앱을 어떻게 생각하면 되나</h2>
-      <p class="lead">SQLPreShift의 모든 작업은 네 단계로 흐릅니다. 이 흐름은 앱 상단 상태 표시와 1:1로 대응합니다.</p>
-
-      <div class="flow4" data-reveal="up">
-        <div class="node"><div class="nl">Input</div><div class="ns">SQL 또는 자연어 입력</div></div>
-        <div class="node"><div class="nl">Analyze</div><div class="ns">ERD diff 미리보기</div></div>
-        <div class="node warn"><div class="nl">Risk</div><div class="ns">결정적 위험 진단</div></div>
-        <div class="node"><div class="nl">Apply / Rollback</div><div class="ns">단일 트랜잭션 적용·되돌리기</div></div>
-      </div>
-      <div class="flow-cap">앱 상단 상태 표시와 1:1로 대응합니다. <code>Ready</code> &rarr; <code>Analyzing</code> &rarr; <code>Preview</code> &rarr; <code>Applying</code> &rarr; <code>Applied</code>.</div>
-
-      <h3>받기 전에: Requirements</h3>
-      <div class="callout callout--note">
-        <span class="callout-label">Requirements</span>
-        <p><code>macOS Apple Silicon</code> &middot; <code>~122 MiB</code> &middot; <code>macOS Big Sur 11+</code> (Sonoma 전용 아님) &middot; <code>PostgreSQL 16 target</code> &middot; runs fully local</p>
-        <p><b>필수</b>: 앱 본체 + 로컬 PostgreSQL 16 <b>또는</b> 내장 데모 DB.<br><b>선택</b>: Ollama + 모델(<code>gemma4:latest</code> 등)로 자연어 입력 강화.</p>
-        <p>자연어를 쓰지 않아도 첫 분석은 가능합니다. Ollama는 전제가 아닙니다.</p>
-      </div>
-    </section>
-
-    <!-- ============ SECTION 1 — #install (basic) [필수 앵커] ============ -->
-    <section class="g-sec" id="install" data-toc="앱 설치하고 처음 열기" data-group="GET STARTED">
-      <div class="sec-k">Section 1 · Install</div>
-      <h2>앱 설치하고 처음 열기 (Gatekeeper 통과)</h2>
-      <p class="lead">다운로드 &rarr; 우클릭으로 열기 &rarr; 첫 화면까지의 happy path만 다룹니다.</p>
-
-      <div class="step" data-reveal="up">
-        <div class="step-num">Step 01</div>
-        <div class="step-title">Download the app</div>
-        <div class="step-block"><div class="bl">Why</div><div class="why">앱 본체부터 받아야 시작할 수 있습니다.</div></div>
-        <div class="step-block step-steps"><div class="bl">Steps</div>
-          <p style="margin-top:0">아래 <b>Download 버튼</b>(teal, 페이지 유일 1차 액션)을 눌러 다운로드 페이지로 이동한 뒤 빌드를 내려받습니다. 용량은 약 <code>~122 MiB</code>입니다. 소스 빌드가 필요하면 <a href="./download.html#source" style="color:var(--accent)">download.html#source</a>를 참고하세요(현재 저장소는 비공개라 본 가이드에 clone 단계는 없습니다).</p>
-          <p style="margin-top:var(--space-4)"><a href="./download.html" class="btn btn-primary gn-dl"><svg viewBox="0 0 24 24" fill="none" style="width:18px;height:18px"><path d="M12 3v12m0 0 4.5-4.5M12 15l-4.5-4.5M5 19h14" stroke="#F2FBFA" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg> Download for macOS</a></p>
-        </div>
-        <div class="step-block"><div class="bl">What you'll see</div><div class="step-see"><span class="se">다운로드된 <code>.app</code>(또는 <code>.dmg</code>) 파일.</span></div></div>
+      <h3>위험 규칙 · CRITICAL 7 (Apply 전 명시 확인 강제, 100% 결정적)</h3>
+      <div class="tbl-wrap">
+        <table class="ref crit">
+          <thead><tr><th>Rule</th><th>감지</th><th>golden-path</th></tr></thead>
+          <tbody>
+            <tr><td><code>DELETE_WITHOUT_WHERE</code></td><td>WHERE 없는 DELETE</td><td>범위 명시, 대량은 배치 루프</td></tr>
+            <tr><td><code>UPDATE_WITHOUT_WHERE</code></td><td>WHERE 없는 UPDATE</td><td>범위 명시, 배치 루프</td></tr>
+            <tr><td><code>DROP_TABLE</code></td><td>DROP TABLE</td><td>expand-contract: 코드 참조 제거 후 다음 릴리스에 DROP</td></tr>
+            <tr><td><code>DROP_COLUMN</code></td><td>ALTER ... DROP COLUMN</td><td>앱이 미참조 확인 후 다음 릴리스에 DROP</td></tr>
+            <tr><td><code>TRUNCATE</code></td><td>TRUNCATE</td><td>WHERE로 특정 행만 삭제</td></tr>
+            <tr><td><code>ADD_FK_VALIDATING</code></td><td>NOT VALID 없는 FK 추가</td><td>NOT VALID &rarr; VALIDATE CONSTRAINT</td></tr>
+            <tr><td><code>TABLE_REWRITE_FULL</code></td><td>VACUUM FULL</td><td>pg_repack / 점검창</td></tr>
+          </tbody>
+        </table>
       </div>
 
-      <div class="step" data-reveal="up">
-        <div class="step-num">Step 02</div>
-        <div class="step-title">Open past Gatekeeper (우클릭 Open)</div>
-        <div class="step-block"><div class="bl">Why</div><div class="why">macOS가 <code>the developer cannot be verified</code>라고 말하는 것은 코드서명이 없는 locally-signed build의 <b>예상된 동작</b>이며, 악성이라는 뜻이 아닙니다.</div></div>
-        <div class="callout callout--caution">
-          <span class="callout-label">Caution</span>
-          <p>The message <code>the developer cannot be verified</code> is expected for a locally-signed build, not a sign something is wrong.</p>
-        </div>
-        <div class="step-block step-steps"><div class="bl">Steps</div>
-          <ol>
-            <li>Finder에서 <code>SQLPreShift.app</code>을 <b>우클릭</b> &rarr; 메뉴에서 <code>Open</code>.</li>
-            <li>경고 대화상자가 뜨면 다시 <code>Open</code> 버튼을 누릅니다.</li>
-            <li>macOS Big Sur 11에서는 우클릭 <code>Open</code>을 <b>두 번</b> 반복해야 확인 다이얼로그가 나타납니다.</li>
-          </ol>
-        </div>
-        <div class="step-block"><div class="bl">What you'll see</div><div class="step-see"><span class="se">시스템 흰색 대화상자. 여기서 <code>Open</code>을 누르면 앱이 실행됩니다.</span></div></div>
-        <details class="adv">
-          <summary>Stuck? 다른 방법</summary>
-          <div class="adv-body">
-            <p style="margin-top:0">터미널로 quarantine 속성 제거:</p>
-            <pre><code>xattr -dr com.apple.quarantine /Applications/SQLPreShift.app</code></pre>
-            <p>또는 <code>System Settings &rarr; Privacy &amp; Security</code>에서 차단 메시지 옆 <code>Open Anyway</code>.</p>
-          </div>
-        </details>
+      <h3>위험 규칙 · WARNING 10 (정보성·비차단, 100% 결정적)</h3>
+      <div class="tbl-wrap">
+        <table class="ref warn">
+          <thead><tr><th>Rule</th><th>위험</th><th>golden-path</th></tr></thead>
+          <tbody>
+            <tr><td><code>ADD_NOT_NULL_NO_DEFAULT</code></td><td>기존 행 오류</td><td>nullable 추가 &rarr; 백필 &rarr; CHECK &rarr; SET NOT NULL</td></tr>
+            <tr><td><code>ADD_COLUMN_VOLATILE_DEFAULT</code></td><td>전체 재작성+락</td><td>기본값 없이 추가 &rarr; 배치 백필 &rarr; SET DEFAULT</td></tr>
+            <tr><td><code>ALTER_COLUMN_TYPE</code></td><td>전체 재작성+ACCESS EXCLUSIVE 락</td><td>expand-contract</td></tr>
+            <tr><td><code>SET_NOT_NULL</code></td><td>전체 스캔+락</td><td>CHECK NOT VALID &rarr; VALIDATE &rarr; SET NOT NULL</td></tr>
+            <tr><td><code>RENAME_COLUMN_OR_TABLE</code></td><td>앱 코드 즉시 깨짐</td><td>expand-contract</td></tr>
+            <tr><td><code>ADD_PK_OR_UNIQUE</code></td><td>인덱스 빌드 중 쓰기 차단</td><td>CREATE UNIQUE INDEX CONCURRENTLY &rarr; ADD CONSTRAINT USING INDEX</td></tr>
+            <tr><td><code>ADD_CHECK_VALIDATING</code></td><td>전체 스캔+락</td><td>NOT VALID &rarr; VALIDATE CONSTRAINT</td></tr>
+            <tr><td><code>CREATE_INDEX_BLOCKING</code></td><td>빌드 중 쓰기 차단</td><td>CREATE INDEX CONCURRENTLY</td></tr>
+            <tr><td><code>CONCURRENTLY_IN_TRANSACTION</code></td><td>TX 안 CONCURRENTLY &rarr; 런타임 실패</td><td>autocommit 단독 실행</td></tr>
+            <tr><td><code>CASCADE</code></td><td>의존객체 조용히 드롭</td><td>RESTRICT 먼저 &rarr; 영향 확인 &rarr; CASCADE</td></tr>
+          </tbody>
+        </table>
       </div>
+      <p style="font-size:13.5px">판정은 100% 결정적(LLM 무관). LLM은 해설만 덧붙입니다. <code>CONCURRENTLY_IN_TRANSACTION</code>은 CREATE/DROP 두 경로에 등장하며, 고유 rule 이름 기준 warning 10종입니다.</p>
 
-      <div class="step" data-reveal="up">
-        <div class="step-num">Step 03</div>
-        <div class="step-title">First launch (온보딩 시작)</div>
-        <div class="step-block"><div class="bl">Why</div><div class="why">앱이 열리면 온보딩 게이트(DatabaseConnect)가 먼저 떠 DB 연결을 요구합니다. 정상입니다.</div></div>
-        <div class="step-block step-steps"><div class="bl">Steps</div><p style="margin-top:0">앱을 실행합니다.</p></div>
-        <div class="step-block"><div class="bl">What you'll see</div><div class="step-see"><span class="se">온보딩 화면과 부제: <code>Preview schema changes against a live PostgreSQL database — safely, before they ship.</code></span></div></div>
-      </div>
-    </section>
-
-    <!-- ============ SECTION 2 — #connect (basic) ============ -->
-    <section class="g-sec" id="connect" data-toc="데이터베이스에 연결하기" data-group="GET STARTED">
-      <div class="sec-k">Section 2 · Connect</div>
-      <h2>데이터베이스에 연결하기 (또는 데모 DB로 시작)</h2>
-      <p class="lead">SQLPreShift는 항상 살아있는 target DB에 붙어 동작합니다. 첫 화면 온보딩 게이트가 연결을 요구합니다. 붙을 DB가 없어도 내장 데모 DB로 바로 시작할 수 있습니다.</p>
-
-      <figure class="demo zoomable" data-reveal="up">
-        <figcaption class="demo-cap"><span class="tl"></span><span class="tl"></span><span class="tl"></span><span class="nm">DatabaseConnect</span><span class="hint"><svg viewBox="0 0 24 24" fill="none"><path d="M15 3h6v6m0-6-9 9M10 5H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5" stroke="currentColor" stroke-width="1.6"/></svg>클릭하면 확대</span></figcaption>
-        <img class="shot" src="./assets/guide/connect.gif" alt="데모 ERP DB에 연결하는 과정: Host·Port·Database·User·Password 입력 후 Test Connection, Connect" loading="lazy" width="880" />
-      </figure>
-      <p class="demo-note">데모 ERP DB(92 tables)에 연결하는 전체 흐름입니다.</p>
-
-      <div class="two-col" data-reveal="up">
-        <div class="col">
-          <h4>Step 01 · Connect your PostgreSQL 16</h4>
-          <div class="step-block"><div class="bl">Why</div><div class="why">실제 작업은 연결된 target DB에서만 일어납니다.</div></div>
-          <div class="step-block step-steps"><div class="bl">Steps</div>
-            <p style="margin-top:0">DatabaseConnect 폼에 아래 5개 필드를 입력합니다:</p>
-            <ol>
-              <li><code>Host</code> (예: <code>localhost</code>)</li>
-              <li><code>Port</code> (예: <code>5432</code>)</li>
-              <li><code>Database</code></li>
-              <li><code>User</code></li>
-              <li><code>Password</code></li>
-            </ol>
-            <p>입력 후 <code>Test Connection</code> 버튼을 눌러 연결을 확인하고, 성공하면 <code>Connect</code> 버튼을 눌러 진입합니다. <b>순서는 반드시 입력 &rarr; <code>Test Connection</code> &rarr; <code>Connect</code>입니다.</b></p>
-          </div>
-          <div class="step-block"><div class="bl">What you'll see</div><div class="step-see"><span class="se">연결 성공 시 좌측에 ERD 캔버스가 뜨고, 데모 ERP DB라면 92개 테이블이 나열됩니다.</span></div></div>
-        </div>
-        <div class="col">
-          <h4>No database yet? Try with demo data</h4>
-          <div class="demo-badges"><span class="b">ERP · 92 tables</span><span class="b">Pagila</span></div>
-          <p style="margin-top:var(--space-3)">앱 내장 로컬 데모입니다. 외부나 GitHub 의존이 전혀 없습니다.</p>
-          <div class="placeholder"><div class="ph-cap">[ DatabaseConnect · Host / Port / Database / User / Password<br>+ Test Connection · Connect ]</div></div>
-        </div>
-      </div>
-
-      <div class="callout callout--note">
-        <span class="callout-label">Note</span>
-        <p>Your SQL runs only against the connected target DB. The app's own metadata DB (local SQLite) is never touched.</p>
-      </div>
-
-      <p>Language model 선택은 <b>선택 사항이며 지금 고를 필요가 없습니다</b>. 연결 직후 온보딩 ModelPicker에서, 또는 나중에 언제든 TopBar의 <code>Model</code>에서 켤 수 있습니다(자세히는 <a href="./guide-advanced.html#advanced-models" style="color:var(--accent)">Turn on natural-language input</a>).</p>
-
-      <details class="adv">
-        <summary>Stuck?</summary>
-        <div class="adv-body">
-          <p style="margin-top:0"><code>Connection refused</code> &rarr; 로컬 PostgreSQL이 <code>:5432</code>에서 실행 중인지 확인하세요. 붙을 DB가 없으면 데모 DB(<code>:5433</code> ERP / <code>:5434</code> Pagila)로 전환하세요.</p>
-        </div>
-      </details>
-    </section>
-
-    <!-- ============ SECTION 3 — #analyze (basic) ============ -->
-    <section class="g-sec" id="analyze" data-toc="첫 변경 미리보기와 diff 읽기" data-group="GET STARTED">
-      <div class="sec-k">Section 3 · Analyze</div>
-      <h2>첫 변경 미리보기: 입력하고 diff 읽기</h2>
-      <p class="lead">입력한 변경을 적용 없이 먼저 그려봅니다. DB는 아직 바뀌지 않습니다.</p>
-
-      <figure class="demo zoomable" data-reveal="up">
-        <figcaption class="demo-cap"><span class="tl"></span><span class="tl"></span><span class="tl"></span><span class="nm">Analyze · ERD diff</span><span class="hint"><svg viewBox="0 0 24 24" fill="none"><path d="M15 3h6v6m0-6-9 9M10 5H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5" stroke="currentColor" stroke-width="1.6"/></svg>클릭하면 확대</span></figcaption>
-        <img class="shot" src="./assets/guide/analyze.gif" alt="입력창에 SQL을 타이핑하고 분석하면 ERD diff가 색으로 그려지는 과정" loading="lazy" width="880" />
-      </figure>
-      <p class="demo-note">SQL을 입력하고 분석하면 변경이 ERD에 색으로 그려집니다.</p>
-
-      <div class="step" data-reveal="up">
-        <div class="step-num">Step 01</div>
-        <div class="step-title">Type SQL or natural language</div>
-        <div class="step-block"><div class="bl">Why</div><div class="why">입력을 적용하지 않고 영향만 먼저 봅니다.</div></div>
-        <div class="callout callout--note">
-          <span class="callout-label">Prerequisite</span>
-          <p>자연어 입력(예: <code>nickname</code> 컬럼 추가를 영어나 한국어 문장으로 쓰기)을 쓰려면 두 가지가 필요합니다. 하나는 DB 연결 완료, 다른 하나는 Language model이 선택되고 다운로드되어 <b>ready</b> 상태인 것입니다(자연어 &rarr; SQL 변환은 로컬 Ollama 모델을 씁니다). <b>모델을 고르지 않았거나 Ollama가 감지되지 않으면 자연어 입력은 비활성이며, SQL 직접 입력만 동작합니다(SQL only).</b></p>
-        </div>
-        <div class="step-block step-steps"><div class="bl">Steps</div>
-          <ol>
-            <li>하단 입력 pill에 SQL을 직접 타이핑하거나, 모델이 ready라면 자연어 문장을 타이핑합니다.</li>
-            <li>타이핑하면 자동 감지 칩이 뜹니다. <span class="detect-chip">Detected: SQL 92%</span> 또는 <span class="detect-chip">Detected: Natural Language 87%</span>처럼요.</li>
-            <li><span class="kbd">Cmd/Ctrl+Enter</span>로 제출합니다. 줄바꿈은 <span class="kbd">Enter</span>, 들여쓰기는 <span class="kbd">Tab</span> / <span class="kbd">Shift+Tab</span>.</li>
-          </ol>
-        </div>
-        <div class="step-block"><div class="bl">What you'll see</div><div class="step-see"><span class="se">자동 감지 칩과 placeholder <code>Enter natural language or SQL (auto-detected) — Cmd/Ctrl+Enter to analyze</code>. 제출하면 stage가 <code>Analyzing</code> &rarr; <code>Preview</code>로 전이됩니다.</span></div></div>
-      </div>
-
-      <h3>자연어를 제출하면 무슨 일이 일어나나</h3>
-      <p>자연어를 제출하면 &rarr; 자동 감지(<code>Detected: Natural Language 87%</code>) &rarr; 모델이 자연어를 SQL로 변환 &rarr; <code>Analyzing</code> &rarr; <code>Preview</code>(ERD diff 시각화) &rarr; 위험 진단으로 이어집니다. 예를 들어 <code>users</code> 테이블에 <code>nickname</code> 컬럼을 추가하는 변경은 대개 위험이 없거나, <code>NOT NULL</code>로 추가하면 <code>ADD_NOT_NULL_NO_DEFAULT</code>(Warning, 주황)가 붙습니다.</p>
-
-      <div class="callout callout--caution">
-        <span class="callout-label">Safety guards</span>
-        <p>Safety guards run on every input: one SQL statement at a time (no multi-statement), system schemas (<code>pg_catalog</code> / <code>information_schema</code> / <code>pg_toast</code>) are blocked, and syntax is parsed (<code>sqlglot</code>) before anything runs. Natural-language &rarr; SQL output is held to the same deterministic checks. The LLM only drafts; the safety verdict is code, not the model.</p>
-      </div>
-
-      <div class="step" data-reveal="up">
-        <div class="step-num">Step 02</div>
-        <div class="step-title">Read the ERD diff</div>
-        <div class="step-block"><div class="bl">Why</div><div class="why">변경이 ERD에 어떻게 반영되는지 색으로 읽습니다.</div></div>
-        <div class="step-block step-steps"><div class="bl">Steps</div><p style="margin-top:0"><code>Analyzing</code> &rarr; <code>Preview</code> 전이를 기다립니다.</p></div>
-        <div class="step-block"><div class="bl">What you'll see</div>
-          <div class="diff-legend">
-            <span class="dl add"><span class="sw"></span> Added</span>
-            <span class="dl del"><span class="sw"></span> Removed</span>
-            <span class="dl mod"><span class="sw"></span> Modified</span>
-          </div>
-          <div class="step-see"><span class="se">ERD diff 범례는 <code>Added</code>(초록) / <code>Removed</code>(빨강) / <code>Modified</code>(주황)입니다. stage = <code>Preview</code>.</span></div>
-        </div>
-        <div class="callout callout--note">
-          <span class="callout-label">Note</span>
-          <p>This is read-only. Your database is not modified yet.</p>
-        </div>
-      </div>
-
-      <p><b>No model? Skip it.</b> 분석은 Ollama 없이도 동작합니다. SQL을 직접 입력하세요.</p>
-      <p>TopBar의 <code>EN / 한국어</code> 토글로 UI 전체와 위험/설명 콘텐츠를 한&harr;영으로 바꿀 수 있습니다.</p>
-    </section>
-
-    <!-- ============ SECTION 4 — #risk (basic) ============ -->
-    <section class="g-sec" id="risk" data-toc="위험 진단 읽기" data-group="GET STARTED">
-      <div class="sec-k">Section 4 · Risk</div>
-      <h2>위험 진단 읽기: Critical은 막고, Warning은 알리고</h2>
-      <p class="lead">위험 판정은 <b>100% 결정적인 규칙 기반</b>입니다. 같은 입력에는 항상 같은 판정이 나오며 재현 가능하고 환각이 없습니다. <b>LLM은 판정에 관여하지 않고 해설만 덧붙입니다.</b> 각 위험은 작업을 무조건 막는 게 아니라 더 안전한 <b>golden-path(안전 대안)</b>를 제시합니다.</p>
-
-      <figure class="demo zoomable" data-reveal="up">
-        <figcaption class="demo-cap"><span class="tl"></span><span class="tl"></span><span class="tl"></span><span class="nm">Critical risk detected</span><span class="hint"><svg viewBox="0 0 24 24" fill="none"><path d="M15 3h6v6m0-6-9 9M10 5H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5" stroke="currentColor" stroke-width="1.6"/></svg>클릭하면 확대</span></figcaption>
-        <img class="shot" src="./assets/guide/risk.gif" alt="DROP COLUMN 같은 파괴적 변경을 입력하면 Critical 위험 모달이 떠 적용 전 확인을 강제하는 모습" loading="lazy" width="880" />
-      </figure>
-      <p class="demo-note">파괴적 변경을 입력하면 Critical 모달이 떠 적용 전 확인을 강제합니다.</p>
-
-      <h3>Critical vs Warning, 두 단계 위계</h3>
+      <h3>하드 가드 (입력 단계 콜아웃과 이중 배치)</h3>
       <ul>
-        <li><b>Critical / Destructive</b> (빨강 좌측 바): 파괴적이거나 비가역적인 변경. <b>Apply 전에 명시적인 확인을 강제</b>합니다(그냥 적용 버튼만 눌러서는 넘어가지 않음). 7개 규칙이 여기 속합니다. 예: <code>DROP_TABLE</code>, <code>DELETE_WITHOUT_WHERE</code>, <code>DROP_COLUMN</code>, <code>UPDATE_WITHOUT_WHERE</code>, <code>TRUNCATE</code>, <code>ADD_FK_VALIDATING</code>, <code>TABLE_REWRITE_FULL</code>.</li>
-        <li><b>Warning</b> (주황 좌측 바): 정보성. <b>Apply를 차단하지 않습니다.</b> 잠금/재작성 등 주의 사항을 알리되 그대로 진행할 수 있습니다.</li>
+        <li>멀티 statement 금지(한 번에 1개 SQL).</li>
+        <li>시스템 스키마 차단: <code>pg_catalog</code> / <code>information_schema</code> / <code>pg_toast</code>.</li>
+        <li>구문 오류 차단(<code>sqlglot</code> 파싱).</li>
+        <li>NL&rarr;SQL의 LLM 출력도 동일 결정적 검증(LLM은 초안만).</li>
       </ul>
-      <p>두 단계는 라벨 단어(<code>Critical</code> / <code>Warning</code>)로 구분됩니다.</p>
 
-      <h3>DROP TABLE을 입력하면</h3>
-      <p><code>DROP TABLE</code> 입력은 <b>CRITICAL 규칙으로 감지</b>되어 위험 모달에 표시됩니다. 모달은 안전 대안으로 <b>expand-contract</b>를 제시합니다. 먼저 코드에서 그 테이블 참조를 모두 제거하고, 다음 릴리스에서 실제 <code>DROP</code>을 수행하는 순서입니다. Critical이므로 <b>Apply 전에 명시 확인을 거쳐야</b> 적용됩니다. 판정 자체는 모델과 무관하게 결정적입니다.</p>
-
-      <h3>Size-aware 안내</h3>
-      <p>일부 위험은 실제 행 수나 크기를 주입해 보여줍니다. 예를 들어 <code>Rewrites ~12M rows (4 GB)</code>처럼요.</p>
-
-      <h3>대표 위험 두 가지로 읽는 법 익히기</h3>
-      <div class="riskcard" data-reveal="up">
-        <div class="rh"><svg viewBox="0 0 24 24" fill="none"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" stroke="currentColor" stroke-width="1.6"/></svg> Warning · ADD_CHECK_VALIDATING <span class="badge">LOCK QUEUE</span></div>
-        <div class="rb">
-          <div class="line"><b>NOT VALID 없는 CHECK</b>는 대상 테이블에 <b>ACCESS EXCLUSIVE</b> 락과 전체 스캔을 일으킵니다.</div>
-          <div class="gp"><div class="gl">golden-path</div><code><span class="k">ALTER TABLE</span> ... ADD CONSTRAINT chk ... NOT VALID;<br><span class="k">ALTER TABLE</span> ... VALIDATE CONSTRAINT chk;</code></div>
-        </div>
-      </div>
-      <div class="riskcard crit" data-reveal="up">
-        <div class="rh"><svg viewBox="0 0 24 24" fill="none"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" stroke="currentColor" stroke-width="1.6"/></svg> Critical · DROP_COLUMN <span class="badge">DESTRUCTIVE</span></div>
-        <div class="rb">
-          <div class="line"><b>ALTER ... DROP COLUMN</b>은 비가역적이라 Apply 전 명시 확인을 강제합니다.</div>
-          <div class="gp"><div class="gl">golden-path · expand-contract</div><code>앱이 미참조를 확인한 뒤 다음 릴리스에 <span class="k">DROP</span>.</code></div>
-        </div>
+      <h3>Requirements 표</h3>
+      <div class="tbl-wrap">
+        <table class="ref">
+          <tbody>
+            <tr><td>Chip</td><td><code>macOS Apple Silicon</code></td></tr>
+            <tr><td>Download</td><td><code>~122 MiB</code></td></tr>
+            <tr><td>OS</td><td><code>macOS Big Sur 11+</code></td></tr>
+            <tr><td>Target DB</td><td><code>PostgreSQL 16 target</code></td></tr>
+            <tr><td>Network</td><td><code>runs fully local</code></td></tr>
+            <tr><td>Meta DB</td><td>SQLite (설치형)</td></tr>
+          </tbody>
+        </table>
       </div>
 
-      <p>전체 17개 카탈로그는 <a href="./guide-reference.html#reference" style="color:var(--accent)">Reference</a>에 있습니다. 여기서는 "읽는 법"만 다룹니다.</p>
-    </section>
+      <h3>키보드 단축키</h3>
+      <p><span class="kbd">Cmd/Ctrl+Enter</span> 제출 · <span class="kbd">Enter</span> 줄바꿈 · <span class="kbd">Tab</span>/<span class="kbd">Shift+Tab</span> 들여쓰기.</p>
 
-    <!-- ============ SECTION 5 — #apply (basic) ============ -->
-    <section class="g-sec" id="apply" data-toc="변경 적용하고 되돌리기" data-group="GET STARTED">
-      <div class="sec-k">Section 5 · Apply &amp; Rollback</div>
-      <h2>변경 적용하고 되돌리기: 단일 트랜잭션 Apply와 두 가지 Rollback</h2>
-      <p class="lead">미리보기에 만족하면 적용합니다. <b>적용은 단일 트랜잭션이라, 하나라도 실패하면 전부 롤백됩니다(all-or-nothing).</b></p>
+      <h3>Troubleshooting</h3>
+      <ul>
+        <li>macOS <code>the developer cannot be verified</code> &rarr; 우클릭 <code>Open</code>(Big Sur 11은 2회).</li>
+        <li><code>Connection refused</code> &rarr; PostgreSQL <code>:5432</code> 기동 확인 또는 데모 DB(<code>:5433</code>/<code>:5434</code>).</li>
+        <li>No model &rarr; SQL only로 동작.</li>
+        <li>빈 분석 결과 &rarr; 데모 DB 전환.</li>
+      </ul>
 
-      <figure class="demo zoomable" data-reveal="up">
-        <figcaption class="demo-cap"><span class="tl"></span><span class="tl"></span><span class="tl"></span><span class="nm">Apply All · Rollback</span><span class="hint"><svg viewBox="0 0 24 24" fill="none"><path d="M15 3h6v6m0-6-9 9M10 5H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5" stroke="currentColor" stroke-width="1.6"/></svg>클릭하면 확대</span></figcaption>
-        <img class="shot" src="./assets/guide/apply.gif" alt="안전한 변경을 Apply All로 적용해 Applied 상태가 되고, Rollback으로 되돌리는 과정" loading="lazy" width="880" />
-      </figure>
-      <p class="demo-note">Apply All로 적용한 뒤 Rollback으로 방금 적용분을 되돌립니다.</p>
-
-      <div class="step" data-reveal="up">
-        <div class="step-num">Step 01</div>
-        <div class="step-title">Review then Apply All</div>
-        <div class="step-block"><div class="bl">Why</div><div class="why">미리본 변경을 실제 DB에 씁니다.</div></div>
-        <div class="step-block step-steps"><div class="bl">Steps</div>
-          <ol>
-            <li>여러 SQL을 적용하려면 각 변경을 <code>Add to preview</code>로 스택에 누적합니다(누적 dry-run).</li>
-            <li><code>Apply</code> 또는 <code>Apply All</code> 버튼을 누릅니다.</li>
-            <li>Critical 위험이 포함돼 있으면 Apply 전 명시 확인을 강제합니다.</li>
-          </ol>
-        </div>
-        <div class="panel" data-reveal="up">
-          <div class="panel-bar"><span class="tl"></span><span class="tl"></span><span class="tl"></span><span class="title">Preview stack · Apply All</span></div>
-          <div class="panel-body">
-            <div class="stack">
-              <div class="stack-item"><span class="num">1</span> ALTER TABLE orders ADD status text <span class="ok">dry-run ok</span></div>
-              <div class="stack-item"><span class="num">2</span> UPDATE orders SET status='new' WHERE id&lt;100 <span class="ok">dry-run ok</span></div>
-              <div class="stack-item"><span class="num">3</span> CREATE INDEX CONCURRENTLY idx_st <span class="ok">dry-run ok</span></div>
-            </div>
-            <div class="applybar"><span class="tx">3 statements · wrapped in one transaction</span><span class="ab">Apply All</span></div>
-          </div>
-        </div>
-        <p><b>단일 트랜잭션 동작</b>: <code>Apply All</code>은 스택의 모든 statement를 <b>하나의 트랜잭션으로 묶어</b> 적용합니다. <b>하나라도 실패하면 전부 롤백되어 아무것도 적용되지 않습니다.</b> 부분 적용은 발생하지 않습니다.</p>
-        <div class="step-block"><div class="bl">What you'll see</div><div class="step-see"><span class="se">확인 문구는 다음과 같습니다. <code>All N previewed changes will be applied in a single transaction. If any statement fails, none of them are applied.</code></span></div></div>
-        <div class="callout callout--danger">
-          <span class="callout-label">Destructive</span>
-          <p>Applying writes the change to your connected PostgreSQL 16 target DB. This is the real change, not a preview.</p>
-          <p>전부 로컬이며, 연결된 target DB에만 적용됩니다(메타 DB는 건드리지 않습니다).</p>
-        </div>
-      </div>
-
-      <div class="step" data-reveal="up">
-        <div class="step-num">Step 02</div>
-        <div class="step-title">Confirmation</div>
-        <div class="step-block step-steps"><div class="bl">Steps</div><p style="margin-top:0">토스트와 바를 확인합니다.</p></div>
-        <div class="step-block"><div class="bl">What you'll see</div><div class="step-see"><span class="se">stage = <code>Applied</code> + 토스트 <code>N changes applied</code> + CompletedBar(<code>Applied</code> · <code>Rollback</code> · <code>New</code>).</span></div></div>
-      </div>
-
-      <div class="step" data-reveal="up">
-        <div class="step-num">Step 03</div>
-        <div class="step-title">Roll back (두 가지 경로)</div>
-        <div class="step-block"><div class="bl">두 경로는 서로 다릅니다</div>
-          <ol style="padding-left:var(--space-6)">
-            <li><b>방금 적용분 전체 롤백, CompletedBar의 <code>Rollback</code></b>: 방금 <code>Apply</code>/<code>Apply All</code>로 적용한 변경 전체를 <b>역순으로</b> 한 번에 되돌립니다. 적용 직후 "방금 그거 취소" 용도입니다.</li>
-            <li><b>과거 항목별 개별 롤백, AuditDrawer의 <code>History</code></b>: 감사 이력 타임라인에서 <b>과거의 특정 적용 항목을 골라</b> 개별적으로 <code>Rollback</code>합니다. 방금 것이 아니라 이력 속 임의 항목을 되돌릴 때 씁니다.</li>
-          </ol>
-        </div>
-        <p>두 경로 모두, 앱이 적용 시 자동 생성한 롤백 스크립트(<code>down_script</code>)로 되돌립니다.</p>
-        <div class="callout callout--caution">
-          <span class="callout-label">자동 롤백 한계</span>
-          <p>익명 제약(제약명을 지정하지 않은 제약)은 자동 롤백이 불가능해 <code>down_script</code>에 주석으로 표시됩니다. <b>이 한계는 "위험을 사전 차단하는 것"과는 다릅니다.</b> 사전 차단(위험 모달의 Critical 확인)은 롤백이 아니라 적용 전 단계입니다. 위 두 Rollback은 이미 적용된 변경을 되돌리는 사후 경로입니다.</p>
-        </div>
-      </div>
-
-      <p>여기까지가 0에서 첫 안전한 적용/롤백입니다. 더 깊이 쓰려면 <a href="./guide-advanced.html" style="color:var(--accent)">고급 기능</a>으로, 규칙 전체를 찾아보려면 <a href="./guide-reference.html" style="color:var(--accent)">레퍼런스</a>로 이어집니다.</p>
-    </section>
-
-    <!-- ============ SECTION 6 — #workflow (basic, 브리지) [필수 앵커] ============ -->
-    <section class="g-sec" id="workflow" data-toc="핵심 워크플로 한눈에" data-group="GET STARTED">
-      <div class="sec-k">Section 6 · Workflow</div>
-      <h2>핵심 워크플로 한눈에</h2>
-      <p class="lead">입력 &rarr; 미리보기(read-only) &rarr; 위험 진단 &rarr; 단일 트랜잭션 <code>Apply</code> / 전체 <code>Rollback</code>.</p>
-
-      <div class="flow4" data-reveal="up">
-        <a class="node" href="#analyze" style="text-decoration:none"><div class="nl">Input</div><div class="ns">SQL · 자연어 입력</div></a>
-        <a class="node" href="#analyze" style="text-decoration:none"><div class="nl">Preview</div><div class="ns">read-only diff</div></a>
-        <a class="node warn" href="#risk" style="text-decoration:none"><div class="nl">Risk</div><div class="ns">결정적 진단</div></a>
-        <a class="node" href="#apply" style="text-decoration:none"><div class="nl">Apply / Rollback</div><div class="ns">단일 트랜잭션</div></a>
-      </div>
-      <p>각 단계는 위에서 자세히 다룹니다. 처음이라면 <a href="#install" style="color:var(--accent)">설치</a>부터 순서대로 읽으세요.</p>
+      <h3>FAQ</h3>
+      <details class="adv"><summary>Does my data leave the machine?</summary>
+        <div class="adv-body"><p style="margin-top:0">아니오, 전부 로컬(접속 정보·추론 모두 기기 밖으로 안 나감).</p></div>
+      </details>
+      <details class="adv"><summary>Do I need Ollama?</summary>
+        <div class="adv-body"><p style="margin-top:0">아니오, 자연어 입력에만 필요합니다. SQL 직접 입력은 모델 없이 동작합니다.</p></div>
+      </details>
+      <details class="adv"><summary>Can a bad migration half-apply?</summary>
+        <div class="adv-body"><p style="margin-top:0">아니오, <code>Apply All</code>은 단일 트랜잭션 all-or-nothing입니다.</p></div>
+      </details>
+      <details class="adv"><summary>Is the risk check AI or rules?</summary>
+        <div class="adv-body"><p style="margin-top:0">100% 결정적 규칙 기반입니다(LLM 무관). LLM은 해설만 덧붙입니다. 그래서 같은 입력엔 같은 판정이 나오고 재현 가능하며 환각이 없습니다.</p></div>
+      </details>
+      <details class="adv"><summary>언어를 바꿀 수 있나요?</summary>
+        <div class="adv-body"><p style="margin-top:0">TopBar <code>EN / 한국어</code> 토글로 UI와 위험/설명을 한&harr;영 전환합니다.</p></div>
+      </details>
     </section>
 
   </main>
