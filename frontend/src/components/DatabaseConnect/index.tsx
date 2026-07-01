@@ -351,7 +351,7 @@ function HubView({
           transition={{ duration: 0.4, ease: [0.34, 1.2, 0.64, 1] }}
           style={{ margin: 0, fontSize: 26, fontWeight: 800, letterSpacing: '-0.02em' }}
         >
-          SQLPreShift
+          SQL<span style={{ color: 'var(--color-accent)' }}>PreShift</span>
         </motion.h1>
         <motion.p
           initial={{ opacity: 0, y: 8 }}

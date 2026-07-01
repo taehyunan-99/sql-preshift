@@ -1,16 +1,20 @@
-# SQLPreShift
+<p align="center">
+  <img src="assets/logo.png" alt="SQLPreShift" width="440" />
+</p>
 
-**한국어 | [English](README.en.md)**
+<p align="center"><b>한국어</b> | <a href="README.en.md">English</a></p>
 
 PostgreSQL 스키마 마이그레이션을 위한 **안전 게이트**. 자연어 또는 SQL을 입력하면 스키마 diff를 ERD로 시각화하고, 위험을 감지해 더 안전한 대안을 제시하며, dry-run으로 미리 돌려본 뒤 승인하면 적용하고 언제든 롤백한다.
 
 <br/>
 
-![PostgreSQL 16](https://img.shields.io/badge/PostgreSQL-16-336791?style=flat&logo=postgresql&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?style=flat&logo=fastapi&logoColor=white)
-![Next.js 15](https://img.shields.io/badge/Next.js-15-000000?style=flat&logo=nextdotjs&logoColor=white)
-![License: MIT](https://img.shields.io/badge/License-MIT-green?style=flat)
-![portfolio demo](https://img.shields.io/badge/portfolio-demo-2BA8A0?style=flat)
+<p align="center">
+  <img src="https://img.shields.io/badge/PostgreSQL-16-336791?style=flat&logo=postgresql&logoColor=white" alt="PostgreSQL 16" />
+  <img src="https://img.shields.io/badge/FastAPI-0.115-009688?style=flat&logo=fastapi&logoColor=white" alt="FastAPI" />
+  <img src="https://img.shields.io/badge/Next.js-15-000000?style=flat&logo=nextdotjs&logoColor=white" alt="Next.js 15" />
+  <img src="https://img.shields.io/badge/License-MIT-green?style=flat" alt="License: MIT" />
+  <img src="https://img.shields.io/badge/portfolio-demo-2BA8A0?style=flat" alt="portfolio demo" />
+</p>
 
 <br/><br/>
 

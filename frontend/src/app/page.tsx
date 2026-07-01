@@ -261,7 +261,7 @@ export default function Home() {
           zIndex: 40,
         }}
       >
-        <span style={{ fontWeight: 700, fontSize: 15, letterSpacing: '-0.01em' }}>SQLPreShift</span>
+        <span style={{ fontWeight: 700, fontSize: 15, letterSpacing: '-0.01em' }}>SQL<span style={{ color: 'var(--color-accent)' }}>PreShift</span></span>
         <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
           {language === 'ko' ? '안전한 스키마 마이그레이션 관리' : 'Safe schema migration control'}
         </span>

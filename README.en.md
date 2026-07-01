@@ -1,16 +1,20 @@
-# SQLPreShift
+<p align="center">
+  <img src="assets/logo.png" alt="SQLPreShift" width="440" />
+</p>
 
-**[한국어](README.md) | English**
+<p align="center"><a href="README.md">한국어</a> | <b>English</b></p>
 
 A **safety gate** for PostgreSQL schema migrations. Type natural language or SQL, see the schema diff as an ERD, catch risky operations and get safer alternatives, dry-run before you commit, apply in one transaction, and roll back anytime.
 
 <br/>
 
-![PostgreSQL 16](https://img.shields.io/badge/PostgreSQL-16-336791?style=flat&logo=postgresql&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?style=flat&logo=fastapi&logoColor=white)
-![Next.js 15](https://img.shields.io/badge/Next.js-15-000000?style=flat&logo=nextdotjs&logoColor=white)
-![License: MIT](https://img.shields.io/badge/License-MIT-green?style=flat)
-![portfolio demo](https://img.shields.io/badge/portfolio-demo-2BA8A0?style=flat)
+<p align="center">
+  <img src="https://img.shields.io/badge/PostgreSQL-16-336791?style=flat&logo=postgresql&logoColor=white" alt="PostgreSQL 16" />
+  <img src="https://img.shields.io/badge/FastAPI-0.115-009688?style=flat&logo=fastapi&logoColor=white" alt="FastAPI" />
+  <img src="https://img.shields.io/badge/Next.js-15-000000?style=flat&logo=nextdotjs&logoColor=white" alt="Next.js 15" />
+  <img src="https://img.shields.io/badge/License-MIT-green?style=flat" alt="License: MIT" />
+  <img src="https://img.shields.io/badge/portfolio-demo-2BA8A0?style=flat" alt="portfolio demo" />
+</p>
 
 <br/><br/>
 
