@@ -360,8 +360,8 @@ function HubView({
           style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--font-size-md)', color: 'var(--text-secondary)', lineHeight: 1.5 }}
         >
           {ko
-            ? '실제 PostgreSQL 데이터베이스에 대해 스키마 변경을 미리 확인하세요 — 배포 전에, 안전하게.'
-            : 'Preview schema changes against a live PostgreSQL database — safely, before they ship.'}
+            ? '실제 PostgreSQL 데이터베이스에 대해 스키마 변경을 미리 확인하세요. 배포 전에, 안전하게.'
+            : 'Preview schema changes against a live PostgreSQL database. Safely, before they ship.'}
         </motion.p>
       </div>
 

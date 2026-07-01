@@ -419,8 +419,8 @@ export default function Home() {
                   const total = graph?.nodes.length ?? 0;
                   const warn =
                     language === 'ko'
-                      ? `${total}개 테이블 — 전체 스키마 렌더링이 느릴 수 있습니다. 계속할까요?`
-                      : `${total} tables — rendering the full schema may be slow. Continue?`;
+                      ? `${total}개 테이블: 전체 스키마 렌더링이 느릴 수 있습니다. 계속할까요?`
+                      : `${total} tables: rendering the full schema may be slow. Continue?`;
                   if (total > LARGE_SCHEMA_THRESHOLD && !window.confirm(warn)) {
                     return;
                   }

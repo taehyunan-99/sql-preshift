@@ -304,18 +304,18 @@ export default function InputPanel() {
           nlUnavailable
             ? language === 'ko'
               ? stacking
-                ? 'SQL을 추가하세요 — 자연어 입력은 Ollama가 필요합니다 — Cmd/Ctrl+Enter로 추가'
-                : 'SQL을 입력하세요 — 자연어 입력은 Ollama가 필요합니다 — Cmd/Ctrl+Enter로 분석'
+                ? 'SQL을 추가하세요. 자연어 입력은 Ollama가 필요합니다. Cmd/Ctrl+Enter로 추가'
+                : 'SQL을 입력하세요. 자연어 입력은 Ollama가 필요합니다. Cmd/Ctrl+Enter로 분석'
               : stacking
-                ? 'Add SQL — natural-language input requires Ollama — Cmd/Ctrl+Enter to add'
-                : 'Enter SQL — natural-language input requires Ollama — Cmd/Ctrl+Enter to analyze'
+                ? 'Add SQL. Natural-language input requires Ollama. Cmd/Ctrl+Enter to add'
+                : 'Enter SQL. Natural-language input requires Ollama. Cmd/Ctrl+Enter to analyze'
             : language === 'ko'
               ? stacking
-                ? '다른 변경을 추가하세요 (자연어 또는 SQL) — Cmd/Ctrl+Enter로 추가'
-                : '자연어 또는 SQL을 입력하세요 (자동 감지) — Cmd/Ctrl+Enter로 분석'
+                ? '다른 변경을 추가하세요 (자연어 또는 SQL). Cmd/Ctrl+Enter로 추가'
+                : '자연어 또는 SQL을 입력하세요 (자동 감지). Cmd/Ctrl+Enter로 분석'
               : stacking
-                ? 'Add another change (natural language or SQL) — Cmd/Ctrl+Enter to add'
-                : 'Enter natural language or SQL (auto-detected) — Cmd/Ctrl+Enter to analyze'
+                ? 'Add another change (natural language or SQL). Cmd/Ctrl+Enter to add'
+                : 'Enter natural language or SQL (auto-detected). Cmd/Ctrl+Enter to analyze'
         }
         style={{
           resize: 'none',
@@ -373,7 +373,7 @@ export default function InputPanel() {
               : 'No natural-language model selected. Pick one in Model (top bar) to enable it. Direct SQL input works right away.'
             : language === 'ko'
               ? 'Ollama가 감지되지 않아 자연어 입력은 비활성화됩니다. SQL을 직접 입력하세요.'
-              : 'Ollama not detected — natural-language input is disabled. Enter SQL directly.'}
+              : 'Ollama not detected. Natural-language input is disabled. Enter SQL directly.'}
         </div>
       )}
 
@@ -571,7 +571,7 @@ export default function InputPanel() {
               {alertLevel === 'critical'
                 ? language === 'ko'
                   ? '이 변경에는 심각한 위험이 있습니다. Undo로 제거하거나, 의도한 변경이라면 이 창을 닫고 Apply All을 눌러 진행하세요.'
-                  : 'This change carries a critical risk. Remove it with Undo, or — if this is intended — dismiss this dialog and press Apply All to proceed.'
+                  : 'This change carries a critical risk. Remove it with Undo, or, if this is intended, dismiss this dialog and press Apply All to proceed.'
                 : language === 'ko'
                   ? '이 변경에는 운영 중 락·다운타임을 유발할 수 있는 위험이 있습니다. 의도를 확인한 뒤 진행하세요.'
                   : 'This change may cause locking or downtime in production. Review the warnings before proceeding.'}
