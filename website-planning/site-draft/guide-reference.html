@@ -1,9 +1,10 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="en">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>가이드 · 레퍼런스 · SQLPreShift</title>
+<meta name="description" content="Reference: full catalog of 17 risk rules (7 Critical, 10 Warning), hard guards, requirements, keyboard shortcuts, troubleshooting, and FAQ for SQLPreShift." />
+<title>Guide · Reference · SQLPreShift</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -342,6 +343,11 @@ table.ref.warn thead th{color:var(--warning)}
   .js [data-anim="rows"] tbody tr{opacity:1!important;transform:none!important;transition:none!important}
   .js [data-anim="sweep"] .tok{background-size:100% 86%!important}
 }
+/* ----- 언어 토글 (i18n) — nav-right EN|한국어 pill ----- */
+.lang-toggle{display:inline-flex;align-items:center;gap:2px;padding:3px;border-radius:999px;background:var(--surface);border:1px solid var(--border)}
+.lang-toggle .lang-btn{appearance:none;border:0;background:transparent;color:var(--text-tertiary);font:inherit;font-size:12px;font-weight:600;letter-spacing:-0.01em;padding:4px 10px;border-radius:999px;cursor:pointer;line-height:1;transition:color .15s,background .15s}
+.lang-toggle .lang-btn[aria-pressed="true"]{color:var(--bg-primary);background:var(--accent)}
+.lang-toggle .lang-btn:hover:not([aria-pressed="true"]){color:var(--text-secondary)}
 </style>
 <!-- 새로고침 시 항상 최상단에서 시작 — 브라우저 기본 스크롤 복원을 끄고 즉시 맨 위로. -->
 <script>if('scrollRestoration' in history)history.scrollRestoration='manual';window.scrollTo(0,0);</script>
@@ -350,27 +356,30 @@ table.ref.warn thead th{color:var(--warning)}
 <header class="nav" id="nav">
   <div class="nav-inner">
     <a href="./index.html" class="brand"><span class="mark"><svg viewBox="0 0 24 24" fill="none"><path d="M5 7c0-1.7 3.1-3 7-3s7 1.3 7 3-3.1 3-7 3-7-1.3-7-3Z" stroke="#F2FBFA" stroke-width="1.6"/><path d="M5 7v10c0 1.7 3.1 3 7 3s7-1.3 7-3V7" stroke="#F2FBFA" stroke-width="1.6"/><path d="M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3" stroke="#F2FBFA" stroke-width="1.6"/></svg></span><span class="wm">SQL<span class="wm-accent">PreShift</span></span></a>
-    <nav class="nav-links"><a href="./index.html">홈</a><a href="./download.html">다운로드</a><a href="./guide.html" class="active">가이드</a></nav>
-    <div class="nav-right"><a href="https://github.com/taehyunan-99/sql-preshift" class="nav-gh"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.58 2 12.25c0 4.53 2.87 8.37 6.84 9.73.5.1.68-.22.68-.49 0-.24-.01-.88-.01-1.73-2.78.62-3.37-1.37-3.37-1.37-.45-1.18-1.11-1.49-1.11-1.49-.91-.63.07-.62.07-.62 1 .07 1.53 1.06 1.53 1.06.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.63-1.37-2.22-.26-4.56-1.14-4.56-5.06 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.7 0 0 .84-.28 2.75 1.05a9.3 9.3 0 0 1 5 0c1.91-1.33 2.75-1.05 2.75-1.05.55 1.4.2 2.44.1 2.7.64.72 1.03 1.63 1.03 2.75 0 3.93-2.34 4.8-4.57 5.05.36.32.68.94.68 1.9 0 1.37-.01 2.48-.01 2.82 0 .27.18.6.69.49A10.02 10.02 0 0 0 22 12.25C22 6.58 17.52 2 12 2Z"/></svg>GitHub</a></div>
+    <nav class="nav-links"><a href="./index.html" data-i18n="nav-home">홈</a><a href="./download.html" data-i18n="nav-download">다운로드</a><a href="./guide.html" class="active" data-i18n="nav-guide">가이드</a></nav>
+    <div class="nav-right"><div class="lang-toggle" role="group" aria-label="Language">
+      <button type="button" data-lang="en" class="lang-btn">EN</button>
+      <button type="button" data-lang="ko" class="lang-btn">한국어</button>
+    </div><a href="https://github.com/taehyunan-99/sql-preshift" class="nav-gh"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.58 2 12.25c0 4.53 2.87 8.37 6.84 9.73.5.1.68-.22.68-.49 0-.24-.01-.88-.01-1.73-2.78.62-3.37-1.37-3.37-1.37-.45-1.18-1.11-1.49-1.11-1.49-.91-.63.07-.62.07-.62 1 .07 1.53 1.06 1.53 1.06.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.63-1.37-2.22-.26-4.56-1.14-4.56-5.06 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.7 0 0 .84-.28 2.75 1.05a9.3 9.3 0 0 1 5 0c1.91-1.33 2.75-1.05 2.75-1.05.55 1.4.2 2.44.1 2.7.64.72 1.03 1.63 1.03 2.75 0 3.93-2.34 4.8-4.57 5.05.36.32.68.94.68 1.9 0 1.37-.01 2.48-.01 2.82 0 .27.18.6.69.49A10.02 10.02 0 0 0 22 12.25C22 6.58 17.52 2 12 2Z"/></svg>GitHub</a></div>
     <button class="menu-toggle" id="menuToggle" aria-label="Menu"><span></span><span></span><span></span></button>
   </div>
 </header>
 
 <!-- 가이드 3페이지 서브바 — 시작하기 / 고급 기능 / 레퍼런스 -->
-<nav class="gsub" aria-label="가이드 페이지">
+<nav class="gsub" aria-label="가이드 페이지" data-i18n-attr="aria-label:gsub-aria">
   <div class="gsub-inner">
-    <a href="./guide.html">시작하기</a>
-    <a href="./guide-advanced.html">세부 기능</a>
-    <a href="./guide-reference.html" class="active">레퍼런스</a>
+    <a href="./guide.html" data-i18n="gsub-start">시작하기</a>
+    <a href="./guide-advanced.html" data-i18n="gsub-advanced">세부 기능</a>
+    <a href="./guide-reference.html" class="active" data-i18n="gsub-reference">레퍼런스</a>
   </div>
 </nav>
 
 <!-- ============ SECTION 0 — 히어로 + Requirements (basic) ============ -->
 <section class="g-hero" id="top">
   <div class="wrap-narrow gh" data-reveal="up">
-    <span class="eyebrow"><span class="dot"></span> 레퍼런스</span>
-    <h1 data-anim="hero">찾아보는 규칙과 표</h1>
-    <p>위험 규칙 17종(Critical 7 · Warning 10)의 전체 카탈로그, 하드 가드, 요구사항, 키보드 단축키, troubleshooting, FAQ를 한곳에 모았습니다. 기능 사용법은 <a href="./guide.html" style="color:var(--accent)">시작하기</a>와 <a href="./guide-advanced.html" style="color:var(--accent)">세부 기능</a>을 보세요.</p>
+    <span class="eyebrow" data-i18n="hero-eyebrow"><span class="dot"></span> 레퍼런스</span>
+    <h1 data-anim="hero" data-i18n="hero-h1">찾아보는 규칙과 표</h1>
+    <p data-i18n="hero-sub">위험 규칙 17종(Critical 7 · Warning 10)의 전체 카탈로그, 하드 가드, 요구사항, 키보드 단축키, troubleshooting, FAQ를 한곳에 모았습니다. 기능 사용법은 <a href="./guide.html" style="color:var(--accent)">시작하기</a>와 <a href="./guide-advanced.html" style="color:var(--accent)">세부 기능</a>을 보세요.</p>
   </div>
 </section>
 
@@ -378,61 +387,61 @@ table.ref.warn thead th{color:var(--warning)}
 
   <!-- 모바일 강등 TOC (980px 이하에서만 노출) -->
   <details class="toc-mobile" id="tocMobile">
-    <summary>On this page</summary>
+    <summary data-i18n="toc-mobile-summary">On this page</summary>
     <div class="toc-inner" id="tocMobileInner"></div>
   </details>
 
   <!-- ===================== 본문 ===================== -->
   <main class="g-main">
-    <section class="g-sec" id="reference" data-toc="레퍼런스" data-group="REFERENCE">
-      <div class="sec-k">Section 12 · Reference</div>
-      <h2>레퍼런스</h2>
+    <section class="g-sec" id="reference" data-toc="레퍼런스" data-group="REFERENCE" data-i18n-attr="data-toc:sec-toc;data-group:sec-group">
+      <div class="sec-k" data-i18n="sec-k">Section 12 · Reference</div>
+      <h2 data-i18n="sec-h2">레퍼런스</h2>
 
-      <h3>위험 규칙 · CRITICAL 7 (Apply 전 명시 확인 강제, 100% 결정적)</h3>
+      <h3 data-i18n="crit-h3">위험 규칙 · CRITICAL 7 (Apply 전 명시 확인 강제, 100% 결정적)</h3>
       <div class="tbl-wrap" data-reveal="up" data-anim="rows">
         <table class="ref crit">
-          <thead><tr><th>Rule</th><th>감지</th><th>golden-path</th></tr></thead>
+          <thead><tr><th data-i18n="th-rule">Rule</th><th data-i18n="crit-th-detect">감지</th><th data-i18n="th-goldenpath">golden-path</th></tr></thead>
           <tbody>
-            <tr><td><code>DELETE_WITHOUT_WHERE</code></td><td>WHERE 없는 DELETE</td><td>범위 명시, 대량은 배치 루프</td></tr>
-            <tr><td><code>UPDATE_WITHOUT_WHERE</code></td><td>WHERE 없는 UPDATE</td><td>범위 명시, 배치 루프</td></tr>
-            <tr><td><code>DROP_TABLE</code></td><td>DROP TABLE</td><td>expand-contract: 코드 참조 제거 후 다음 릴리스에 DROP</td></tr>
-            <tr><td><code>DROP_COLUMN</code></td><td>ALTER ... DROP COLUMN</td><td>앱이 미참조 확인 후 다음 릴리스에 DROP</td></tr>
-            <tr><td><code>TRUNCATE</code></td><td>TRUNCATE</td><td>WHERE로 특정 행만 삭제</td></tr>
-            <tr><td><code>ADD_FK_VALIDATING</code></td><td>NOT VALID 없는 FK 추가</td><td>NOT VALID &rarr; VALIDATE CONSTRAINT</td></tr>
-            <tr><td><code>TABLE_REWRITE_FULL</code></td><td>VACUUM FULL</td><td>pg_repack / 점검창</td></tr>
+            <tr><td><code>DELETE_WITHOUT_WHERE</code></td><td data-i18n="crit-r1-d">WHERE 없는 DELETE</td><td data-i18n="crit-r1-g">범위 명시, 대량은 배치 루프</td></tr>
+            <tr><td><code>UPDATE_WITHOUT_WHERE</code></td><td data-i18n="crit-r2-d">WHERE 없는 UPDATE</td><td data-i18n="crit-r2-g">범위 명시, 배치 루프</td></tr>
+            <tr><td><code>DROP_TABLE</code></td><td data-i18n="crit-r3-d">DROP TABLE</td><td data-i18n="crit-r3-g">expand-contract: 코드 참조 제거 후 다음 릴리스에 DROP</td></tr>
+            <tr><td><code>DROP_COLUMN</code></td><td data-i18n="crit-r4-d">ALTER ... DROP COLUMN</td><td data-i18n="crit-r4-g">앱이 미참조 확인 후 다음 릴리스에 DROP</td></tr>
+            <tr><td><code>TRUNCATE</code></td><td data-i18n="crit-r5-d">TRUNCATE</td><td data-i18n="crit-r5-g">WHERE로 특정 행만 삭제</td></tr>
+            <tr><td><code>ADD_FK_VALIDATING</code></td><td data-i18n="crit-r6-d">NOT VALID 없는 FK 추가</td><td data-i18n="crit-r6-g">NOT VALID &rarr; VALIDATE CONSTRAINT</td></tr>
+            <tr><td><code>TABLE_REWRITE_FULL</code></td><td data-i18n="crit-r7-d">VACUUM FULL</td><td data-i18n="crit-r7-g">pg_repack / 점검창</td></tr>
           </tbody>
         </table>
       </div>
 
-      <h3>위험 규칙 · WARNING 10 (정보성·비차단, 100% 결정적)</h3>
+      <h3 data-i18n="warn-h3">위험 규칙 · WARNING 10 (정보성·비차단, 100% 결정적)</h3>
       <div class="tbl-wrap" data-reveal="up" data-anim="rows">
         <table class="ref warn">
-          <thead><tr><th>Rule</th><th>위험</th><th>golden-path</th></tr></thead>
+          <thead><tr><th data-i18n="th-rule-2">Rule</th><th data-i18n="warn-th-risk">위험</th><th data-i18n="th-goldenpath-2">golden-path</th></tr></thead>
           <tbody>
-            <tr><td><code>ADD_NOT_NULL_NO_DEFAULT</code></td><td>기존 행 오류</td><td>nullable 추가 &rarr; 백필 &rarr; CHECK &rarr; SET NOT NULL</td></tr>
-            <tr><td><code>ADD_COLUMN_VOLATILE_DEFAULT</code></td><td>전체 재작성+락</td><td>기본값 없이 추가 &rarr; 배치 백필 &rarr; SET DEFAULT</td></tr>
-            <tr><td><code>ALTER_COLUMN_TYPE</code></td><td>전체 재작성+ACCESS EXCLUSIVE 락</td><td>expand-contract</td></tr>
-            <tr><td><code>SET_NOT_NULL</code></td><td>전체 스캔+락</td><td>CHECK NOT VALID &rarr; VALIDATE &rarr; SET NOT NULL</td></tr>
-            <tr><td><code>RENAME_COLUMN_OR_TABLE</code></td><td>앱 코드 즉시 깨짐</td><td>expand-contract</td></tr>
-            <tr><td><code>ADD_PK_OR_UNIQUE</code></td><td>인덱스 빌드 중 쓰기 차단</td><td>CREATE UNIQUE INDEX CONCURRENTLY &rarr; ADD CONSTRAINT USING INDEX</td></tr>
-            <tr><td><code>ADD_CHECK_VALIDATING</code></td><td>전체 스캔+락</td><td>NOT VALID &rarr; VALIDATE CONSTRAINT</td></tr>
-            <tr><td><code>CREATE_INDEX_BLOCKING</code></td><td>빌드 중 쓰기 차단</td><td>CREATE INDEX CONCURRENTLY</td></tr>
-            <tr><td><code>CONCURRENTLY_IN_TRANSACTION</code></td><td>TX 안 CONCURRENTLY &rarr; 런타임 실패</td><td>autocommit 단독 실행</td></tr>
-            <tr><td><code>CASCADE</code></td><td>의존객체 조용히 드롭</td><td>RESTRICT 먼저 &rarr; 영향 확인 &rarr; CASCADE</td></tr>
+            <tr><td><code>ADD_NOT_NULL_NO_DEFAULT</code></td><td data-i18n="warn-r1-r">기존 행 오류</td><td data-i18n="warn-r1-g">nullable 추가 &rarr; 백필 &rarr; CHECK &rarr; SET NOT NULL</td></tr>
+            <tr><td><code>ADD_COLUMN_VOLATILE_DEFAULT</code></td><td data-i18n="warn-r2-r">전체 재작성+락</td><td data-i18n="warn-r2-g">기본값 없이 추가 &rarr; 배치 백필 &rarr; SET DEFAULT</td></tr>
+            <tr><td><code>ALTER_COLUMN_TYPE</code></td><td data-i18n="warn-r3-r">전체 재작성+ACCESS EXCLUSIVE 락</td><td data-i18n="warn-r3-g">expand-contract</td></tr>
+            <tr><td><code>SET_NOT_NULL</code></td><td data-i18n="warn-r4-r">전체 스캔+락</td><td data-i18n="warn-r4-g">CHECK NOT VALID &rarr; VALIDATE &rarr; SET NOT NULL</td></tr>
+            <tr><td><code>RENAME_COLUMN_OR_TABLE</code></td><td data-i18n="warn-r5-r">앱 코드 즉시 깨짐</td><td data-i18n="warn-r5-g">expand-contract</td></tr>
+            <tr><td><code>ADD_PK_OR_UNIQUE</code></td><td data-i18n="warn-r6-r">인덱스 빌드 중 쓰기 차단</td><td data-i18n="warn-r6-g">CREATE UNIQUE INDEX CONCURRENTLY &rarr; ADD CONSTRAINT USING INDEX</td></tr>
+            <tr><td><code>ADD_CHECK_VALIDATING</code></td><td data-i18n="warn-r7-r">전체 스캔+락</td><td data-i18n="warn-r7-g">NOT VALID &rarr; VALIDATE CONSTRAINT</td></tr>
+            <tr><td><code>CREATE_INDEX_BLOCKING</code></td><td data-i18n="warn-r8-r">빌드 중 쓰기 차단</td><td data-i18n="warn-r8-g">CREATE INDEX CONCURRENTLY</td></tr>
+            <tr><td><code>CONCURRENTLY_IN_TRANSACTION</code></td><td data-i18n="warn-r9-r">TX 안 CONCURRENTLY &rarr; 런타임 실패</td><td data-i18n="warn-r9-g">autocommit 단독 실행</td></tr>
+            <tr><td><code>CASCADE</code></td><td data-i18n="warn-r10-r">의존객체 조용히 드롭</td><td data-i18n="warn-r10-g">RESTRICT 먼저 &rarr; 영향 확인 &rarr; CASCADE</td></tr>
           </tbody>
         </table>
       </div>
-      <p style="font-size:13.5px">판정은 100% 결정적(LLM 무관). LLM은 해설만 덧붙입니다. <code>CONCURRENTLY_IN_TRANSACTION</code>은 CREATE/DROP 두 경로에 등장하며, 고유 rule 이름 기준 warning 10종입니다.</p>
+      <p style="font-size:13.5px" data-i18n="warn-note">판정은 100% 결정적(LLM 무관). LLM은 해설만 덧붙입니다. <code>CONCURRENTLY_IN_TRANSACTION</code>은 CREATE/DROP 두 경로에 등장하며, 고유 rule 이름 기준 warning 10종입니다.</p>
 
-      <h3>하드 가드 (입력 단계 콜아웃과 이중 배치)</h3>
+      <h3 data-i18n="guard-h3">하드 가드 (입력 단계 콜아웃과 이중 배치)</h3>
       <ul>
-        <li>멀티 statement 금지(한 번에 1개 SQL).</li>
-        <li>시스템 스키마 차단: <code>pg_catalog</code> / <code>information_schema</code> / <code>pg_toast</code>.</li>
-        <li>구문 오류 차단(<code>sqlglot</code> 파싱).</li>
-        <li>NL&rarr;SQL의 LLM 출력도 동일 결정적 검증(LLM은 초안만).</li>
+        <li data-i18n="guard-li1">멀티 statement 금지(한 번에 1개 SQL).</li>
+        <li data-i18n="guard-li2">시스템 스키마 차단: <code>pg_catalog</code> / <code>information_schema</code> / <code>pg_toast</code>.</li>
+        <li data-i18n="guard-li3">구문 오류 차단(<code>sqlglot</code> 파싱).</li>
+        <li data-i18n="guard-li4">NL&rarr;SQL의 LLM 출력도 동일 결정적 검증(LLM은 초안만).</li>
       </ul>
 
-      <h3>Requirements 표</h3>
+      <h3 data-i18n="req-h3">Requirements 표</h3>
       <div class="tbl-wrap" data-reveal="up" data-anim="rows">
         <table class="ref">
           <tbody>
@@ -441,37 +450,37 @@ table.ref.warn thead th{color:var(--warning)}
             <tr><td>OS</td><td><code>macOS Big Sur 11+</code></td></tr>
             <tr><td>Target DB</td><td><code>PostgreSQL 16 target</code></td></tr>
             <tr><td>Network</td><td><code>runs fully local</code></td></tr>
-            <tr><td>Meta DB</td><td>SQLite (설치형)</td></tr>
+            <tr><td>Meta DB</td><td data-i18n="req-metadb">SQLite (설치형)</td></tr>
           </tbody>
         </table>
       </div>
 
-      <h3>키보드 단축키</h3>
-      <p><span class="kbd">Cmd/Ctrl+Enter</span> 제출 · <span class="kbd">Enter</span> 줄바꿈 · <span class="kbd">Tab</span> 들여쓰기 · <span class="kbd">Shift+Tab</span> 내어쓰기.</p>
+      <h3 data-i18n="kbd-h3">키보드 단축키</h3>
+      <p data-i18n="kbd-p"><span class="kbd">Cmd/Ctrl+Enter</span> 제출 · <span class="kbd">Enter</span> 줄바꿈 · <span class="kbd">Tab</span> 들여쓰기 · <span class="kbd">Shift+Tab</span> 내어쓰기.</p>
 
-      <h3>Troubleshooting</h3>
+      <h3 data-i18n="ts-h3">Troubleshooting</h3>
       <ul>
-        <li>macOS <code>the developer cannot be verified</code> &rarr; 우클릭 <code>Open</code>(Big Sur 11은 2회).</li>
-        <li><code>Connection refused</code> &rarr; PostgreSQL <code>:5432</code> 기동 확인 또는 데모 DB(<code>:5433</code>/<code>:5434</code>).</li>
-        <li>No model &rarr; SQL only로 동작.</li>
-        <li>빈 분석 결과 &rarr; 데모 DB 전환.</li>
+        <li data-i18n="ts-li1">macOS <code>the developer cannot be verified</code> &rarr; 우클릭 <code>Open</code>(Big Sur 11은 2회).</li>
+        <li data-i18n="ts-li2"><code>Connection refused</code> &rarr; PostgreSQL <code>:5432</code> 기동 확인 또는 데모 DB(<code>:5433</code>/<code>:5434</code>).</li>
+        <li data-i18n="ts-li3">No model &rarr; SQL only로 동작.</li>
+        <li data-i18n="ts-li4">빈 분석 결과 &rarr; 데모 DB 전환.</li>
       </ul>
 
-      <h3>FAQ</h3>
-      <details class="adv"><summary>Does my data leave the machine?</summary>
-        <div class="adv-body"><p style="margin-top:0">아니오, 전부 로컬(접속 정보·추론 모두 기기 밖으로 안 나감).</p></div>
+      <h3 data-i18n="faq-h3">FAQ</h3>
+      <details class="adv"><summary data-i18n="faq-q1">Does my data leave the machine?</summary>
+        <div class="adv-body"><p style="margin-top:0" data-i18n="faq-a1">아니오, 전부 로컬(접속 정보·추론 모두 기기 밖으로 안 나감).</p></div>
       </details>
-      <details class="adv"><summary>Do I need Ollama?</summary>
-        <div class="adv-body"><p style="margin-top:0">아니오, 자연어 입력에만 필요합니다. SQL 직접 입력은 모델 없이 동작합니다.</p></div>
+      <details class="adv"><summary data-i18n="faq-q2">Do I need Ollama?</summary>
+        <div class="adv-body"><p style="margin-top:0" data-i18n="faq-a2">아니오, 자연어 입력에만 필요합니다. SQL 직접 입력은 모델 없이 동작합니다.</p></div>
       </details>
-      <details class="adv"><summary>Can a bad migration half-apply?</summary>
-        <div class="adv-body"><p style="margin-top:0">아니오, <code>Apply All</code>은 단일 트랜잭션 all-or-nothing입니다.</p></div>
+      <details class="adv"><summary data-i18n="faq-q3">Can a bad migration half-apply?</summary>
+        <div class="adv-body"><p style="margin-top:0" data-i18n="faq-a3">아니오, <code>Apply All</code>은 단일 트랜잭션 all-or-nothing입니다.</p></div>
       </details>
-      <details class="adv"><summary>Is the risk check AI or rules?</summary>
-        <div class="adv-body"><p style="margin-top:0">100% 결정적 규칙 기반입니다(LLM 무관). LLM은 해설만 덧붙입니다. 그래서 같은 입력엔 같은 판정이 나오고 재현 가능하며 환각이 없습니다.</p></div>
+      <details class="adv"><summary data-i18n="faq-q4">Is the risk check AI or rules?</summary>
+        <div class="adv-body"><p style="margin-top:0" data-i18n="faq-a4">100% 결정적 규칙 기반입니다(LLM 무관). LLM은 해설만 덧붙입니다. 그래서 같은 입력엔 같은 판정이 나오고 재현 가능하며 환각이 없습니다.</p></div>
       </details>
-      <details class="adv"><summary>언어를 바꿀 수 있나요?</summary>
-        <div class="adv-body"><p style="margin-top:0">TopBar <code>EN / 한국어</code> 토글로 UI와 위험/설명을 한&harr;영 전환합니다.</p></div>
+      <details class="adv"><summary data-i18n="faq-q5">언어를 바꿀 수 있나요?</summary>
+        <div class="adv-body"><p style="margin-top:0" data-i18n="faq-a5">TopBar <code>EN / 한국어</code> 토글로 UI와 위험/설명을 한&harr;영 전환합니다.</p></div>
       </details>
     </section>
 
@@ -487,12 +496,12 @@ table.ref.warn thead th{color:var(--warning)}
 <footer class="foot">
   <div class="wrap">
     <div class="foot-grid">
-      <div class="foot-brand"><a href="./index.html" class="brand"><span class="mark"><svg viewBox="0 0 24 24" fill="none"><path d="M5 7c0-1.7 3.1-3 7-3s7 1.3 7 3-3.1 3-7 3-7-1.3-7-3Z" stroke="#F2FBFA" stroke-width="1.6"/><path d="M5 7v10c0 1.7 3.1 3 7 3s7-1.3 7-3V7" stroke="#F2FBFA" stroke-width="1.6"/><path d="M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3" stroke="#F2FBFA" stroke-width="1.6"/></svg></span><span class="wm">SQL<span class="wm-accent">PreShift</span></span></a><p>PostgreSQL 스키마 마이그레이션을 위한 안전 게이트. 호스팅 서비스가 아닌 포트폴리오 데모로, 위험한 마이그레이션을 실수로 적용하는 일이 불가능하도록 만들었습니다.</p></div>
-      <div class="foot-col"><h5>제품</h5><a href="./index.html">홈</a><a href="./download.html">다운로드</a><a href="./guide.html">가이드</a></div>
-      <div class="foot-col"><h5>리소스</h5><a href="./guide.html#install">설치 &amp; Gatekeeper</a><a href="./guide.html#workflow">핵심 워크플로</a><a href="https://github.com/taehyunan-99/sql-preshift">GitHub 저장소</a></div>
-      <div class="foot-col"><h5>정보</h5><a href="https://github.com/taehyunan-99/sql-preshift/releases">릴리즈</a><a href="https://github.com/taehyunan-99/sql-preshift/blob/main/LICENSE">MIT 라이선스</a></div>
+      <div class="foot-brand"><a href="./index.html" class="brand"><span class="mark"><svg viewBox="0 0 24 24" fill="none"><path d="M5 7c0-1.7 3.1-3 7-3s7 1.3 7 3-3.1 3-7 3-7-1.3-7-3Z" stroke="#F2FBFA" stroke-width="1.6"/><path d="M5 7v10c0 1.7 3.1 3 7 3s7-1.3 7-3V7" stroke="#F2FBFA" stroke-width="1.6"/><path d="M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3" stroke="#F2FBFA" stroke-width="1.6"/></svg></span><span class="wm">SQL<span class="wm-accent">PreShift</span></span></a><p data-i18n="foot-tagline">PostgreSQL 스키마 마이그레이션을 위한 안전 게이트. 호스팅 서비스가 아닌 포트폴리오 데모로, 위험한 마이그레이션을 실수로 적용하는 일이 불가능하도록 만들었습니다.</p></div>
+      <div class="foot-col"><h5 data-i18n="foot-h5-product">제품</h5><a href="./index.html" data-i18n="foot-home">홈</a><a href="./download.html" data-i18n="foot-download">다운로드</a><a href="./guide.html" data-i18n="foot-guide">가이드</a></div>
+      <div class="foot-col"><h5 data-i18n="foot-h5-resources">리소스</h5><a href="./guide.html#install" data-i18n="foot-install">설치 &amp; Gatekeeper</a><a href="./guide.html#workflow" data-i18n="foot-workflow">핵심 워크플로</a><a href="https://github.com/taehyunan-99/sql-preshift" data-i18n="foot-repo">GitHub 저장소</a></div>
+      <div class="foot-col"><h5 data-i18n="foot-h5-about">정보</h5><a href="https://github.com/taehyunan-99/sql-preshift/releases" data-i18n="foot-releases">릴리즈</a><a href="https://github.com/taehyunan-99/sql-preshift/blob/main/LICENSE" data-i18n="foot-license">MIT 라이선스</a></div>
     </div>
-    <div class="foot-bottom"><span>&copy; 2026 SQLPreShift &middot; MIT 라이선스 &middot; 완전히 로컬에서 동작.</span><span class="badges"><span class="badge">PostgreSQL 16</span><span class="badge">macOS Apple Silicon</span><span class="badge">텔레메트리 없음</span></span></div>
+    <div class="foot-bottom"><span data-i18n="foot-copyright">&copy; 2026 SQLPreShift &middot; MIT 라이선스 &middot; 완전히 로컬에서 동작.</span><span class="badges"><span class="badge">PostgreSQL 16</span><span class="badge">macOS Apple Silicon</span><span class="badge" data-i18n="foot-badge-telemetry">텔레메트리 없음</span></span></div>
   </div>
 </footer>
 
@@ -501,6 +510,201 @@ table.ref.warn thead th{color:var(--warning)}
   <button class="lb-close" id="lbClose" aria-label="Close">&times;</button>
   <div class="lb-inner" id="lbInner"></div>
 </div>
+
+<!-- ============ i18n 사전 (DICT) — 이 페이지 전용. en 기본(SoT), ko 원문. 엔진보다 먼저 정의. ============ -->
+<script>
+window.SPF_DICT = {
+  __title__: { en: 'Guide · Reference · SQLPreShift', ko: '가이드 · 레퍼런스 · SQLPreShift' },
+  __desc__: {
+    en: 'Reference: the full catalog of 17 risk rules (7 Critical, 10 Warning), hard guards, requirements, keyboard shortcuts, troubleshooting, and FAQ for SQLPreShift.',
+    ko: '레퍼런스: 위험 규칙 17종(Critical 7, Warning 10)의 전체 카탈로그, 하드 가드, 요구사항, 키보드 단축키, troubleshooting, FAQ.'
+  },
+
+  /* nav */
+  'nav-home':     { en: 'Home',     ko: '홈' },
+  'nav-download': { en: 'Download', ko: '다운로드' },
+  'nav-guide':    { en: 'Guide',    ko: '가이드' },
+
+  /* 가이드 서브바 */
+  'gsub-aria':      { en: 'Guide pages',    ko: '가이드 페이지' },
+  'gsub-start':     { en: 'Get started',    ko: '시작하기' },
+  'gsub-advanced':  { en: 'Features',       ko: '세부 기능' },
+  'gsub-reference': { en: 'Reference',      ko: '레퍼런스' },
+
+  /* 히어로 */
+  'hero-eyebrow': { en: '<span class="dot"></span> Reference', ko: '<span class="dot"></span> 레퍼런스' },
+  'hero-h1':      { en: 'Rules and reference', ko: '찾아보는 규칙과 표' },
+  'hero-sub': {
+    en: 'The full catalog of all 17 risk rules (7 Critical, 10 Warning), plus hard guards, requirements, keyboard shortcuts, troubleshooting, and FAQ in one place. For how the features work, see <a href="./guide.html" style="color:var(--accent)">Get started</a> and <a href="./guide-advanced.html" style="color:var(--accent)">Features</a>.',
+    ko: '위험 규칙 17종(Critical 7 · Warning 10)의 전체 카탈로그, 하드 가드, 요구사항, 키보드 단축키, troubleshooting, FAQ를 한곳에 모았습니다. 기능 사용법은 <a href="./guide.html" style="color:var(--accent)">시작하기</a>와 <a href="./guide-advanced.html" style="color:var(--accent)">세부 기능</a>을 보세요.'
+  },
+
+  /* 모바일 TOC */
+  'toc-mobile-summary': { en: 'On this page', ko: '목차' },
+
+  /* 섹션 헤더 (data-toc/data-group는 속성 교체) */
+  'sec-toc':   { en: 'Reference', ko: '레퍼런스' },
+  'sec-group': { en: 'REFERENCE', ko: 'REFERENCE' },
+  'sec-k':     { en: 'Section 12 · Reference', ko: 'Section 12 · Reference' },
+  'sec-h2':    { en: 'Reference', ko: '레퍼런스' },
+
+  /* CRITICAL 표 */
+  'crit-h3':        { en: 'Risk rules · CRITICAL 7 (explicit confirmation required before Apply, 100% deterministic)', ko: '위험 규칙 · CRITICAL 7 (Apply 전 명시 확인 강제, 100% 결정적)' },
+  'th-rule':        { en: 'Rule',        ko: 'Rule' },
+  'crit-th-detect': { en: 'Detects',     ko: '감지' },
+  'th-goldenpath':  { en: 'golden-path', ko: 'golden-path' },
+  'crit-r1-d': { en: 'DELETE with no WHERE',  ko: 'WHERE 없는 DELETE' },
+  'crit-r1-g': { en: 'Scope it; batch-loop large deletes', ko: '범위 명시, 대량은 배치 루프' },
+  'crit-r2-d': { en: 'UPDATE with no WHERE',  ko: 'WHERE 없는 UPDATE' },
+  'crit-r2-g': { en: 'Scope it; batch-loop',  ko: '범위 명시, 배치 루프' },
+  'crit-r3-d': { en: 'DROP TABLE',            ko: 'DROP TABLE' },
+  'crit-r3-g': { en: 'expand-contract: drop code references first, then DROP in the next release', ko: 'expand-contract: 코드 참조 제거 후 다음 릴리스에 DROP' },
+  'crit-r4-d': { en: 'ALTER ... DROP COLUMN', ko: 'ALTER ... DROP COLUMN' },
+  'crit-r4-g': { en: 'Confirm the app no longer reads it, then DROP in the next release', ko: '앱이 미참조 확인 후 다음 릴리스에 DROP' },
+  'crit-r5-d': { en: 'TRUNCATE',              ko: 'TRUNCATE' },
+  'crit-r5-g': { en: 'Delete only specific rows with WHERE', ko: 'WHERE로 특정 행만 삭제' },
+  'crit-r6-d': { en: 'ADD FK without NOT VALID', ko: 'NOT VALID 없는 FK 추가' },
+  'crit-r6-g': { en: 'NOT VALID &rarr; VALIDATE CONSTRAINT', ko: 'NOT VALID &rarr; VALIDATE CONSTRAINT' },
+  'crit-r7-d': { en: 'VACUUM FULL',           ko: 'VACUUM FULL' },
+  'crit-r7-g': { en: 'pg_repack / maintenance window', ko: 'pg_repack / 점검창' },
+
+  /* WARNING 표 */
+  'warn-h3':         { en: 'Risk rules · WARNING 10 (informational, non-blocking, 100% deterministic)', ko: '위험 규칙 · WARNING 10 (정보성·비차단, 100% 결정적)' },
+  'th-rule-2':       { en: 'Rule',        ko: 'Rule' },
+  'warn-th-risk':    { en: 'Risk',        ko: '위험' },
+  'th-goldenpath-2': { en: 'golden-path', ko: 'golden-path' },
+  'warn-r1-r':  { en: 'Errors on existing rows', ko: '기존 행 오류' },
+  'warn-r1-g':  { en: 'Add nullable &rarr; backfill &rarr; CHECK &rarr; SET NOT NULL', ko: 'nullable 추가 &rarr; 백필 &rarr; CHECK &rarr; SET NOT NULL' },
+  'warn-r2-r':  { en: 'Full rewrite + lock',     ko: '전체 재작성+락' },
+  'warn-r2-g':  { en: 'Add with no default &rarr; batch backfill &rarr; SET DEFAULT', ko: '기본값 없이 추가 &rarr; 배치 백필 &rarr; SET DEFAULT' },
+  'warn-r3-r':  { en: 'Full rewrite + ACCESS EXCLUSIVE lock', ko: '전체 재작성+ACCESS EXCLUSIVE 락' },
+  'warn-r3-g':  { en: 'expand-contract',         ko: 'expand-contract' },
+  'warn-r4-r':  { en: 'Full scan + lock',        ko: '전체 스캔+락' },
+  'warn-r4-g':  { en: 'CHECK NOT VALID &rarr; VALIDATE &rarr; SET NOT NULL', ko: 'CHECK NOT VALID &rarr; VALIDATE &rarr; SET NOT NULL' },
+  'warn-r5-r':  { en: 'Breaks app code instantly', ko: '앱 코드 즉시 깨짐' },
+  'warn-r5-g':  { en: 'expand-contract',         ko: 'expand-contract' },
+  'warn-r6-r':  { en: 'Blocks writes during index build', ko: '인덱스 빌드 중 쓰기 차단' },
+  'warn-r6-g':  { en: 'CREATE UNIQUE INDEX CONCURRENTLY &rarr; ADD CONSTRAINT USING INDEX', ko: 'CREATE UNIQUE INDEX CONCURRENTLY &rarr; ADD CONSTRAINT USING INDEX' },
+  'warn-r7-r':  { en: 'Full scan + lock',        ko: '전체 스캔+락' },
+  'warn-r7-g':  { en: 'NOT VALID &rarr; VALIDATE CONSTRAINT', ko: 'NOT VALID &rarr; VALIDATE CONSTRAINT' },
+  'warn-r8-r':  { en: 'Blocks writes during build', ko: '빌드 중 쓰기 차단' },
+  'warn-r8-g':  { en: 'CREATE INDEX CONCURRENTLY', ko: 'CREATE INDEX CONCURRENTLY' },
+  'warn-r9-r':  { en: 'CONCURRENTLY inside a TX &rarr; runtime failure', ko: 'TX 안 CONCURRENTLY &rarr; 런타임 실패' },
+  'warn-r9-g':  { en: 'Run standalone with autocommit', ko: 'autocommit 단독 실행' },
+  'warn-r10-r': { en: 'Silently drops dependent objects', ko: '의존객체 조용히 드롭' },
+  'warn-r10-g': { en: 'RESTRICT first &rarr; check impact &rarr; CASCADE', ko: 'RESTRICT 먼저 &rarr; 영향 확인 &rarr; CASCADE' },
+  'warn-note': {
+    en: 'Every verdict is 100% deterministic (no LLM involved); the LLM only adds explanations. <code>CONCURRENTLY_IN_TRANSACTION</code> shows up on both the CREATE and DROP paths, so by unique rule name there are 10 warnings.',
+    ko: '판정은 100% 결정적(LLM 무관). LLM은 해설만 덧붙입니다. <code>CONCURRENTLY_IN_TRANSACTION</code>은 CREATE/DROP 두 경로에 등장하며, 고유 rule 이름 기준 warning 10종입니다.'
+  },
+
+  /* 하드 가드 */
+  'guard-h3':  { en: 'Hard guards (paired with the callouts at the input stage)', ko: '하드 가드 (입력 단계 콜아웃과 이중 배치)' },
+  'guard-li1': { en: 'No multi-statement input (one SQL statement at a time).', ko: '멀티 statement 금지(한 번에 1개 SQL).' },
+  'guard-li2': { en: 'System schemas blocked: <code>pg_catalog</code> / <code>information_schema</code> / <code>pg_toast</code>.', ko: '시스템 스키마 차단: <code>pg_catalog</code> / <code>information_schema</code> / <code>pg_toast</code>.' },
+  'guard-li3': { en: 'Syntax errors blocked (parsed by <code>sqlglot</code>).', ko: '구문 오류 차단(<code>sqlglot</code> 파싱).' },
+  'guard-li4': { en: 'LLM output from NL&rarr;SQL runs through the same deterministic checks (the LLM only drafts).', ko: 'NL&rarr;SQL의 LLM 출력도 동일 결정적 검증(LLM은 초안만).' },
+
+  /* Requirements */
+  'req-h3':     { en: 'Requirements', ko: 'Requirements 표' },
+  'req-metadb': { en: 'SQLite (installable app)', ko: 'SQLite (설치형)' },
+
+  /* 키보드 단축키 */
+  'kbd-h3': { en: 'Keyboard shortcuts', ko: '키보드 단축키' },
+  'kbd-p': {
+    en: '<span class="kbd">Cmd/Ctrl+Enter</span> submit · <span class="kbd">Enter</span> newline · <span class="kbd">Tab</span> indent · <span class="kbd">Shift+Tab</span> outdent.',
+    ko: '<span class="kbd">Cmd/Ctrl+Enter</span> 제출 · <span class="kbd">Enter</span> 줄바꿈 · <span class="kbd">Tab</span> 들여쓰기 · <span class="kbd">Shift+Tab</span> 내어쓰기.'
+  },
+
+  /* Troubleshooting */
+  'ts-h3':  { en: 'Troubleshooting', ko: 'Troubleshooting' },
+  'ts-li1': { en: 'macOS <code>the developer cannot be verified</code> &rarr; right-click <code>Open</code> (twice on Big Sur 11).', ko: 'macOS <code>the developer cannot be verified</code> &rarr; 우클릭 <code>Open</code>(Big Sur 11은 2회).' },
+  'ts-li2': { en: '<code>Connection refused</code> &rarr; check PostgreSQL is up on <code>:5432</code>, or use a demo DB (<code>:5433</code>/<code>:5434</code>).', ko: '<code>Connection refused</code> &rarr; PostgreSQL <code>:5432</code> 기동 확인 또는 데모 DB(<code>:5433</code>/<code>:5434</code>).' },
+  'ts-li3': { en: 'No model &rarr; runs in SQL-only mode.', ko: 'No model &rarr; SQL only로 동작.' },
+  'ts-li4': { en: 'Empty analysis result &rarr; switch to a demo DB.', ko: '빈 분석 결과 &rarr; 데모 DB 전환.' },
+
+  /* FAQ */
+  'faq-h3': { en: 'FAQ', ko: 'FAQ' },
+  'faq-q1': { en: 'Does my data leave the machine?', ko: 'Does my data leave the machine?' },
+  'faq-a1': { en: 'No. Everything stays local (both credentials and inference never leave the machine).', ko: '아니오, 전부 로컬(접속 정보·추론 모두 기기 밖으로 안 나감).' },
+  'faq-q2': { en: 'Do I need Ollama?', ko: 'Do I need Ollama?' },
+  'faq-a2': { en: 'No, only for natural-language input. Entering SQL directly works without any model.', ko: '아니오, 자연어 입력에만 필요합니다. SQL 직접 입력은 모델 없이 동작합니다.' },
+  'faq-q3': { en: 'Can a bad migration half-apply?', ko: 'Can a bad migration half-apply?' },
+  'faq-a3': { en: 'No. <code>Apply All</code> runs in a single all-or-nothing transaction.', ko: '아니오, <code>Apply All</code>은 단일 트랜잭션 all-or-nothing입니다.' },
+  'faq-q4': { en: 'Is the risk check AI or rules?', ko: 'Is the risk check AI or rules?' },
+  'faq-a4': { en: '100% deterministic rules (no LLM involved). The LLM only adds explanations, so the same input always yields the same verdict, reproducibly and with no hallucination.', ko: '100% 결정적 규칙 기반입니다(LLM 무관). LLM은 해설만 덧붙입니다. 그래서 같은 입력엔 같은 판정이 나오고 재현 가능하며 환각이 없습니다.' },
+  'faq-q5': { en: 'Can I switch languages?', ko: '언어를 바꿀 수 있나요?' },
+  'faq-a5': { en: 'Yes. The <code>EN / 한국어</code> toggle in the TopBar switches the UI and the risk/explanation text between Korean and English.', ko: 'TopBar <code>EN / 한국어</code> 토글로 UI와 위험/설명을 한&harr;영 전환합니다.' },
+
+  /* footer */
+  'foot-tagline': {
+    en: 'A safety gate for PostgreSQL schema migrations. A portfolio demo, not a hosted service, built so you can\'t apply a dangerous migration by accident.',
+    ko: 'PostgreSQL 스키마 마이그레이션을 위한 안전 게이트. 호스팅 서비스가 아닌 포트폴리오 데모로, 위험한 마이그레이션을 실수로 적용하는 일이 불가능하도록 만들었습니다.'
+  },
+  'foot-h5-product':   { en: 'Product',   ko: '제품' },
+  'foot-home':         { en: 'Home',      ko: '홈' },
+  'foot-download':     { en: 'Download',  ko: '다운로드' },
+  'foot-guide':        { en: 'Guide',     ko: '가이드' },
+  'foot-h5-resources': { en: 'Resources', ko: '리소스' },
+  'foot-install':      { en: 'Install &amp; Gatekeeper', ko: '설치 &amp; Gatekeeper' },
+  'foot-workflow':     { en: 'Core workflow', ko: '핵심 워크플로' },
+  'foot-repo':         { en: 'GitHub repo', ko: 'GitHub 저장소' },
+  'foot-h5-about':     { en: 'About',     ko: '정보' },
+  'foot-releases':     { en: 'Releases',  ko: '릴리즈' },
+  'foot-license':      { en: 'MIT License', ko: 'MIT 라이선스' },
+  'foot-copyright':    { en: '&copy; 2026 SQLPreShift &middot; MIT License &middot; runs fully local.', ko: '&copy; 2026 SQLPreShift &middot; MIT 라이선스 &middot; 완전히 로컬에서 동작.' },
+  'foot-badge-telemetry': { en: 'No telemetry', ko: '텔레메트리 없음' }
+};
+</script>
+<!-- ============ i18n 엔진 — DICT를 읽어 [data-i18n]/[data-i18n-attr] 교체. 모션/TOC 스크립트보다 먼저 실행. ============ -->
+<script>
+(function(){
+  var DICT = window.SPF_DICT || {};
+  var KEY = 'spf-lang';
+  function getLang(){
+    var s = null; try{ s = localStorage.getItem(KEY); }catch(e){}
+    return (s === 'ko' || s === 'en') ? s : 'en';   // 기본 en
+  }
+  function apply(lang){
+    var nodes = document.querySelectorAll('[data-i18n]');
+    for(var i=0;i<nodes.length;i++){
+      var k = nodes[i].getAttribute('data-i18n');
+      var e = DICT[k];
+      if(e && e[lang] != null) nodes[i].innerHTML = e[lang];
+    }
+    var an = document.querySelectorAll('[data-i18n-attr]');
+    for(var j=0;j<an.length;j++){
+      var spec = an[j].getAttribute('data-i18n-attr').split(';');
+      for(var s=0;s<spec.length;s++){
+        var pair = spec[s].split(':');
+        if(pair.length<2) continue;
+        var attr = pair[0].trim(), key = pair[1].trim();
+        var ee = DICT[key];
+        if(ee && ee[lang] != null) an[j].setAttribute(attr, ee[lang]);
+      }
+    }
+    document.documentElement.setAttribute('lang', lang === 'ko' ? 'ko' : 'en');
+    if(DICT.__title__ && DICT.__title__[lang]) document.title = DICT.__title__[lang];
+    var md = document.querySelector('meta[name="description"]');
+    if(md && DICT.__desc__ && DICT.__desc__[lang]) md.setAttribute('content', DICT.__desc__[lang]);
+    var btns = document.querySelectorAll('.lang-toggle .lang-btn');
+    for(var b=0;b<btns.length;b++){
+      var on = btns[b].getAttribute('data-lang') === lang;
+      btns[b].setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
+  }
+  var cur = getLang();
+  apply(cur);
+  document.addEventListener('click', function(ev){
+    var t = ev.target.closest ? ev.target.closest('.lang-toggle .lang-btn') : null;
+    if(!t) return;
+    var lang = t.getAttribute('data-lang');
+    if(lang !== 'en' && lang !== 'ko') return;
+    try{ localStorage.setItem(KEY, lang); }catch(e){}
+    location.reload();
+  });
+})();
+</script>
 
 <script>
 (function(){var t=document.getElementById('menuToggle'),n=document.getElementById('nav');if(t)t.addEventListener('click',function(){n.classList.toggle('open');});})();

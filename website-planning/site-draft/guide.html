@@ -4,6 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>가이드 · SQLPreShift 처음 실행하기 · SQLPreShift</title>
+<meta name="description" content="SQLPreShift 시작하기: macOS 앱 설치, 데이터베이스 연결, 첫 변경을 ERD diff로 미리보기, 위험 리포트 읽기, 단일 트랜잭션으로 적용까지." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -355,6 +356,12 @@ table.ref.warn thead th{color:var(--warning)}
   .js [data-anim="rows"] tbody tr{opacity:1!important;transform:none!important;transition:none!important}
   .js [data-anim="sweep"] .tok{background-size:100% 86%!important}
 }
+
+/* ----- 언어 토글 (i18n) — 앱 EN|한국어 pill 톤 근사 ----- */
+.lang-toggle{display:inline-flex;align-items:center;gap:2px;padding:3px;border-radius:999px;background:var(--surface);border:1px solid var(--border)}
+.lang-toggle .lang-btn{appearance:none;border:0;background:transparent;color:var(--text-tertiary);font:inherit;font-size:12px;font-weight:600;letter-spacing:-0.01em;padding:4px 10px;border-radius:999px;cursor:pointer;line-height:1;transition:color .15s var(--ease),background .15s var(--ease)}
+.lang-toggle .lang-btn[aria-pressed="true"]{color:var(--bg-primary);background:var(--accent)}
+.lang-toggle .lang-btn:hover:not([aria-pressed="true"]){color:var(--text-secondary)}
 </style>
 <!-- 새로고침 시 항상 최상단에서 시작 — 브라우저 기본 스크롤 복원을 끄고 즉시 맨 위로. -->
 <script>if('scrollRestoration' in history)history.scrollRestoration='manual';window.scrollTo(0,0);</script>
@@ -363,28 +370,28 @@ table.ref.warn thead th{color:var(--warning)}
 <header class="nav" id="nav">
   <div class="nav-inner">
     <a href="./index.html" class="brand"><span class="mark"><svg viewBox="0 0 24 24" fill="none"><path d="M5 7c0-1.7 3.1-3 7-3s7 1.3 7 3-3.1 3-7 3-7-1.3-7-3Z" stroke="#F2FBFA" stroke-width="1.6"/><path d="M5 7v10c0 1.7 3.1 3 7 3s7-1.3 7-3V7" stroke="#F2FBFA" stroke-width="1.6"/><path d="M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3" stroke="#F2FBFA" stroke-width="1.6"/></svg></span><span class="wm">SQL<span class="wm-accent">PreShift</span></span></a>
-    <nav class="nav-links"><a href="./index.html">홈</a><a href="./download.html">다운로드</a><a href="./guide.html" class="active">가이드</a></nav>
-    <div class="nav-right"><a href="https://github.com/taehyunan-99/sql-preshift" class="nav-gh"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.58 2 12.25c0 4.53 2.87 8.37 6.84 9.73.5.1.68-.22.68-.49 0-.24-.01-.88-.01-1.73-2.78.62-3.37-1.37-3.37-1.37-.45-1.18-1.11-1.49-1.11-1.49-.91-.63.07-.62.07-.62 1 .07 1.53 1.06 1.53 1.06.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.63-1.37-2.22-.26-4.56-1.14-4.56-5.06 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.7 0 0 .84-.28 2.75 1.05a9.3 9.3 0 0 1 5 0c1.91-1.33 2.75-1.05 2.75-1.05.55 1.4.2 2.44.1 2.7.64.72 1.03 1.63 1.03 2.75 0 3.93-2.34 4.8-4.57 5.05.36.32.68.94.68 1.9 0 1.37-.01 2.48-.01 2.82 0 .27.18.6.69.49A10.02 10.02 0 0 0 22 12.25C22 6.58 17.52 2 12 2Z"/></svg>GitHub</a></div>
-    <button class="menu-toggle" id="menuToggle" aria-label="Menu"><span></span><span></span><span></span></button>
+    <nav class="nav-links"><a href="./index.html" data-i18n="nav-home">홈</a><a href="./download.html" data-i18n="nav-download">다운로드</a><a href="./guide.html" class="active" data-i18n="nav-guide">가이드</a></nav>
+    <div class="nav-right"><div class="lang-toggle" role="group" aria-label="Language"><button type="button" data-lang="en" class="lang-btn">EN</button><button type="button" data-lang="ko" class="lang-btn">한국어</button></div><a href="https://github.com/taehyunan-99/sql-preshift" class="nav-gh"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.58 2 12.25c0 4.53 2.87 8.37 6.84 9.73.5.1.68-.22.68-.49 0-.24-.01-.88-.01-1.73-2.78.62-3.37-1.37-3.37-1.37-.45-1.18-1.11-1.49-1.11-1.49-.91-.63.07-.62.07-.62 1 .07 1.53 1.06 1.53 1.06.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.63-1.37-2.22-.26-4.56-1.14-4.56-5.06 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.7 0 0 .84-.28 2.75 1.05a9.3 9.3 0 0 1 5 0c1.91-1.33 2.75-1.05 2.75-1.05.55 1.4.2 2.44.1 2.7.64.72 1.03 1.63 1.03 2.75 0 3.93-2.34 4.8-4.57 5.05.36.32.68.94.68 1.9 0 1.37-.01 2.48-.01 2.82 0 .27.18.6.69.49A10.02 10.02 0 0 0 22 12.25C22 6.58 17.52 2 12 2Z"/></svg>GitHub</a></div>
+    <button class="menu-toggle" id="menuToggle" aria-label="Menu" data-i18n-attr="aria-label:menu-aria"><span></span><span></span><span></span></button>
   </div>
 </header>
 
 <!-- 가이드 3페이지 서브바 — 시작하기 / 고급 기능 / 레퍼런스 -->
-<nav class="gsub" aria-label="가이드 페이지">
+<nav class="gsub" aria-label="가이드 페이지" data-i18n-attr="aria-label:gsub-aria">
   <div class="gsub-inner">
-    <a href="./guide.html" class="active">시작하기</a>
-    <a href="./guide-advanced.html">세부 기능</a>
-    <a href="./guide-reference.html">레퍼런스</a>
+    <a href="./guide.html" class="active" data-i18n="gsub-start">시작하기</a>
+    <a href="./guide-advanced.html" data-i18n="gsub-advanced">세부 기능</a>
+    <a href="./guide-reference.html" data-i18n="gsub-reference">레퍼런스</a>
   </div>
 </nav>
 
 <!-- ============ SECTION 0 — 히어로 + Requirements (basic) ============ -->
 <section class="g-hero" id="top">
   <div class="wrap-narrow gh" data-reveal="up">
-    <span class="eyebrow"><span class="dot"></span> 시작 가이드</span>
-    <h1 data-anim="hero">SQLPreShift 처음 실행하기</h1>
-    <p>SQLPreShift는 PostgreSQL 스키마 변경을 적용하기 <b>전에</b> 검토하는 macOS 데스크톱 앱입니다. 변경을 실제 데이터베이스에 던지기 전에 ERD diff로 미리 보고, 규칙 기반 위험 진단을 확인한 다음, 단일 트랜잭션으로 한 번에 적용하고, 적용 뒤에는 자동 생성된 역방향 SQL로 통째로 되돌립니다. 모든 작업은 로컬에서 동작하며, 자연어를 SQL로 바꾸는 기능은 선택 사항입니다. 이 가이드는 데이터베이스 연결부터 첫 위험 리포트를 받아보기까지의 흐름을 순서대로 안내합니다.</p>
-    <span class="promise">About 5 minutes from download to your first risk report.</span>
+    <span class="eyebrow" data-i18n="hero-eyebrow"><span class="dot"></span> 시작 가이드</span>
+    <h1 data-anim="hero" data-i18n="hero-h1">SQLPreShift 처음 실행하기</h1>
+    <p data-i18n="hero-sub">SQLPreShift는 PostgreSQL 스키마 변경을 적용하기 <b>전에</b> 검토하는 macOS 데스크톱 앱입니다. 변경을 실제 데이터베이스에 던지기 전에 ERD diff로 미리 보고, 규칙 기반 위험 진단을 확인한 다음, 단일 트랜잭션으로 한 번에 적용하고, 적용 뒤에는 자동 생성된 역방향 SQL로 통째로 되돌립니다. 모든 작업은 로컬에서 동작하며, 자연어를 SQL로 바꾸는 기능은 선택 사항입니다. 이 가이드는 데이터베이스 연결부터 첫 위험 리포트를 받아보기까지의 흐름을 순서대로 안내합니다.</p>
+    <span class="promise" data-i18n="hero-promise">About 5 minutes from download to your first risk report.</span>
   </div>
 </section>
 
@@ -392,7 +399,7 @@ table.ref.warn thead th{color:var(--warning)}
 
   <!-- 모바일 강등 TOC (980px 이하에서만 노출) -->
   <details class="toc-mobile" id="tocMobile">
-    <summary>On this page</summary>
+    <summary data-i18n="toc-onpage">On this page</summary>
     <div class="toc-inner" id="tocMobileInner"></div>
   </details>
 
@@ -400,106 +407,106 @@ table.ref.warn thead th{color:var(--warning)}
   <main class="g-main">
 
     <!-- SECTION 0: 개요 — 멘탈모델 + Requirements(짧게) -->
-    <section class="g-sec" data-toc="한눈에 보기" data-group="시작하기">
-      <div class="sec-k">Overview</div>
-      <h2>이 앱을 어떻게 생각하면 되나</h2>
-      <p class="lead">SQLPreShift의 모든 작업은 네 단계로 흐릅니다. 이 흐름은 앱 상단 상태 표시와 그대로 대응합니다.</p>
+    <section class="g-sec" data-toc="한눈에 보기" data-group="시작하기" data-i18n-attr="data-toc:toc-overview;data-group:group-start">
+      <div class="sec-k" data-i18n="s0-k">Overview</div>
+      <h2 data-i18n="s0-h2">이 앱을 어떻게 생각하면 되나</h2>
+      <p class="lead" data-i18n="s0-lead">SQLPreShift의 모든 작업은 네 단계로 흐릅니다. 이 흐름은 앱 상단 상태 표시와 그대로 대응합니다.</p>
 
       <div class="flow4" data-stagger>
-        <div class="node"><div class="nl">Input</div><div class="ns">SQL 또는 자연어 입력</div></div>
-        <div class="node"><div class="nl">Analyze</div><div class="ns">ERD diff 미리보기</div></div>
-        <div class="node warn"><div class="nl">Risk</div><div class="ns">결정적 위험 진단</div></div>
-        <div class="node"><div class="nl">Apply / Rollback</div><div class="ns">단일 트랜잭션 적용·되돌리기</div></div>
+        <div class="node"><div class="nl">Input</div><div class="ns" data-i18n="s0-node1">SQL 또는 자연어 입력</div></div>
+        <div class="node"><div class="nl">Analyze</div><div class="ns" data-i18n="s0-node2">ERD diff 미리보기</div></div>
+        <div class="node warn"><div class="nl">Risk</div><div class="ns" data-i18n="s0-node3">결정적 위험 진단</div></div>
+        <div class="node"><div class="nl">Apply / Rollback</div><div class="ns" data-i18n="s0-node4">단일 트랜잭션 적용·되돌리기</div></div>
       </div>
       <div class="flow-cap"><code>Ready</code> &rarr; <code>Analyzing</code> &rarr; <code>Preview</code> &rarr; <code>Applying</code> &rarr; <code>Applied</code></div>
 
       <div class="callout callout--note callout--center">
-        <span class="callout-label">Requirements</span>
-        <p><code>macOS Apple Silicon</code> &middot; <code>~122 MiB</code> &middot; <code>macOS Big Sur 11+</code> &middot; <code>PostgreSQL 16 target</code> &middot; 완전히 로컬에서 동작.</p>
-        <p>필요한 것은 앱 본체와 로컬 PostgreSQL 16, 또는 함께 제공하는 데모 DB(ERP·Pagila, 로컬에서 별도로 띄우는 PostgreSQL)뿐입니다. 자연어 입력을 쓰려면 Ollama와 모델이 있으면 되지만, 없어도 SQL 직접 입력으로 바로 시작할 수 있습니다.</p>
+        <span class="callout-label" data-i18n="s0-req-label">Requirements</span>
+        <p data-i18n="s0-req1"><code>macOS Apple Silicon</code> &middot; <code>~122 MiB</code> &middot; <code>macOS Big Sur 11+</code> &middot; <code>PostgreSQL 16 target</code> &middot; 완전히 로컬에서 동작.</p>
+        <p data-i18n="s0-req2">필요한 것은 앱 본체와 로컬 PostgreSQL 16, 또는 함께 제공하는 데모 DB(ERP·Pagila, 로컬에서 별도로 띄우는 PostgreSQL)뿐입니다. 자연어 입력을 쓰려면 Ollama와 모델이 있으면 되지만, 없어도 SQL 직접 입력으로 바로 시작할 수 있습니다.</p>
       </div>
     </section>
 
     <!-- SECTION 1: 설치 (GIF 없음, 핵심 요약) [필수 앵커 #install] -->
-    <section class="g-sec" id="install" data-toc="설치하고 처음 열기" data-group="시작하기">
-      <div class="sec-k">Install</div>
-      <h2>설치하고 처음 열기</h2>
+    <section class="g-sec" id="install" data-toc="설치하고 처음 열기" data-group="시작하기" data-i18n-attr="data-toc:toc-install;data-group:group-start">
+      <div class="sec-k" data-i18n="s1-k">Install</div>
+      <h2 data-i18n="s1-h2">설치하고 처음 열기</h2>
       <div class="qsec">
-        <p class="lead-line"><a href="./download.html" class="dl-inline"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0 4.5-4.5M12 15l-4.5-4.5M5 19h14" stroke="#F2FBFA" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Download for macOS</a> 페이지에서 앱을 받은 뒤, Finder에서 <code>SQLPreShift.app</code>을 <b>우클릭 &rarr; Open</b>으로 실행합니다.</p>
-        <p class="lead-line">코드서명이 없는 빌드라 <code>the developer cannot be verified</code> 경고가 뜨는데, 이는 정상이며 다시 <code>Open</code>을 누르면 됩니다. 앱이 열리면 DB 연결 화면이 먼저 나타납니다.</p>
-        <a href="./guide-advanced.html#install" class="more-link">Gatekeeper 통과·터미널 우회 등 자세히 <svg viewBox="0 0 24 24" fill="none"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="2"/></svg></a>
+        <p class="lead-line" data-i18n="s1-p1"><a href="./download.html" class="dl-inline"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0 4.5-4.5M12 15l-4.5-4.5M5 19h14" stroke="#F2FBFA" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Download for macOS</a> 페이지에서 앱을 받은 뒤, Finder에서 <code>SQLPreShift.app</code>을 <b>우클릭 &rarr; Open</b>으로 실행합니다.</p>
+        <p class="lead-line" data-i18n="s1-p2">코드서명이 없는 빌드라 <code>the developer cannot be verified</code> 경고가 뜨는데, 이는 정상이며 다시 <code>Open</code>을 누르면 됩니다. 앱이 열리면 DB 연결 화면이 먼저 나타납니다.</p>
+        <a href="./guide-advanced.html#install" class="more-link" data-i18n="s1-more">Gatekeeper 통과·터미널 우회 등 자세히 <svg viewBox="0 0 24 24" fill="none"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="2"/></svg></a>
       </div>
     </section>
 
     <!-- SECTION 2: 연결 (connect.gif) [#connect] -->
-    <section class="g-sec" id="connect" data-toc="데이터베이스 연결" data-group="시작하기">
-      <div class="sec-k">Connect</div>
-      <h2>데이터베이스에 연결하기</h2>
+    <section class="g-sec" id="connect" data-toc="데이터베이스 연결" data-group="시작하기" data-i18n-attr="data-toc:toc-connect;data-group:group-start">
+      <div class="sec-k" data-i18n="s2-k">Connect</div>
+      <h2 data-i18n="s2-h2">데이터베이스에 연결하기</h2>
       <figure class="demo demo-wide zoomable" data-anim="lift">
-        <figcaption class="demo-cap"><span class="tl"></span><span class="tl"></span><span class="tl"></span><span class="nm">DatabaseConnect</span><span class="hint"><svg viewBox="0 0 24 24" fill="none"><path d="M15 3h6v6m0-6-9 9M10 5H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5" stroke="currentColor" stroke-width="1.6"/></svg>클릭하면 확대</span></figcaption>
-        <img class="shot" src="./assets/guide/connect.gif" alt="데모 ERP DB에 연결하는 과정: Host·Port·Database·User·Password 입력 후 Test Connection, Connect" loading="lazy" width="1280" />
+        <figcaption class="demo-cap"><span class="tl"></span><span class="tl"></span><span class="tl"></span><span class="nm">DatabaseConnect</span><span class="hint" data-i18n="cap-zoom"><svg viewBox="0 0 24 24" fill="none"><path d="M15 3h6v6m0-6-9 9M10 5H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5" stroke="currentColor" stroke-width="1.6"/></svg>클릭하면 확대</span></figcaption>
+        <img class="shot" src="./assets/guide/connect.gif" alt="데모 ERP DB에 연결하는 과정: Host·Port·Database·User·Password 입력 후 Test Connection, Connect" data-i18n-attr="alt:s2-alt" loading="lazy" width="1280" />
       </figure>
       <div class="qsec">
-        <p class="lead-line"><code>Host</code> / <code>Port</code> / <code>Database</code> / <code>User</code> / <code>Password</code>를 입력하고 <code>Test Connection</code>으로 연결을 확인한 뒤 <code>Connect</code>를 누르면 됩니다(Test는 선택). 연결되면 왼쪽에 빈 캔버스와 입력창이 뜨고, <code>View full schema</code>를 누르면 전체 스키마 ERD가 그려집니다. 데모 ERP DB라면 92개 테이블이 나타납니다.</p>
-        <p class="lead-line">붙을 DB가 없어도, 함께 제공하는 데모 DB(ERP / Pagila)를 로컬에 띄우면 바로 시작할 수 있습니다.</p>
-        <a href="./guide-advanced.html#connect" class="more-link">연결 설정·데모 DB·문제 해결 자세히 <svg viewBox="0 0 24 24" fill="none"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="2"/></svg></a>
+        <p class="lead-line" data-i18n="s2-p1"><code>Host</code> / <code>Port</code> / <code>Database</code> / <code>User</code> / <code>Password</code>를 입력하고 <code>Test Connection</code>으로 연결을 확인한 뒤 <code>Connect</code>를 누르면 됩니다(Test는 선택). 연결되면 왼쪽에 빈 캔버스와 입력창이 뜨고, <code>View full schema</code>를 누르면 전체 스키마 ERD가 그려집니다. 데모 ERP DB라면 92개 테이블이 나타납니다.</p>
+        <p class="lead-line" data-i18n="s2-p2">붙을 DB가 없어도, 함께 제공하는 데모 DB(ERP / Pagila)를 로컬에 띄우면 바로 시작할 수 있습니다.</p>
+        <a href="./guide-advanced.html#connect" class="more-link" data-i18n="s2-more">연결 설정·데모 DB·문제 해결 자세히 <svg viewBox="0 0 24 24" fill="none"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="2"/></svg></a>
       </div>
     </section>
 
     <!-- SECTION 3: 분석 (analyze.gif) [#analyze] -->
-    <section class="g-sec" id="analyze" data-toc="변경 미리보기" data-group="시작하기">
-      <div class="sec-k">Analyze</div>
-      <h2>첫 변경 미리보기</h2>
+    <section class="g-sec" id="analyze" data-toc="변경 미리보기" data-group="시작하기" data-i18n-attr="data-toc:toc-analyze;data-group:group-start">
+      <div class="sec-k" data-i18n="s3-k">Analyze</div>
+      <h2 data-i18n="s3-h2">첫 변경 미리보기</h2>
       <figure class="demo demo-wide zoomable" data-anim="lift">
-        <figcaption class="demo-cap"><span class="tl"></span><span class="tl"></span><span class="tl"></span><span class="nm">Analyze · ERD diff</span><span class="hint"><svg viewBox="0 0 24 24" fill="none"><path d="M15 3h6v6m0-6-9 9M10 5H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5" stroke="currentColor" stroke-width="1.6"/></svg>클릭하면 확대</span></figcaption>
-        <img class="shot" src="./assets/guide/analyze.gif" alt="입력창에 SQL을 타이핑하고 분석하면 ERD diff가 색으로 그려지는 과정" loading="lazy" width="1280" />
+        <figcaption class="demo-cap"><span class="tl"></span><span class="tl"></span><span class="tl"></span><span class="nm">Analyze · ERD diff</span><span class="hint" data-i18n="cap-zoom-3"><svg viewBox="0 0 24 24" fill="none"><path d="M15 3h6v6m0-6-9 9M10 5H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5" stroke="currentColor" stroke-width="1.6"/></svg>클릭하면 확대</span></figcaption>
+        <img class="shot" src="./assets/guide/analyze.gif" alt="입력창에 SQL을 타이핑하고 분석하면 ERD diff가 색으로 그려지는 과정" data-i18n-attr="alt:s3-alt" loading="lazy" width="1280" />
       </figure>
       <div class="qsec">
-        <p class="lead-line">하단 입력창에 SQL이나 자연어를 쓰고 <span class="kbd">Cmd/Ctrl+Enter</span>로 분석합니다. 변경이 적용되기 <b>전에</b> ERD에 <code>Added</code>(초록) / <code>Removed</code>(빨강) / <code>Modified</code>(주황)로 그려집니다. 이 단계는 읽기 전용이라 DB는 아직 바뀌지 않습니다.</p>
-        <a href="./guide-advanced.html#analyze" class="more-link">자연어 입력·자동 감지·diff 모드 자세히 <svg viewBox="0 0 24 24" fill="none"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="2"/></svg></a>
+        <p class="lead-line" data-i18n="s3-p1">하단 입력창에 SQL이나 자연어를 쓰고 <span class="kbd">Cmd/Ctrl+Enter</span>로 분석합니다. 변경이 적용되기 <b>전에</b> ERD에 <code>Added</code>(초록) / <code>Removed</code>(빨강) / <code>Modified</code>(주황)로 그려집니다. 이 단계는 읽기 전용이라 DB는 아직 바뀌지 않습니다.</p>
+        <a href="./guide-advanced.html#analyze" class="more-link" data-i18n="s3-more">자연어 입력·자동 감지·diff 모드 자세히 <svg viewBox="0 0 24 24" fill="none"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="2"/></svg></a>
       </div>
     </section>
 
     <!-- SECTION 4: 위험 (risk.gif) [#risk] -->
-    <section class="g-sec" id="risk" data-toc="위험 진단" data-group="시작하기">
-      <div class="sec-k">Risk</div>
-      <h2>위험 진단 읽기</h2>
+    <section class="g-sec" id="risk" data-toc="위험 진단" data-group="시작하기" data-i18n-attr="data-toc:toc-risk;data-group:group-start">
+      <div class="sec-k" data-i18n="s4-k">Risk</div>
+      <h2 data-i18n="s4-h2">위험 진단 읽기</h2>
       <figure class="demo demo-wide zoomable" data-anim="lift">
-        <figcaption class="demo-cap"><span class="tl"></span><span class="tl"></span><span class="tl"></span><span class="nm">Critical risk detected</span><span class="hint"><svg viewBox="0 0 24 24" fill="none"><path d="M15 3h6v6m0-6-9 9M10 5H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5" stroke="currentColor" stroke-width="1.6"/></svg>클릭하면 확대</span></figcaption>
-        <img class="shot" src="./assets/guide/risk.gif" alt="DROP COLUMN 같은 파괴적 변경을 입력하면 Critical 위험 모달이 떠 적용 전 확인을 강제하는 모습" loading="lazy" width="1280" />
+        <figcaption class="demo-cap"><span class="tl"></span><span class="tl"></span><span class="tl"></span><span class="nm">Critical risk detected</span><span class="hint" data-i18n="cap-zoom-4"><svg viewBox="0 0 24 24" fill="none"><path d="M15 3h6v6m0-6-9 9M10 5H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5" stroke="currentColor" stroke-width="1.6"/></svg>클릭하면 확대</span></figcaption>
+        <img class="shot" src="./assets/guide/risk.gif" alt="DROP COLUMN 같은 파괴적 변경을 입력하면 Critical 위험 모달이 떠 적용 전 확인을 강제하는 모습" data-i18n-attr="alt:s4-alt" loading="lazy" width="1280" />
       </figure>
       <div class="qsec">
-        <p class="lead-line">위험 판정은 <b>100% 결정적인 규칙 기반</b>이라 같은 입력엔 항상 같은 결과가 나옵니다(LLM은 해설만 덧붙입니다). <b><code>Critical</code></b>(빨강)은 파괴적 변경으로 적용 전 명시 확인을 강제하고, <b><code>Warning</code></b>(주황)은 알리되 차단하지 않습니다. 각 위험은 더 안전한 대안(golden-path)을 함께 제시합니다.</p>
-        <a href="./guide-advanced.html#risk" class="more-link">위험 위계·대표 규칙 읽는 법 자세히 <svg viewBox="0 0 24 24" fill="none"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="2"/></svg></a>
+        <p class="lead-line" data-i18n="s4-p1">위험 판정은 <b>100% 결정적인 규칙 기반</b>이라 같은 입력엔 항상 같은 결과가 나옵니다(LLM은 해설만 덧붙입니다). <b><code>Critical</code></b>(빨강)은 파괴적 변경으로 적용 전 명시 확인을 강제하고, <b><code>Warning</code></b>(주황)은 알리되 차단하지 않습니다. 각 위험은 더 안전한 대안(golden-path)을 함께 제시합니다.</p>
+        <a href="./guide-advanced.html#risk" class="more-link" data-i18n="s4-more">위험 위계·대표 규칙 읽는 법 자세히 <svg viewBox="0 0 24 24" fill="none"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="2"/></svg></a>
       </div>
     </section>
 
     <!-- SECTION 5: 적용 (apply.gif) [#apply] -->
-    <section class="g-sec" id="apply" data-toc="적용과 되돌리기" data-group="시작하기">
-      <div class="sec-k">Apply &amp; Rollback</div>
-      <h2>변경 적용하고 되돌리기</h2>
+    <section class="g-sec" id="apply" data-toc="적용과 되돌리기" data-group="시작하기" data-i18n-attr="data-toc:toc-apply;data-group:group-start">
+      <div class="sec-k" data-i18n="s5-k">Apply &amp; Rollback</div>
+      <h2 data-i18n="s5-h2">변경 적용하고 되돌리기</h2>
       <figure class="demo demo-wide zoomable" data-anim="lift">
-        <figcaption class="demo-cap"><span class="tl"></span><span class="tl"></span><span class="tl"></span><span class="nm">Apply All · Rollback</span><span class="hint"><svg viewBox="0 0 24 24" fill="none"><path d="M15 3h6v6m0-6-9 9M10 5H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5" stroke="currentColor" stroke-width="1.6"/></svg>클릭하면 확대</span></figcaption>
-        <img class="shot" src="./assets/guide/apply.gif" alt="안전한 변경을 Apply All로 적용해 Applied 상태가 되고, Rollback으로 되돌리는 과정" loading="lazy" width="1280" />
+        <figcaption class="demo-cap"><span class="tl"></span><span class="tl"></span><span class="tl"></span><span class="nm">Apply All · Rollback</span><span class="hint" data-i18n="cap-zoom-5"><svg viewBox="0 0 24 24" fill="none"><path d="M15 3h6v6m0-6-9 9M10 5H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5" stroke="currentColor" stroke-width="1.6"/></svg>클릭하면 확대</span></figcaption>
+        <img class="shot" src="./assets/guide/apply.gif" alt="안전한 변경을 Apply All로 적용해 Applied 상태가 되고, Rollback으로 되돌리는 과정" data-i18n-attr="alt:s5-alt" loading="lazy" width="1280" />
       </figure>
       <div class="qsec">
-        <p class="lead-line">미리보기에 만족하면 <code>Apply All</code>로 적용합니다. <b>적용은 단일 트랜잭션이라 하나라도 실패하면 전부 롤백됩니다(all-or-nothing).</b> 적용 직후엔 <code>Rollback</code>으로 방금 변경을 통째로 되돌릴 수 있습니다.</p>
-        <a href="./guide-advanced.html#apply" class="more-link">단일 트랜잭션·두 가지 롤백 경로 자세히 <svg viewBox="0 0 24 24" fill="none"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="2"/></svg></a>
+        <p class="lead-line" data-i18n="s5-p1">미리보기에 만족하면 <code>Apply All</code>로 적용합니다. <b>적용은 단일 트랜잭션이라 하나라도 실패하면 전부 롤백됩니다(all-or-nothing).</b> 적용 직후엔 <code>Rollback</code>으로 방금 변경을 통째로 되돌릴 수 있습니다.</p>
+        <a href="./guide-advanced.html#apply" class="more-link" data-i18n="s5-more">단일 트랜잭션·두 가지 롤백 경로 자세히 <svg viewBox="0 0 24 24" fill="none"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="2"/></svg></a>
       </div>
     </section>
 
     <!-- SECTION 6: 워크플로 요약 [필수 앵커 #workflow] -->
-    <section class="g-sec" id="workflow" data-toc="핵심 워크플로" data-group="시작하기">
-      <div class="sec-k">Workflow</div>
-      <h2>핵심 워크플로 한눈에</h2>
-      <p class="lead">입력 &rarr; 미리보기(read-only) &rarr; 위험 진단 &rarr; 단일 트랜잭션 <code>Apply</code> / 전체 <code>Rollback</code>.</p>
+    <section class="g-sec" id="workflow" data-toc="핵심 워크플로" data-group="시작하기" data-i18n-attr="data-toc:toc-workflow;data-group:group-start">
+      <div class="sec-k" data-i18n="s6-k">Workflow</div>
+      <h2 data-i18n="s6-h2">핵심 워크플로 한눈에</h2>
+      <p class="lead" data-i18n="s6-lead">입력 &rarr; 미리보기(read-only) &rarr; 위험 진단 &rarr; 단일 트랜잭션 <code>Apply</code> / 전체 <code>Rollback</code>.</p>
       <div class="flow4" data-stagger>
-        <a class="node" href="#analyze" style="text-decoration:none"><div class="nl">Input</div><div class="ns">SQL · 자연어 입력</div></a>
-        <a class="node" href="#analyze" style="text-decoration:none"><div class="nl">Preview</div><div class="ns">read-only diff</div></a>
-        <a class="node warn" href="#risk" style="text-decoration:none"><div class="nl">Risk</div><div class="ns">결정적 진단</div></a>
-        <a class="node" href="#apply" style="text-decoration:none"><div class="nl">Apply / Rollback</div><div class="ns">단일 트랜잭션</div></a>
+        <a class="node" href="#analyze" style="text-decoration:none"><div class="nl">Input</div><div class="ns" data-i18n="s6-node1">SQL · 자연어 입력</div></a>
+        <a class="node" href="#analyze" style="text-decoration:none"><div class="nl">Preview</div><div class="ns" data-i18n="s6-node2">read-only diff</div></a>
+        <a class="node warn" href="#risk" style="text-decoration:none"><div class="nl">Risk</div><div class="ns" data-i18n="s6-node3">결정적 진단</div></a>
+        <a class="node" href="#apply" style="text-decoration:none"><div class="nl">Apply / Rollback</div><div class="ns" data-i18n="s6-node4">단일 트랜잭션</div></a>
       </div>
-      <p>더 깊이 쓰려면 <a href="./guide-advanced.html" style="color:var(--accent)">세부 기능</a>으로, 위험 규칙 전체를 찾아보려면 <a href="./guide-reference.html" style="color:var(--accent)">레퍼런스</a>로 이어집니다.</p>
+      <p data-i18n="s6-p1">더 깊이 쓰려면 <a href="./guide-advanced.html" style="color:var(--accent)">세부 기능</a>으로, 위험 규칙 전체를 찾아보려면 <a href="./guide-reference.html" style="color:var(--accent)">레퍼런스</a>로 이어집니다.</p>
     </section>
 
   </main>
@@ -514,20 +521,267 @@ table.ref.warn thead th{color:var(--warning)}
 <footer class="foot">
   <div class="wrap">
     <div class="foot-grid">
-      <div class="foot-brand"><a href="./index.html" class="brand"><span class="mark"><svg viewBox="0 0 24 24" fill="none"><path d="M5 7c0-1.7 3.1-3 7-3s7 1.3 7 3-3.1 3-7 3-7-1.3-7-3Z" stroke="#F2FBFA" stroke-width="1.6"/><path d="M5 7v10c0 1.7 3.1 3 7 3s7-1.3 7-3V7" stroke="#F2FBFA" stroke-width="1.6"/><path d="M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3" stroke="#F2FBFA" stroke-width="1.6"/></svg></span><span class="wm">SQL<span class="wm-accent">PreShift</span></span></a><p>PostgreSQL 스키마 마이그레이션을 위한 안전 게이트. 호스팅 서비스가 아닌 포트폴리오 데모로, 위험한 마이그레이션을 실수로 적용하는 일이 불가능하도록 만들었습니다.</p></div>
-      <div class="foot-col"><h5>제품</h5><a href="./index.html">홈</a><a href="./download.html">다운로드</a><a href="./guide.html">가이드</a></div>
-      <div class="foot-col"><h5>리소스</h5><a href="./guide.html#install">설치 &amp; Gatekeeper</a><a href="./guide.html#workflow">핵심 워크플로</a><a href="https://github.com/taehyunan-99/sql-preshift">GitHub 저장소</a></div>
-      <div class="foot-col"><h5>정보</h5><a href="https://github.com/taehyunan-99/sql-preshift/releases">릴리즈</a><a href="https://github.com/taehyunan-99/sql-preshift/blob/main/LICENSE">MIT 라이선스</a></div>
+      <div class="foot-brand"><a href="./index.html" class="brand"><span class="mark"><svg viewBox="0 0 24 24" fill="none"><path d="M5 7c0-1.7 3.1-3 7-3s7 1.3 7 3-3.1 3-7 3-7-1.3-7-3Z" stroke="#F2FBFA" stroke-width="1.6"/><path d="M5 7v10c0 1.7 3.1 3 7 3s7-1.3 7-3V7" stroke="#F2FBFA" stroke-width="1.6"/><path d="M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3" stroke="#F2FBFA" stroke-width="1.6"/></svg></span><span class="wm">SQL<span class="wm-accent">PreShift</span></span></a><p data-i18n="foot-tagline">PostgreSQL 스키마 마이그레이션을 위한 안전 게이트. 호스팅 서비스가 아닌 포트폴리오 데모로, 위험한 마이그레이션을 실수로 적용하는 일이 불가능하도록 만들었습니다.</p></div>
+      <div class="foot-col"><h5 data-i18n="foot-h-product">제품</h5><a href="./index.html" data-i18n="foot-home">홈</a><a href="./download.html" data-i18n="foot-download">다운로드</a><a href="./guide.html" data-i18n="foot-guide">가이드</a></div>
+      <div class="foot-col"><h5 data-i18n="foot-h-resources">리소스</h5><a href="./guide.html#install" data-i18n="foot-install">설치 &amp; Gatekeeper</a><a href="./guide.html#workflow" data-i18n="foot-workflow">핵심 워크플로</a><a href="https://github.com/taehyunan-99/sql-preshift" data-i18n="foot-repo">GitHub 저장소</a></div>
+      <div class="foot-col"><h5 data-i18n="foot-h-about">정보</h5><a href="https://github.com/taehyunan-99/sql-preshift/releases" data-i18n="foot-releases">릴리즈</a><a href="https://github.com/taehyunan-99/sql-preshift/blob/main/LICENSE" data-i18n="foot-license">MIT 라이선스</a></div>
     </div>
-    <div class="foot-bottom"><span>&copy; 2026 SQLPreShift &middot; MIT 라이선스 &middot; 완전히 로컬에서 동작.</span><span class="badges"><span class="badge">PostgreSQL 16</span><span class="badge">macOS Apple Silicon</span><span class="badge">텔레메트리 없음</span></span></div>
+    <div class="foot-bottom"><span data-i18n="foot-copy">&copy; 2026 SQLPreShift &middot; MIT 라이선스 &middot; 완전히 로컬에서 동작.</span><span class="badges"><span class="badge">PostgreSQL 16</span><span class="badge">macOS Apple Silicon</span><span class="badge" data-i18n="foot-badge-telemetry">텔레메트리 없음</span></span></div>
   </div>
 </footer>
 
 <!-- 라이트박스 오버레이 (alert/confirm/prompt 미사용 — div 오버레이만) -->
 <div class="lightbox" id="lightbox" aria-hidden="true">
-  <button class="lb-close" id="lbClose" aria-label="Close">&times;</button>
+  <button class="lb-close" id="lbClose" aria-label="Close" data-i18n-attr="aria-label:lb-close-aria">&times;</button>
   <div class="lb-inner" id="lbInner"></div>
 </div>
+
+<!-- ============ i18n 사전(DICT) — 페이지별 주입. 반드시 엔진보다 먼저. ============ -->
+<script>
+window.SPF_DICT = {
+  __title__: {
+    en: "Guide · First run · SQLPreShift",
+    ko: "가이드 · SQLPreShift 처음 실행하기 · SQLPreShift"
+  },
+  __desc__: {
+    en: "Get started with SQLPreShift: install the macOS app, connect a database, preview your first change as an ERD diff, read the risk report, and apply in a single transaction.",
+    ko: "SQLPreShift 시작하기: macOS 앱 설치, 데이터베이스 연결, 첫 변경을 ERD diff로 미리보기, 위험 리포트 읽기, 단일 트랜잭션으로 적용까지."
+  },
+
+  /* nav + 서브바 */
+  "nav-home": { en: "Home", ko: "홈" },
+  "nav-download": { en: "Download", ko: "다운로드" },
+  "nav-guide": { en: "Guide", ko: "가이드" },
+  "gsub-aria": { en: "Guide pages", ko: "가이드 페이지" },
+  "gsub-start": { en: "Getting started", ko: "시작하기" },
+  "gsub-advanced": { en: "Features", ko: "세부 기능" },
+  "gsub-reference": { en: "Reference", ko: "레퍼런스" },
+  "menu-aria": { en: "Menu", ko: "메뉴" },
+  "lb-close-aria": { en: "Close", ko: "닫기" },
+  "toc-onpage": { en: "On this page", ko: "이 페이지에서" },
+
+  /* TOC 라벨 (data-toc) + 그룹 (data-group) */
+  "group-start": { en: "Getting started", ko: "시작하기" },
+  "toc-overview": { en: "At a glance", ko: "한눈에 보기" },
+  "toc-install": { en: "Install and first open", ko: "설치하고 처음 열기" },
+  "toc-connect": { en: "Connect a database", ko: "데이터베이스 연결" },
+  "toc-analyze": { en: "Preview a change", ko: "변경 미리보기" },
+  "toc-risk": { en: "Risk report", ko: "위험 진단" },
+  "toc-apply": { en: "Apply and roll back", ko: "적용과 되돌리기" },
+  "toc-workflow": { en: "Core workflow", ko: "핵심 워크플로" },
+
+  /* 공통 캡션 */
+  "cap-zoom": { en: '<svg viewBox="0 0 24 24" fill="none"><path d="M15 3h6v6m0-6-9 9M10 5H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5" stroke="currentColor" stroke-width="1.6"/></svg>Click to zoom', ko: '<svg viewBox="0 0 24 24" fill="none"><path d="M15 3h6v6m0-6-9 9M10 5H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5" stroke="currentColor" stroke-width="1.6"/></svg>클릭하면 확대' },
+  "cap-zoom-3": { en: '<svg viewBox="0 0 24 24" fill="none"><path d="M15 3h6v6m0-6-9 9M10 5H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5" stroke="currentColor" stroke-width="1.6"/></svg>Click to zoom', ko: '<svg viewBox="0 0 24 24" fill="none"><path d="M15 3h6v6m0-6-9 9M10 5H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5" stroke="currentColor" stroke-width="1.6"/></svg>클릭하면 확대' },
+  "cap-zoom-4": { en: '<svg viewBox="0 0 24 24" fill="none"><path d="M15 3h6v6m0-6-9 9M10 5H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5" stroke="currentColor" stroke-width="1.6"/></svg>Click to zoom', ko: '<svg viewBox="0 0 24 24" fill="none"><path d="M15 3h6v6m0-6-9 9M10 5H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5" stroke="currentColor" stroke-width="1.6"/></svg>클릭하면 확대' },
+  "cap-zoom-5": { en: '<svg viewBox="0 0 24 24" fill="none"><path d="M15 3h6v6m0-6-9 9M10 5H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5" stroke="currentColor" stroke-width="1.6"/></svg>Click to zoom', ko: '<svg viewBox="0 0 24 24" fill="none"><path d="M15 3h6v6m0-6-9 9M10 5H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5" stroke="currentColor" stroke-width="1.6"/></svg>클릭하면 확대' },
+
+  /* 히어로 */
+  "hero-eyebrow": { en: '<span class="dot"></span> Getting started', ko: '<span class="dot"></span> 시작 가이드' },
+  "hero-h1": { en: "Your first run with SQLPreShift", ko: "SQLPreShift 처음 실행하기" },
+  "hero-sub": {
+    en: "SQLPreShift is a macOS desktop app that lets you review a PostgreSQL schema change <b>before</b> you apply it. Preview the change as an ERD diff before it hits the real database, read the rule-based risk report, apply everything in a single transaction, and roll the whole thing back with auto-generated reverse SQL. It all runs locally, and turning natural language into SQL is optional. This guide walks you from connecting a database to your first risk report, step by step.",
+    ko: "SQLPreShift는 PostgreSQL 스키마 변경을 적용하기 <b>전에</b> 검토하는 macOS 데스크톱 앱입니다. 변경을 실제 데이터베이스에 던지기 전에 ERD diff로 미리 보고, 규칙 기반 위험 진단을 확인한 다음, 단일 트랜잭션으로 한 번에 적용하고, 적용 뒤에는 자동 생성된 역방향 SQL로 통째로 되돌립니다. 모든 작업은 로컬에서 동작하며, 자연어를 SQL로 바꾸는 기능은 선택 사항입니다. 이 가이드는 데이터베이스 연결부터 첫 위험 리포트를 받아보기까지의 흐름을 순서대로 안내합니다."
+  },
+  "hero-promise": {
+    en: "About 5 minutes from download to your first risk report.",
+    ko: "다운로드부터 첫 위험 리포트까지 약 5분."
+  },
+
+  /* SECTION 0 — Overview */
+  "s0-k": { en: "Overview", ko: "Overview" },
+  "s0-h2": { en: "How to think about this app", ko: "이 앱을 어떻게 생각하면 되나" },
+  "s0-lead": {
+    en: "Every action in SQLPreShift moves through four stages, and they map one-to-one to the status bar at the top of the app.",
+    ko: "SQLPreShift의 모든 작업은 네 단계로 흐릅니다. 이 흐름은 앱 상단 상태 표시와 그대로 대응합니다."
+  },
+  "s0-node1": { en: "SQL or natural language", ko: "SQL 또는 자연어 입력" },
+  "s0-node2": { en: "ERD diff preview", ko: "ERD diff 미리보기" },
+  "s0-node3": { en: "Deterministic risk report", ko: "결정적 위험 진단" },
+  "s0-node4": { en: "Single-transaction apply · rollback", ko: "단일 트랜잭션 적용·되돌리기" },
+  "s0-req-label": { en: "Requirements", ko: "Requirements" },
+  "s0-req1": {
+    en: '<code>macOS Apple Silicon</code> &middot; <code>~122 MiB</code> &middot; <code>macOS Big Sur 11+</code> &middot; <code>PostgreSQL 16 target</code> &middot; runs fully local.',
+    ko: '<code>macOS Apple Silicon</code> &middot; <code>~122 MiB</code> &middot; <code>macOS Big Sur 11+</code> &middot; <code>PostgreSQL 16 target</code> &middot; 완전히 로컬에서 동작.'
+  },
+  "s0-req2": {
+    en: "All you need is the app itself plus a local PostgreSQL 16, or one of the bundled demo databases (ERP · Pagila, a separate PostgreSQL you run locally). Natural-language input just needs Ollama and a model, but without it you can start right away by typing SQL directly.",
+    ko: "필요한 것은 앱 본체와 로컬 PostgreSQL 16, 또는 함께 제공하는 데모 DB(ERP·Pagila, 로컬에서 별도로 띄우는 PostgreSQL)뿐입니다. 자연어 입력을 쓰려면 Ollama와 모델이 있으면 되지만, 없어도 SQL 직접 입력으로 바로 시작할 수 있습니다."
+  },
+
+  /* SECTION 1 — Install */
+  "s1-k": { en: "Install", ko: "Install" },
+  "s1-h2": { en: "Install and open it for the first time", ko: "설치하고 처음 열기" },
+  "s1-p1": {
+    en: 'Grab the app from the <a href="./download.html" class="dl-inline"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0 4.5-4.5M12 15l-4.5-4.5M5 19h14" stroke="#F2FBFA" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Download for macOS</a> page, then in Finder <b>right-click <code>SQLPreShift.app</code> &rarr; Open</b>.',
+    ko: '<a href="./download.html" class="dl-inline"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0 4.5-4.5M12 15l-4.5-4.5M5 19h14" stroke="#F2FBFA" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Download for macOS</a> 페이지에서 앱을 받은 뒤, Finder에서 <code>SQLPreShift.app</code>을 <b>우클릭 &rarr; Open</b>으로 실행합니다.'
+  },
+  "s1-p2": {
+    en: "The build isn't code-signed yet, so macOS shows a <code>the developer cannot be verified</code> warning. That's expected: click <code>Open</code> again and it runs. Once it launches, the database connection screen comes up first.",
+    ko: "코드서명이 없는 빌드라 <code>the developer cannot be verified</code> 경고가 뜨는데, 이는 정상이며 다시 <code>Open</code>을 누르면 됩니다. 앱이 열리면 DB 연결 화면이 먼저 나타납니다."
+  },
+  "s1-more": {
+    en: 'Getting past Gatekeeper, the terminal workaround, and more <svg viewBox="0 0 24 24" fill="none"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="2"/></svg>',
+    ko: 'Gatekeeper 통과·터미널 우회 등 자세히 <svg viewBox="0 0 24 24" fill="none"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="2"/></svg>'
+  },
+
+  /* SECTION 2 — Connect */
+  "s2-k": { en: "Connect", ko: "Connect" },
+  "s2-h2": { en: "Connect to a database", ko: "데이터베이스에 연결하기" },
+  "s2-alt": {
+    en: "Connecting to the demo ERP DB: fill in Host, Port, Database, User, Password, then Test Connection and Connect",
+    ko: "데모 ERP DB에 연결하는 과정: Host·Port·Database·User·Password 입력 후 Test Connection, Connect"
+  },
+  "s2-p1": {
+    en: 'Enter <code>Host</code> / <code>Port</code> / <code>Database</code> / <code>User</code> / <code>Password</code>, verify the connection with <code>Test Connection</code> (optional), then hit <code>Connect</code>. Once connected, an empty canvas and an input box appear on the left; click <code>View full schema</code> to draw the full-schema ERD. On the demo ERP DB that\'s 92 tables.',
+    ko: '<code>Host</code> / <code>Port</code> / <code>Database</code> / <code>User</code> / <code>Password</code>를 입력하고 <code>Test Connection</code>으로 연결을 확인한 뒤 <code>Connect</code>를 누르면 됩니다(Test는 선택). 연결되면 왼쪽에 빈 캔버스와 입력창이 뜨고, <code>View full schema</code>를 누르면 전체 스키마 ERD가 그려집니다. 데모 ERP DB라면 92개 테이블이 나타납니다.'
+  },
+  "s2-p2": {
+    en: "No database to point at? Spin up one of the bundled demo databases (ERP / Pagila) locally and start right away.",
+    ko: "붙을 DB가 없어도, 함께 제공하는 데모 DB(ERP / Pagila)를 로컬에 띄우면 바로 시작할 수 있습니다."
+  },
+  "s2-more": {
+    en: 'Connection settings, demo DBs, and troubleshooting <svg viewBox="0 0 24 24" fill="none"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="2"/></svg>',
+    ko: '연결 설정·데모 DB·문제 해결 자세히 <svg viewBox="0 0 24 24" fill="none"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="2"/></svg>'
+  },
+
+  /* SECTION 3 — Analyze */
+  "s3-k": { en: "Analyze", ko: "Analyze" },
+  "s3-h2": { en: "Preview your first change", ko: "첫 변경 미리보기" },
+  "s3-alt": {
+    en: "Typing SQL in the input box and analyzing it draws the ERD diff in color",
+    ko: "입력창에 SQL을 타이핑하고 분석하면 ERD diff가 색으로 그려지는 과정"
+  },
+  "s3-p1": {
+    en: 'Type SQL or natural language in the bottom input box and run it with <span class="kbd">Cmd/Ctrl+Enter</span>. <b>Before</b> anything is applied, the change is drawn on the ERD as <code>Added</code> (green) / <code>Removed</code> (red) / <code>Modified</code> (amber). This step is read-only, so the database hasn\'t changed yet.',
+    ko: '하단 입력창에 SQL이나 자연어를 쓰고 <span class="kbd">Cmd/Ctrl+Enter</span>로 분석합니다. 변경이 적용되기 <b>전에</b> ERD에 <code>Added</code>(초록) / <code>Removed</code>(빨강) / <code>Modified</code>(주황)로 그려집니다. 이 단계는 읽기 전용이라 DB는 아직 바뀌지 않습니다.'
+  },
+  "s3-more": {
+    en: 'Natural-language input, auto-detection, and diff modes <svg viewBox="0 0 24 24" fill="none"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="2"/></svg>',
+    ko: '자연어 입력·자동 감지·diff 모드 자세히 <svg viewBox="0 0 24 24" fill="none"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="2"/></svg>'
+  },
+
+  /* SECTION 4 — Risk */
+  "s4-k": { en: "Risk", ko: "Risk" },
+  "s4-h2": { en: "Read the risk report", ko: "위험 진단 읽기" },
+  "s4-alt": {
+    en: "Entering a destructive change like DROP COLUMN pops a Critical risk modal that forces a confirmation before applying",
+    ko: "DROP COLUMN 같은 파괴적 변경을 입력하면 Critical 위험 모달이 떠 적용 전 확인을 강제하는 모습"
+  },
+  "s4-p1": {
+    en: 'Risk detection is <b>100% deterministic and rule-based</b>, so the same input always gives the same result (the LLM only adds an explanation). <b><code>Critical</code></b> (red) marks a destructive change and forces an explicit confirmation before applying; <b><code>Warning</code></b> (amber) flags it without blocking. Every risk comes with a safer golden-path alternative.',
+    ko: '위험 판정은 <b>100% 결정적인 규칙 기반</b>이라 같은 입력엔 항상 같은 결과가 나옵니다(LLM은 해설만 덧붙입니다). <b><code>Critical</code></b>(빨강)은 파괴적 변경으로 적용 전 명시 확인을 강제하고, <b><code>Warning</code></b>(주황)은 알리되 차단하지 않습니다. 각 위험은 더 안전한 대안(golden-path)을 함께 제시합니다.'
+  },
+  "s4-more": {
+    en: 'The risk hierarchy and how to read the key rules <svg viewBox="0 0 24 24" fill="none"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="2"/></svg>',
+    ko: '위험 위계·대표 규칙 읽는 법 자세히 <svg viewBox="0 0 24 24" fill="none"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="2"/></svg>'
+  },
+
+  /* SECTION 5 — Apply & Rollback */
+  "s5-k": { en: "Apply &amp; Rollback", ko: "Apply &amp; Rollback" },
+  "s5-h2": { en: "Apply a change and roll it back", ko: "변경 적용하고 되돌리기" },
+  "s5-alt": {
+    en: "Applying a safe change with Apply All to reach the Applied state, then reverting it with Rollback",
+    ko: "안전한 변경을 Apply All로 적용해 Applied 상태가 되고, Rollback으로 되돌리는 과정"
+  },
+  "s5-p1": {
+    en: "Happy with the preview? Ship it with <code>Apply All</code>. <b>The apply runs in a single transaction, so if any step fails the whole thing rolls back (all-or-nothing).</b> Right after applying, <code>Rollback</code> reverts the change you just made in one go.",
+    ko: "미리보기에 만족하면 <code>Apply All</code>로 적용합니다. <b>적용은 단일 트랜잭션이라 하나라도 실패하면 전부 롤백됩니다(all-or-nothing).</b> 적용 직후엔 <code>Rollback</code>으로 방금 변경을 통째로 되돌릴 수 있습니다."
+  },
+  "s5-more": {
+    en: 'Single transactions and the two rollback paths <svg viewBox="0 0 24 24" fill="none"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="2"/></svg>',
+    ko: '단일 트랜잭션·두 가지 롤백 경로 자세히 <svg viewBox="0 0 24 24" fill="none"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="2"/></svg>'
+  },
+
+  /* SECTION 6 — Workflow */
+  "s6-k": { en: "Workflow", ko: "Workflow" },
+  "s6-h2": { en: "The core workflow at a glance", ko: "핵심 워크플로 한눈에" },
+  "s6-lead": {
+    en: 'Input &rarr; preview (read-only) &rarr; risk report &rarr; single-transaction <code>Apply</code> / full <code>Rollback</code>.',
+    ko: '입력 &rarr; 미리보기(read-only) &rarr; 위험 진단 &rarr; 단일 트랜잭션 <code>Apply</code> / 전체 <code>Rollback</code>.'
+  },
+  "s6-node1": { en: "SQL · natural language", ko: "SQL · 자연어 입력" },
+  "s6-node2": { en: "read-only diff", ko: "read-only diff" },
+  "s6-node3": { en: "deterministic report", ko: "결정적 진단" },
+  "s6-node4": { en: "single transaction", ko: "단일 트랜잭션" },
+  "s6-p1": {
+    en: 'Ready to go deeper? Head to <a href="./guide-advanced.html" style="color:var(--accent)">Features</a>, or browse the full set of risk rules in the <a href="./guide-reference.html" style="color:var(--accent)">Reference</a>.',
+    ko: '더 깊이 쓰려면 <a href="./guide-advanced.html" style="color:var(--accent)">세부 기능</a>으로, 위험 규칙 전체를 찾아보려면 <a href="./guide-reference.html" style="color:var(--accent)">레퍼런스</a>로 이어집니다.'
+  },
+
+  /* footer */
+  "foot-tagline": {
+    en: "A safety gate for PostgreSQL schema migrations. Not a hosted service but a portfolio demo, built so you can't apply a dangerous migration by accident.",
+    ko: "PostgreSQL 스키마 마이그레이션을 위한 안전 게이트. 호스팅 서비스가 아닌 포트폴리오 데모로, 위험한 마이그레이션을 실수로 적용하는 일이 불가능하도록 만들었습니다."
+  },
+  "foot-h-product": { en: "Product", ko: "제품" },
+  "foot-home": { en: "Home", ko: "홈" },
+  "foot-download": { en: "Download", ko: "다운로드" },
+  "foot-guide": { en: "Guide", ko: "가이드" },
+  "foot-h-resources": { en: "Resources", ko: "리소스" },
+  "foot-install": { en: "Install & Gatekeeper", ko: "설치 &amp; Gatekeeper" },
+  "foot-workflow": { en: "Core workflow", ko: "핵심 워크플로" },
+  "foot-repo": { en: "GitHub repo", ko: "GitHub 저장소" },
+  "foot-h-about": { en: "About", ko: "정보" },
+  "foot-releases": { en: "Releases", ko: "릴리즈" },
+  "foot-license": { en: "MIT License", ko: "MIT 라이선스" },
+  "foot-copy": {
+    en: "&copy; 2026 SQLPreShift &middot; MIT License &middot; runs fully local.",
+    ko: "&copy; 2026 SQLPreShift &middot; MIT 라이선스 &middot; 완전히 로컬에서 동작."
+  },
+  "foot-badge-telemetry": { en: "No telemetry", ko: "텔레메트리 없음" }
+};
+</script>
+
+<!-- ============ i18n 엔진 — DICT 주입 이후, 모션 엔진 이전. ============ -->
+<script>
+(function(){
+  var DICT = window.SPF_DICT || {};
+  var KEY = 'spf-lang';
+  function getLang(){
+    var s = null; try{ s = localStorage.getItem(KEY); }catch(e){}
+    return (s === 'ko' || s === 'en') ? s : 'en';   // 기본 en
+  }
+  function apply(lang){
+    var nodes = document.querySelectorAll('[data-i18n]');
+    for(var i=0;i<nodes.length;i++){
+      var k = nodes[i].getAttribute('data-i18n');
+      var e = DICT[k];
+      if(e && e[lang] != null) nodes[i].innerHTML = e[lang];
+    }
+    var an = document.querySelectorAll('[data-i18n-attr]');
+    for(var j=0;j<an.length;j++){
+      var spec = an[j].getAttribute('data-i18n-attr').split(';');
+      for(var s=0;s<spec.length;s++){
+        var pair = spec[s].split(':');
+        if(pair.length<2) continue;
+        var attr = pair[0].trim(), key = pair[1].trim();
+        var ee = DICT[key];
+        if(ee && ee[lang] != null) an[j].setAttribute(attr, ee[lang]);
+      }
+    }
+    document.documentElement.setAttribute('lang', lang === 'ko' ? 'ko' : 'en');
+    if(DICT.__title__ && DICT.__title__[lang]) document.title = DICT.__title__[lang];
+    var md = document.querySelector('meta[name="description"]');
+    if(md && DICT.__desc__ && DICT.__desc__[lang]) md.setAttribute('content', DICT.__desc__[lang]);
+    var btns = document.querySelectorAll('.lang-toggle .lang-btn');
+    for(var b=0;b<btns.length;b++){
+      var on = btns[b].getAttribute('data-lang') === lang;
+      btns[b].setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
+  }
+  // 초기 적용 — TOC 빌드/모션 split 전에 data-toc 속성까지 최종 확정
+  apply(getLang());
+  document.addEventListener('click', function(ev){
+    var t = ev.target.closest ? ev.target.closest('.lang-toggle .lang-btn') : null;
+    if(!t) return;
+    var lang = t.getAttribute('data-lang');
+    if(lang !== 'en' && lang !== 'ko') return;
+    try{ localStorage.setItem(KEY, lang); }catch(e){}
+    location.reload();
+  });
+})();
+</script>
 
 <script>
 (function(){var t=document.getElementById('menuToggle'),n=document.getElementById('nav');if(t)t.addEventListener('click',function(){n.classList.toggle('open');});})();

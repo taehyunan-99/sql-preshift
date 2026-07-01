@@ -1,9 +1,10 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="en">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>SQLPreShift · PostgreSQL 스키마 마이그레이션을 위한 안전 게이트</title>
+<title>SQLPreShift · A safety gate for PostgreSQL schema migrations</title>
+<meta name="description" content="A safety gate for PostgreSQL schema migrations. See the change before it runs, catch risky operations, dry-run the whole stack, then apply in a single transaction." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -247,6 +248,11 @@ p.lede em{font-style:normal;color:var(--text-primary);font-weight:600}
   .js .story-vis[data-motion="chat"] .type-line{width:auto!important;border:none!important}
   .js .story-vis[data-motion="chat"] .typing{display:none!important}
 }
+/* ===== 언어 토글(i18n) — 앱 EN|한국어 pill 톤 근사. nav-right에 삽입 ===== */
+.lang-toggle{display:inline-flex;align-items:center;gap:2px;padding:3px;border-radius:999px;background:var(--surface);border:1px solid var(--border)}
+.lang-toggle .lang-btn{appearance:none;border:0;background:transparent;color:var(--text-tertiary);font:inherit;font-size:12px;font-weight:600;letter-spacing:-0.01em;padding:4px 10px;border-radius:999px;cursor:pointer;line-height:1;transition:color .15s,background .15s}
+.lang-toggle .lang-btn[aria-pressed="true"]{color:var(--bg-primary);background:var(--accent)}
+.lang-toggle .lang-btn:hover:not([aria-pressed="true"]){color:var(--text-secondary)}
 </style>
 <!-- 새로고침 시 항상 최상단에서 시작 — 브라우저 기본 스크롤 복원을 끄고 즉시 맨 위로. -->
 <script>if('scrollRestoration' in history)history.scrollRestoration='manual';window.scrollTo(0,0);</script>
@@ -255,8 +261,11 @@ p.lede em{font-style:normal;color:var(--text-primary);font-weight:600}
 <header class="nav" id="nav">
   <div class="nav-inner">
     <a href="./index.html" class="brand"><span class="mark"><svg viewBox="0 0 24 24" fill="none"><path d="M5 7c0-1.7 3.1-3 7-3s7 1.3 7 3-3.1 3-7 3-7-1.3-7-3Z" stroke="#F2FBFA" stroke-width="1.6"/><path d="M5 7v10c0 1.7 3.1 3 7 3s7-1.3 7-3V7" stroke="#F2FBFA" stroke-width="1.6"/><path d="M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3" stroke="#F2FBFA" stroke-width="1.6"/></svg></span><span class="wm">SQL<span class="wm-accent">PreShift</span></span></a>
-    <nav class="nav-links"><a href="./index.html" class="active">홈</a><a href="./download.html">다운로드</a><a href="./guide.html">가이드</a></nav>
-    <div class="nav-right"><a href="https://github.com/taehyunan-99/sql-preshift" class="nav-gh"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.58 2 12.25c0 4.53 2.87 8.37 6.84 9.73.5.1.68-.22.68-.49 0-.24-.01-.88-.01-1.73-2.78.62-3.37-1.37-3.37-1.37-.45-1.18-1.11-1.49-1.11-1.49-.91-.63.07-.62.07-.62 1 .07 1.53 1.06 1.53 1.06.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.63-1.37-2.22-.26-4.56-1.14-4.56-5.06 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.7 0 0 .84-.28 2.75 1.05a9.3 9.3 0 0 1 5 0c1.91-1.33 2.75-1.05 2.75-1.05.55 1.4.2 2.44.1 2.7.64.72 1.03 1.63 1.03 2.75 0 3.93-2.34 4.8-4.57 5.05.36.32.68.94.68 1.9 0 1.37-.01 2.48-.01 2.82 0 .27.18.6.69.49A10.02 10.02 0 0 0 22 12.25C22 6.58 17.52 2 12 2Z"/></svg>GitHub</a></div>
+    <nav class="nav-links"><a href="./index.html" class="active" data-i18n="nav-home">홈</a><a href="./download.html" data-i18n="nav-download">다운로드</a><a href="./guide.html" data-i18n="nav-guide">가이드</a></nav>
+    <div class="nav-right"><div class="lang-toggle" role="group" aria-label="Language">
+      <button type="button" data-lang="en" class="lang-btn">EN</button>
+      <button type="button" data-lang="ko" class="lang-btn">한국어</button>
+    </div><a href="https://github.com/taehyunan-99/sql-preshift" class="nav-gh"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.58 2 12.25c0 4.53 2.87 8.37 6.84 9.73.5.1.68-.22.68-.49 0-.24-.01-.88-.01-1.73-2.78.62-3.37-1.37-3.37-1.37-.45-1.18-1.11-1.49-1.11-1.49-.91-.63.07-.62.07-.62 1 .07 1.53 1.06 1.53 1.06.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.63-1.37-2.22-.26-4.56-1.14-4.56-5.06 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.7 0 0 .84-.28 2.75 1.05a9.3 9.3 0 0 1 5 0c1.91-1.33 2.75-1.05 2.75-1.05.55 1.4.2 2.44.1 2.7.64.72 1.03 1.63 1.03 2.75 0 3.93-2.34 4.8-4.57 5.05.36.32.68.94.68 1.9 0 1.37-.01 2.48-.01 2.82 0 .27.18.6.69.49A10.02 10.02 0 0 0 22 12.25C22 6.58 17.52 2 12 2Z"/></svg>GitHub</a></div>
     <button class="menu-toggle" id="menuToggle" aria-label="Menu"><span></span><span></span><span></span></button>
   </div>
 </header>
@@ -275,31 +284,31 @@ p.lede em{font-style:normal;color:var(--text-primary);font-weight:600}
 <section class="intro-hero snap-section">
   <!-- data-rev="hero": 스크롤 가역 글자 플리커 점등(1회성 아님). data-ch 자식의 텍스트를 JS가 글자 span으로 split. -->
   <div class="hero-stack" data-rev="hero">
-    <span class="eyebrow" data-ch><span class="dot"></span> PostgreSQL 마이그레이션 안전장치</span>
-    <h1 class="display"><span class="line" data-ch>적용한 뒤에 후회하지 말고,</span><span class="line" data-ch>적용하기 전에 막는다.</span></h1>
-    <p class="hero-sub" data-ch>PostgreSQL 스키마 마이그레이션을 위한 안전 게이트.</p>
-    <p class="lede">모든 변경을 적용하기 <em>전에</em> 실제 데이터베이스에 대조해 규칙 기반으로 위험을 검사하고, dry-run으로 검토한 뒤 단일 트랜잭션으로 적용합니다.</p>
-    <p class="hero-meta" data-reveal="up"><b>Apple Silicon</b> &middot; 약 122 MiB &middot; PostgreSQL 16 &middot; 로컬 LLM(Ollama, 선택) &middot; MIT</p>
+    <span class="eyebrow" data-ch data-i18n="hero-eyebrow"><span class="dot"></span> PostgreSQL 마이그레이션 안전장치</span>
+    <h1 class="display" data-i18n="hero-h1"><span class="line" data-ch>적용한 뒤에 후회하지 말고,</span><span class="line" data-ch>적용하기 전에 막는다.</span></h1>
+    <p class="hero-sub" data-ch data-i18n="hero-sub">PostgreSQL 스키마 마이그레이션을 위한 안전 게이트.</p>
+    <p class="lede" data-i18n="hero-lede">모든 변경을 적용하기 <em>전에</em> 실제 데이터베이스에 대조해 규칙 기반으로 위험을 검사하고, dry-run으로 검토한 뒤 단일 트랜잭션으로 적용합니다.</p>
+    <p class="hero-meta" data-reveal="up" data-i18n="hero-meta"><b>Apple Silicon</b> &middot; 약 122 MiB &middot; PostgreSQL 16 &middot; 로컬 LLM(Ollama, 선택) &middot; MIT</p>
   </div>
 </section>
 <!-- ===== 스토리 슬라이드: 한 화면 = 한 메시지. 좌우 교차 리듬. 풀스크린 스냅 + 진입 시 모션 재생. ===== -->
 <section class="story snap-section">
   <div class="wrap-wide story-grid">
     <div class="story-text" data-rev="text" data-text-motion="chars">
-      <span class="tag"><span class="n">01</span> dry-run 스택</span>
-      <h2 data-ch>절반만 적용되는 마이그레이션은 없습니다.</h2>
-      <p>각 변경을 실제 DB에 미리 돌려 스택에 쌓고, Apply All이 전체를 단일 트랜잭션으로 감쌉니다. 전부 커밋되거나, 전혀 커밋되지 않습니다.</p>
+      <span class="tag" data-i18n="story1-tag"><span class="n">01</span> dry-run 스택</span>
+      <h2 data-ch data-i18n="story1-h2">절반만 적용되는 마이그레이션은 없습니다.</h2>
+      <p data-i18n="story1-p">각 변경을 실제 DB에 미리 돌려 스택에 쌓고, Apply All이 전체를 단일 트랜잭션으로 감쌉니다. 전부 커밋되거나, 전혀 커밋되지 않습니다.</p>
     </div>
     <div class="story-vis" data-rev="vis" data-motion="stack">
       <div class="panel">
-        <div class="panel-bar"><span class="tl"></span><span class="tl"></span><span class="tl"></span><span class="title">dry-run 스택</span></div>
+        <div class="panel-bar"><span class="tl"></span><span class="tl"></span><span class="tl"></span><span class="title" data-i18n="panel1-title">dry-run 스택</span></div>
         <div class="panel-body">
           <div class="stack">
-            <div class="stack-item"><span class="num">1</span> ALTER TABLE orders ADD status text <span class="ok">dry-run 정상</span></div>
-            <div class="stack-item"><span class="num">2</span> UPDATE orders SET status='new' <span class="ok">dry-run 정상</span></div>
+            <div class="stack-item"><span class="num">1</span> ALTER TABLE orders ADD status text <span class="ok" data-i18n="story1-ok">dry-run 정상</span></div>
+            <div class="stack-item"><span class="num">2</span> UPDATE orders SET status='new' <span class="ok" data-i18n="story1-ok2">dry-run 정상</span></div>
             <div class="stack-item"><span class="num">3</span> CREATE INDEX CONCURRENTLY idx_st <span class="undo">Undo</span></div>
           </div>
-          <div class="applybar"><span class="tx">3개 구문 · 1개 트랜잭션으로 묶임</span><span class="ab">Apply All</span></div>
+          <div class="applybar"><span class="tx" data-i18n="story1-applybar">3개 구문 · 1개 트랜잭션으로 묶임</span><span class="ab">Apply All</span></div>
         </div>
       </div>
     </div>
@@ -308,16 +317,16 @@ p.lede em{font-style:normal;color:var(--text-primary);font-weight:600}
 <section class="story alt snap-section">
   <div class="wrap-wide story-grid">
     <div class="story-text" data-rev="text" data-text-motion="chars">
-      <span class="tag"><span class="n">02</span> 위험 규칙</span>
-      <h2 data-ch>막는 데 그치지 않고, 더 안전한 길을 보여줍니다.</h2>
-      <p>lock-queue를 유발하는 17개 작업을 적용 전에 잡아냅니다. 위험 판정은 결정적 규칙으로 내려지며 AI 추론에 기대지 않습니다. 그냥 빨간 X가 아니라, 무중단으로 우회하는 golden-path를 함께 제시합니다.</p>
+      <span class="tag" data-i18n="story2-tag"><span class="n">02</span> 위험 규칙</span>
+      <h2 data-ch data-i18n="story2-h2">막는 데 그치지 않고, 더 안전한 길을 보여줍니다.</h2>
+      <p data-i18n="story2-p">lock-queue를 유발하는 17개 작업을 적용 전에 잡아냅니다. 위험 판정은 결정적 규칙으로 내려지며 AI 추론에 기대지 않습니다. 그냥 빨간 X가 아니라, 무중단으로 우회하는 golden-path를 함께 제시합니다.</p>
     </div>
     <div class="story-vis" data-rev="vis" data-motion="risk">
       <div class="riskcard">
-        <div class="rh"><svg viewBox="0 0 24 24" fill="none"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" stroke="currentColor" stroke-width="1.6"/></svg> 위험 검사 · ADD_CHECK_VALIDATING <span class="badge">LOCK QUEUE</span></div>
+        <div class="rh" data-i18n="story2-rh"><svg viewBox="0 0 24 24" fill="none"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" stroke="currentColor" stroke-width="1.6"/></svg> 위험 검사 · ADD_CHECK_VALIDATING <span class="badge">LOCK QUEUE</span></div>
         <div class="rb">
-          <div class="line"><span class="tok">NOT VALID 없는 ADD CHECK</span>는 <b>orders</b>에 <span class="tok">ACCESS EXCLUSIVE</span> 락을 잡고 전체 행을 스캔합니다.</div>
-          <div class="gp"><div class="gl">권장 해결책 · golden-path</div><code><span class="k">ALTER TABLE</span> orders ADD CONSTRAINT chk NOT VALID;<br><span class="k">ALTER TABLE</span> orders VALIDATE CONSTRAINT chk;</code></div>
+          <div class="line" data-i18n="story2-riskline"><span class="tok">NOT VALID 없는 ADD CHECK</span>는 <b>orders</b>에 <span class="tok">ACCESS EXCLUSIVE</span> 락을 잡고 전체 행을 스캔합니다.</div>
+          <div class="gp"><div class="gl" data-i18n="story2-gp-label">권장 해결책 · golden-path</div><code><span class="k">ALTER TABLE</span> orders ADD CONSTRAINT chk NOT VALID;<br><span class="k">ALTER TABLE</span> orders VALIDATE CONSTRAINT chk;</code></div>
         </div>
       </div>
     </div>
@@ -326,21 +335,21 @@ p.lede em{font-style:normal;color:var(--text-primary);font-weight:600}
 <section class="story snap-section">
   <div class="wrap-wide story-grid">
     <div class="story-text" data-rev="text" data-text-motion="chars">
-      <span class="tag"><span class="n">03</span> Ollama 기반 로컬 AI</span>
-      <h2 data-ch class="h2-1line">말로 적어도, 모든 처리는 이 기기 안에서 끝납니다.</h2>
-      <p>로컬 Ollama는 자연어를 SQL로 바꾸고 스키마를 근거로 RAG 검색을 하는 편의 레이어입니다. 위험 판정 같은 안전 판단은 맡지 않습니다. 프롬프트도 결과도 기기를 떠나지 않으며, Ollama가 없어도 SQL을 직접 입력하면 안전 코어는 그대로 작동합니다.</p>
+      <span class="tag" data-i18n="story3-tag"><span class="n">03</span> Ollama 기반 로컬 AI</span>
+      <h2 data-ch class="h2-1line" data-i18n="story3-h2">말로 적어도, 모든 처리는 이 기기 안에서 끝납니다.</h2>
+      <p data-i18n="story3-p">로컬 Ollama는 자연어를 SQL로 바꾸고 스키마를 근거로 RAG 검색을 하는 편의 레이어입니다. 위험 판정 같은 안전 판단은 맡지 않습니다. 프롬프트도 결과도 기기를 떠나지 않으며, Ollama가 없어도 SQL을 직접 입력하면 안전 코어는 그대로 작동합니다.</p>
     </div>
     <div class="story-vis" data-rev="vis" data-motion="chat">
       <div class="panel">
-        <div class="panel-bar"><span class="tl"></span><span class="tl"></span><span class="tl"></span><span class="title">NL → SQL · Ollama (로컬)</span></div>
+        <div class="panel-bar"><span class="tl"></span><span class="tl"></span><span class="tl"></span><span class="title" data-i18n="panel3-title">NL → SQL · Ollama (로컬)</span></div>
         <div class="panel-body">
           <div class="chat">
-            <div class="bubble user">orders에 status 컬럼을 추가하고 락 없이 인덱스를 만들어줘.</div>
+            <div class="bubble user" data-i18n="story3-user">orders에 status 컬럼을 추가하고 락 없이 인덱스를 만들어줘.</div>
             <!-- 타이핑 인디케이터 — user 버블 뒤·ai 버블 앞 구간에서만 표시(JS가 opacity 제어). -->
             <div class="typing"><span class="d"></span><span class="d"></span><span class="d"></span></div>
-            <div class="bubble ai"><div class="label">생성된 SQL · 스키마 RAG로 근거 확보</div><code><span class="kw">ALTER TABLE</span> orders <span class="kw">ADD COLUMN</span> status text;<br><span class="kw">CREATE INDEX CONCURRENTLY</span> idx_orders_status<br>&nbsp;&nbsp;<span class="kw">ON</span> orders (status);</code></div>
+            <div class="bubble ai"><div class="label" data-i18n="story3-ai-label">생성된 SQL · 스키마 RAG로 근거 확보</div><code><span class="kw">ALTER TABLE</span> orders <span class="kw">ADD COLUMN</span> status text;<br><span class="kw">CREATE INDEX CONCURRENTLY</span> idx_orders_status<br>&nbsp;&nbsp;<span class="kw">ON</span> orders (status);</code></div>
           </div>
-          <div class="llm-note"><svg viewBox="0 0 24 24" fill="none"><path d="M12 16v-4m0-4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" stroke="currentColor" stroke-width="1.6"/></svg><span>추론은 로컬 Ollama에서 실행됩니다. 프롬프트도 결과도 기기를 떠나지 않습니다.</span></div>
+          <div class="llm-note"><svg viewBox="0 0 24 24" fill="none"><path d="M12 16v-4m0-4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" stroke="currentColor" stroke-width="1.6"/></svg><span data-i18n="story3-note">추론은 로컬 Ollama에서 실행됩니다. 프롬프트도 결과도 기기를 떠나지 않습니다.</span></div>
         </div>
       </div>
     </div>
@@ -348,20 +357,193 @@ p.lede em{font-style:normal;color:var(--text-primary);font-weight:600}
 </section>
 <section class="cta-band snap-section">
   <div class="wrap">
-    <div class="cta-card"><h2>적용한 뒤에 후회하지 말고, 적용하기 전에 막으세요.</h2><p>무료 오픈소스. 모든 작업이 로컬에서 동작합니다. 운영 DB에 ALTER를 던지는 순간을 위해 만들었습니다.</p><div class="hero-cta"><a href="./download.html" class="btn btn-primary btn-lg">macOS용 다운로드</a><a href="./guide.html" class="btn btn-ghost btn-lg">가이드 읽기</a></div><p class="meta">v0.1.0 &middot; Apple Silicon &middot; 약 122 MiB &middot; MIT</p></div>
+    <div class="cta-card"><h2 data-i18n="cta-h2">적용한 뒤에 후회하지 말고, 적용하기 전에 막으세요.</h2><p data-i18n="cta-p">무료 오픈소스. 모든 작업이 로컬에서 동작합니다. 운영 DB에 ALTER를 던지는 순간을 위해 만들었습니다.</p><div class="hero-cta"><a href="./download.html" class="btn btn-primary btn-lg" data-i18n="cta-btn-download">macOS용 다운로드</a><a href="./guide.html" class="btn btn-ghost btn-lg" data-i18n="cta-btn-guide">가이드 읽기</a></div><p class="meta" data-i18n="cta-meta">v0.1.0 &middot; Apple Silicon &middot; 약 122 MiB &middot; MIT</p></div>
   </div>
 </section>
 <footer class="foot">
   <div class="wrap">
     <div class="foot-grid">
-      <div class="foot-brand"><a href="./index.html" class="brand"><span class="mark"><svg viewBox="0 0 24 24" fill="none"><path d="M5 7c0-1.7 3.1-3 7-3s7 1.3 7 3-3.1 3-7 3-7-1.3-7-3Z" stroke="#F2FBFA" stroke-width="1.6"/><path d="M5 7v10c0 1.7 3.1 3 7 3s7-1.3 7-3V7" stroke="#F2FBFA" stroke-width="1.6"/><path d="M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3" stroke="#F2FBFA" stroke-width="1.6"/></svg></span><span class="wm">SQL<span class="wm-accent">PreShift</span></span></a><p>PostgreSQL 스키마 마이그레이션을 위한 안전 게이트. 호스팅 서비스가 아닌 포트폴리오 데모로, 위험한 마이그레이션을 실수로 적용하는 일이 불가능하도록 만들었습니다.</p></div>
-      <div class="foot-col"><h5>제품</h5><a href="./index.html">홈</a><a href="./download.html">다운로드</a><a href="./guide.html">가이드</a></div>
-      <div class="foot-col"><h5>리소스</h5><a href="./guide.html#install">설치 &amp; Gatekeeper</a><a href="./guide.html#workflow">핵심 워크플로</a><a href="https://github.com/taehyunan-99/sql-preshift">GitHub 저장소</a></div>
-      <div class="foot-col"><h5>정보</h5><a href="https://github.com/taehyunan-99/sql-preshift/releases">릴리즈</a><a href="https://github.com/taehyunan-99/sql-preshift/blob/main/LICENSE">MIT 라이선스</a></div>
+      <div class="foot-brand"><a href="./index.html" class="brand"><span class="mark"><svg viewBox="0 0 24 24" fill="none"><path d="M5 7c0-1.7 3.1-3 7-3s7 1.3 7 3-3.1 3-7 3-7-1.3-7-3Z" stroke="#F2FBFA" stroke-width="1.6"/><path d="M5 7v10c0 1.7 3.1 3 7 3s7-1.3 7-3V7" stroke="#F2FBFA" stroke-width="1.6"/><path d="M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3" stroke="#F2FBFA" stroke-width="1.6"/></svg></span><span class="wm">SQL<span class="wm-accent">PreShift</span></span></a><p data-i18n="foot-tagline">PostgreSQL 스키마 마이그레이션을 위한 안전 게이트. 호스팅 서비스가 아닌 포트폴리오 데모로, 위험한 마이그레이션을 실수로 적용하는 일이 불가능하도록 만들었습니다.</p></div>
+      <div class="foot-col"><h5 data-i18n="foot-col-product">제품</h5><a href="./index.html" data-i18n="foot-home">홈</a><a href="./download.html" data-i18n="foot-download">다운로드</a><a href="./guide.html" data-i18n="foot-guide">가이드</a></div>
+      <div class="foot-col"><h5 data-i18n="foot-col-resources">리소스</h5><a href="./guide.html#install" data-i18n="foot-install">설치 &amp; Gatekeeper</a><a href="./guide.html#workflow" data-i18n="foot-workflow">핵심 워크플로</a><a href="https://github.com/taehyunan-99/sql-preshift" data-i18n="foot-repo">GitHub 저장소</a></div>
+      <div class="foot-col"><h5 data-i18n="foot-col-about">정보</h5><a href="https://github.com/taehyunan-99/sql-preshift/releases" data-i18n="foot-releases">릴리즈</a><a href="https://github.com/taehyunan-99/sql-preshift/blob/main/LICENSE" data-i18n="foot-license-link">MIT 라이선스</a></div>
     </div>
-    <div class="foot-bottom"><span>&copy; 2026 SQLPreShift &middot; MIT 라이선스 &middot; 완전히 로컬에서 동작.</span><span class="badges"><span class="badge">PostgreSQL 16</span><span class="badge">macOS Apple Silicon</span><span class="badge">텔레메트리 없음</span></span></div>
+    <div class="foot-bottom"><span data-i18n="foot-copyright">&copy; 2026 SQLPreShift &middot; MIT 라이선스 &middot; 완전히 로컬에서 동작.</span><span class="badges"><span class="badge">PostgreSQL 16</span><span class="badge">macOS Apple Silicon</span><span class="badge" data-i18n="foot-badge-notel">텔레메트리 없음</span></span></div>
   </div>
 </footer>
+<!-- ===== i18n 사전(SPF_DICT) — 이 페이지의 en/ko 카피. 반드시 엔진보다 먼저. en이 SoT. ===== -->
+<script>
+window.SPF_DICT = {
+  __title__:{
+    en:'SQLPreShift · A safety gate for PostgreSQL schema migrations',
+    ko:'SQLPreShift · PostgreSQL 스키마 마이그레이션을 위한 안전 게이트'
+  },
+  __desc__:{
+    en:'A safety gate for PostgreSQL schema migrations. See the change before it runs, catch risky operations, dry-run the whole stack, then apply in a single transaction.',
+    ko:'PostgreSQL 스키마 마이그레이션을 위한 안전 게이트. 변경을 적용하기 전에 미리 보고, 위험한 작업을 잡아내고, 스택을 dry-run한 뒤 단일 트랜잭션으로 적용합니다.'
+  },
+
+  'nav-home':{en:'Home', ko:'홈'},
+  'nav-download':{en:'Download', ko:'다운로드'},
+  'nav-guide':{en:'Guide', ko:'가이드'},
+
+  'hero-eyebrow':{
+    en:'<span class="dot"></span> PostgreSQL migration safety gate',
+    ko:'<span class="dot"></span> PostgreSQL 마이그레이션 안전장치'
+  },
+  'hero-h1':{
+    en:'<span class="line" data-ch>Don\'t regret it after you apply.</span><span class="line" data-ch>Stop it before you apply it.</span>',
+    ko:'<span class="line" data-ch>적용한 뒤에 후회하지 말고,</span><span class="line" data-ch>적용하기 전에 막는다.</span>'
+  },
+  'hero-sub':{
+    en:'A safety gate for PostgreSQL schema migrations.',
+    ko:'PostgreSQL 스키마 마이그레이션을 위한 안전 게이트.'
+  },
+  'hero-lede':{
+    en:'Deterministic rules check every change against the real database <em>before</em> it runs. Review it as a dry-run, then apply in a single transaction.',
+    ko:'모든 변경을 적용하기 <em>전에</em> 실제 데이터베이스에 대조해 규칙 기반으로 위험을 검사하고, dry-run으로 검토한 뒤 단일 트랜잭션으로 적용합니다.'
+  },
+  'hero-meta':{
+    en:'<b>Apple Silicon</b> &middot; ~122 MiB &middot; PostgreSQL 16 &middot; local LLM (Ollama, optional) &middot; MIT',
+    ko:'<b>Apple Silicon</b> &middot; 약 122 MiB &middot; PostgreSQL 16 &middot; 로컬 LLM(Ollama, 선택) &middot; MIT'
+  },
+
+  'story1-tag':{en:'<span class="n">01</span> Dry-run stack', ko:'<span class="n">01</span> dry-run 스택'},
+  'story1-h2':{
+    en:'No migration ever lands half-applied.',
+    ko:'절반만 적용되는 마이그레이션은 없습니다.'
+  },
+  'story1-p':{
+    en:'Each change is dry-run against the real database and pushed onto a stack. Apply All wraps the whole thing in a single transaction, so it all commits or none of it does.',
+    ko:'각 변경을 실제 DB에 미리 돌려 스택에 쌓고, Apply All이 전체를 단일 트랜잭션으로 감쌉니다. 전부 커밋되거나, 전혀 커밋되지 않습니다.'
+  },
+  'story1-ok':{en:'dry-run ok', ko:'dry-run 정상'},
+  'story1-ok2':{en:'dry-run ok', ko:'dry-run 정상'},
+  'story1-applybar':{en:'3 statements · one transaction', ko:'3개 구문 · 1개 트랜잭션으로 묶임'},
+  'panel1-title':{en:'dry-run stack', ko:'dry-run 스택'},
+
+  'story2-tag':{en:'<span class="n">02</span> Risk rules', ko:'<span class="n">02</span> 위험 규칙'},
+  'story2-h2':{
+    en:'It doesn\'t just block. It shows you a safer path.',
+    ko:'막는 데 그치지 않고, 더 안전한 길을 보여줍니다.'
+  },
+  'story2-p':{
+    en:'17 rules catch the operations that trigger lock queues before they apply. Every verdict is deterministic, not an AI guess. And instead of a plain red X, you get a zero-downtime golden-path to route around it.',
+    ko:'lock-queue를 유발하는 17개 작업을 적용 전에 잡아냅니다. 위험 판정은 결정적 규칙으로 내려지며 AI 추론에 기대지 않습니다. 그냥 빨간 X가 아니라, 무중단으로 우회하는 golden-path를 함께 제시합니다.'
+  },
+  'story2-rh':{
+    en:'<svg viewBox="0 0 24 24" fill="none"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" stroke="currentColor" stroke-width="1.6"/></svg> Risk check · ADD_CHECK_VALIDATING <span class="badge">LOCK QUEUE</span>',
+    ko:'<svg viewBox="0 0 24 24" fill="none"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" stroke="currentColor" stroke-width="1.6"/></svg> 위험 검사 · ADD_CHECK_VALIDATING <span class="badge">LOCK QUEUE</span>'
+  },
+  'story2-riskline':{
+    en:'<span class="tok">ADD CHECK without NOT VALID</span> takes an <span class="tok">ACCESS EXCLUSIVE</span> lock on <b>orders</b> and scans every row.',
+    ko:'<span class="tok">NOT VALID 없는 ADD CHECK</span>는 <b>orders</b>에 <span class="tok">ACCESS EXCLUSIVE</span> 락을 잡고 전체 행을 스캔합니다.'
+  },
+  'story2-gp-label':{en:'Safer path · golden-path', ko:'권장 해결책 · golden-path'},
+
+  'story3-tag':{en:'<span class="n">03</span> Local AI on Ollama', ko:'<span class="n">03</span> Ollama 기반 로컬 AI'},
+  'story3-h2':{
+    en:'Type it in plain English. It never leaves this machine.',
+    ko:'말로 적어도, 모든 처리는 이 기기 안에서 끝납니다.'
+  },
+  'story3-p':{
+    en:'A local Ollama turns natural language into SQL and pulls relevant tables with schema-grounded RAG. It never makes the safety calls, so risk verdicts stay rule-based. Prompts and results stay on your machine, and without Ollama you just enter SQL directly while the safety core keeps working.',
+    ko:'로컬 Ollama는 자연어를 SQL로 바꾸고 스키마를 근거로 RAG 검색을 하는 편의 레이어입니다. 위험 판정 같은 안전 판단은 맡지 않습니다. 프롬프트도 결과도 기기를 떠나지 않으며, Ollama가 없어도 SQL을 직접 입력하면 안전 코어는 그대로 작동합니다.'
+  },
+  'story3-user':{
+    en:'Add a status column to orders and build the index without locking.',
+    ko:'orders에 status 컬럼을 추가하고 락 없이 인덱스를 만들어줘.'
+  },
+  'story3-ai-label':{en:'Generated SQL · grounded by schema RAG', ko:'생성된 SQL · 스키마 RAG로 근거 확보'},
+  'panel3-title':{en:'NL → SQL · Ollama (local)', ko:'NL → SQL · Ollama (로컬)'},
+  'story3-note':{
+    en:'Inference runs on a local Ollama. Prompts and results never leave this machine.',
+    ko:'추론은 로컬 Ollama에서 실행됩니다. 프롬프트도 결과도 기기를 떠나지 않습니다.'
+  },
+
+  'cta-h2':{
+    en:'Don\'t regret it after you apply. Stop it before you apply it.',
+    ko:'적용한 뒤에 후회하지 말고, 적용하기 전에 막으세요.'
+  },
+  'cta-p':{
+    en:'Free and open source. Everything runs locally. Built for the moment you fire an ALTER at a production database.',
+    ko:'무료 오픈소스. 모든 작업이 로컬에서 동작합니다. 운영 DB에 ALTER를 던지는 순간을 위해 만들었습니다.'
+  },
+  'cta-btn-download':{en:'Download for macOS', ko:'macOS용 다운로드'},
+  'cta-btn-guide':{en:'Read the guide', ko:'가이드 읽기'},
+  'cta-meta':{en:'v0.1.0 &middot; Apple Silicon &middot; ~122 MiB &middot; MIT', ko:'v0.1.0 &middot; Apple Silicon &middot; 약 122 MiB &middot; MIT'},
+
+  'foot-tagline':{
+    en:'A safety gate for PostgreSQL schema migrations. Not a hosted service but a portfolio demo, built so a dangerous migration can\'t slip through by accident.',
+    ko:'PostgreSQL 스키마 마이그레이션을 위한 안전 게이트. 호스팅 서비스가 아닌 포트폴리오 데모로, 위험한 마이그레이션을 실수로 적용하는 일이 불가능하도록 만들었습니다.'
+  },
+  'foot-col-product':{en:'Product', ko:'제품'},
+  'foot-home':{en:'Home', ko:'홈'},
+  'foot-download':{en:'Download', ko:'다운로드'},
+  'foot-guide':{en:'Guide', ko:'가이드'},
+  'foot-col-resources':{en:'Resources', ko:'리소스'},
+  'foot-install':{en:'Install &amp; Gatekeeper', ko:'설치 &amp; Gatekeeper'},
+  'foot-workflow':{en:'Core workflow', ko:'핵심 워크플로'},
+  'foot-repo':{en:'GitHub repo', ko:'GitHub 저장소'},
+  'foot-col-about':{en:'About', ko:'정보'},
+  'foot-releases':{en:'Releases', ko:'릴리즈'},
+  'foot-license-link':{en:'MIT License', ko:'MIT 라이선스'},
+  'foot-copyright':{
+    en:'&copy; 2026 SQLPreShift &middot; MIT License &middot; Runs entirely on your machine.',
+    ko:'&copy; 2026 SQLPreShift &middot; MIT 라이선스 &middot; 완전히 로컬에서 동작.'
+  },
+  'foot-badge-notel':{en:'No telemetry', ko:'텔레메트리 없음'}
+};
+</script>
+<!-- ===== i18n 엔진 — [data-i18n]/[data-i18n-attr]/<title>/meta를 현재 언어로 교체. 모션 init 이전에 실행. ===== -->
+<script>
+(function(){
+  var DICT = window.SPF_DICT || {};
+  var KEY = 'spf-lang';
+  function getLang(){
+    var s = null; try{ s = localStorage.getItem(KEY); }catch(e){}
+    return (s === 'ko' || s === 'en') ? s : 'en';   // 기본 en
+  }
+  function apply(lang){
+    var nodes = document.querySelectorAll('[data-i18n]');
+    for(var i=0;i<nodes.length;i++){
+      var k = nodes[i].getAttribute('data-i18n');
+      var e = DICT[k];
+      if(e && e[lang] != null) nodes[i].innerHTML = e[lang];
+    }
+    var an = document.querySelectorAll('[data-i18n-attr]');
+    for(var j=0;j<an.length;j++){
+      var spec = an[j].getAttribute('data-i18n-attr').split(';');
+      for(var s=0;s<spec.length;s++){
+        var pair = spec[s].split(':');
+        if(pair.length<2) continue;
+        var attr = pair[0].trim(), key = pair[1].trim();
+        var ee = DICT[key];
+        if(ee && ee[lang] != null) an[j].setAttribute(attr, ee[lang]);
+      }
+    }
+    document.documentElement.setAttribute('lang', lang === 'ko' ? 'ko' : 'en');
+    if(DICT.__title__ && DICT.__title__[lang]) document.title = DICT.__title__[lang];
+    var md = document.querySelector('meta[name="description"]');
+    if(md && DICT.__desc__ && DICT.__desc__[lang]) md.setAttribute('content', DICT.__desc__[lang]);
+    var btns = document.querySelectorAll('.lang-toggle .lang-btn');
+    for(var b=0;b<btns.length;b++){
+      var on = btns[b].getAttribute('data-lang') === lang;
+      btns[b].setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
+  }
+  var cur = getLang();
+  apply(cur);
+  document.addEventListener('click', function(ev){
+    var t = ev.target.closest ? ev.target.closest('.lang-toggle .lang-btn') : null;
+    if(!t) return;
+    var lang = t.getAttribute('data-lang');
+    if(lang !== 'en' && lang !== 'ko') return;
+    try{ localStorage.setItem(KEY, lang); }catch(e){}
+    location.reload();
+  });
+})();
+</script>
 <script>(function(){var t=document.getElementById('menuToggle'),n=document.getElementById('nav');if(t)t.addEventListener('click',function(){n.classList.toggle('open');});})();</script>
 <script>
 /* 스토리 외 요소(hero-meta 등)의 1회성 fade-in(data-reveal) + .js 부트스트랩 — 의존성 0. */

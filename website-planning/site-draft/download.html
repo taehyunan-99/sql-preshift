@@ -1,9 +1,10 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="en">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>다운로드 · macOS용 SQLPreShift</title>
+<meta name="description" content="Download SQLPreShift for macOS (Apple Silicon). A safety gate for PostgreSQL schema migrations that runs entirely on your machine. No telemetry, credentials never stored." />
+<title>Download · SQLPreShift for macOS</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -143,6 +144,11 @@ section.blk:first-of-type{border-top:none}
   .js [data-anim="hero"] .ch{opacity:1!important;filter:none!important;transform:none!important}
   .js [data-stagger]>*{opacity:1!important;transform:none!important;filter:none!important;transition:none!important}
 }
+/* ----- 언어 토글(EN|한국어) — 앱 pill 토글 톤 근사 ----- */
+.lang-toggle{display:inline-flex;align-items:center;gap:2px;padding:3px;border-radius:999px;background:var(--surface);border:1px solid var(--border)}
+.lang-toggle .lang-btn{appearance:none;border:0;background:transparent;color:var(--text-tertiary);font:inherit;font-size:12px;font-weight:600;letter-spacing:-0.01em;padding:4px 10px;border-radius:999px;cursor:pointer;line-height:1;transition:color .15s,background .15s}
+.lang-toggle .lang-btn[aria-pressed="true"]{color:var(--bg-primary);background:var(--accent)}
+.lang-toggle .lang-btn:hover:not([aria-pressed="true"]){color:var(--text-secondary)}
 </style>
 <!-- 새로고침 시 항상 최상단에서 시작 — 브라우저 기본 스크롤 복원을 끄고 즉시 맨 위로. -->
 <script>if('scrollRestoration' in history)history.scrollRestoration='manual';window.scrollTo(0,0);</script>
@@ -151,8 +157,8 @@ section.blk:first-of-type{border-top:none}
 <header class="nav" id="nav">
   <div class="nav-inner">
     <a href="./index.html" class="brand"><span class="mark"><svg viewBox="0 0 24 24" fill="none"><path d="M5 7c0-1.7 3.1-3 7-3s7 1.3 7 3-3.1 3-7 3-7-1.3-7-3Z" stroke="#F2FBFA" stroke-width="1.6"/><path d="M5 7v10c0 1.7 3.1 3 7 3s7-1.3 7-3V7" stroke="#F2FBFA" stroke-width="1.6"/><path d="M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3" stroke="#F2FBFA" stroke-width="1.6"/></svg></span><span class="wm">SQL<span class="wm-accent">PreShift</span></span></a>
-    <nav class="nav-links"><a href="./index.html">홈</a><a href="./download.html" class="active">다운로드</a><a href="./guide.html">가이드</a></nav>
-    <div class="nav-right"><a href="https://github.com/taehyunan-99/sql-preshift" class="nav-gh"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.58 2 12.25c0 4.53 2.87 8.37 6.84 9.73.5.1.68-.22.68-.49 0-.24-.01-.88-.01-1.73-2.78.62-3.37-1.37-3.37-1.37-.45-1.18-1.11-1.49-1.11-1.49-.91-.63.07-.62.07-.62 1 .07 1.53 1.06 1.53 1.06.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.63-1.37-2.22-.26-4.56-1.14-4.56-5.06 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.7 0 0 .84-.28 2.75 1.05a9.3 9.3 0 0 1 5 0c1.91-1.33 2.75-1.05 2.75-1.05.55 1.4.2 2.44.1 2.7.64.72 1.03 1.63 1.03 2.75 0 3.93-2.34 4.8-4.57 5.05.36.32.68.94.68 1.9 0 1.37-.01 2.48-.01 2.82 0 .27.18.6.69.49A10.02 10.02 0 0 0 22 12.25C22 6.58 17.52 2 12 2Z"/></svg>GitHub</a></div>
+    <nav class="nav-links"><a href="./index.html" data-i18n="nav-home">홈</a><a href="./download.html" class="active" data-i18n="nav-download">다운로드</a><a href="./guide.html" data-i18n="nav-guide">가이드</a></nav>
+    <div class="nav-right"><div class="lang-toggle" role="group" aria-label="Language"><button type="button" data-lang="en" class="lang-btn">EN</button><button type="button" data-lang="ko" class="lang-btn">한국어</button></div><a href="https://github.com/taehyunan-99/sql-preshift" class="nav-gh"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.58 2 12.25c0 4.53 2.87 8.37 6.84 9.73.5.1.68-.22.68-.49 0-.24-.01-.88-.01-1.73-2.78.62-3.37-1.37-3.37-1.37-.45-1.18-1.11-1.49-1.11-1.49-.91-.63.07-.62.07-.62 1 .07 1.53 1.06 1.53 1.06.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.63-1.37-2.22-.26-4.56-1.14-4.56-5.06 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.7 0 0 .84-.28 2.75 1.05a9.3 9.3 0 0 1 5 0c1.91-1.33 2.75-1.05 2.75-1.05.55 1.4.2 2.44.1 2.7.64.72 1.03 1.63 1.03 2.75 0 3.93-2.34 4.8-4.57 5.05.36.32.68.94.68 1.9 0 1.37-.01 2.48-.01 2.82 0 .27.18.6.69.49A10.02 10.02 0 0 0 22 12.25C22 6.58 17.52 2 12 2Z"/></svg>GitHub</a></div>
     <button class="menu-toggle" id="menuToggle" aria-label="Menu"><span></span><span></span><span></span></button>
   </div>
 </header>
@@ -160,15 +166,15 @@ section.blk:first-of-type{border-top:none}
 <!-- ============ 다운로드 히어로 - 중앙 정렬. 1차 액션(다운로드)만 압도적으로. ============ -->
 <section class="dl-hero">
   <div class="wrap-narrow dh">
-    <span class="dh-ver"><span class="vd"></span> SQLPreShift v0.1.0</span>
-    <h1 data-anim="hero">몇 초 만에 설치하고, 바로 시작하세요.</h1>
-    <p>한 번 설치하면 완전히 로컬에서 동작합니다. DB 접속 정보도 추론도 기기 밖으로 나가지 않으며, Apple Silicon에 맞춰 빌드돼 PostgreSQL 16에 바로 연결됩니다.</p>
-    <a href="https://github.com/taehyunan-99/sql-preshift/releases/latest/download/SQLPreShift-0.1.0-arm64.dmg" class="btn btn-primary gn-dl"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0 4.5-4.5M12 15l-4.5-4.5M5 19h14" stroke="#F2FBFA" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg> macOS용 .dmg 다운로드</a>
+    <span class="dh-ver" data-i18n="dh-ver"><span class="vd"></span> SQLPreShift v0.1.0</span>
+    <h1 data-anim="hero" data-i18n="dh-h1">몇 초 만에 설치하고, 바로 시작하세요.</h1>
+    <p data-i18n="dh-sub">한 번 설치하면 완전히 로컬에서 동작합니다. DB 접속 정보도 추론도 기기 밖으로 나가지 않으며, Apple Silicon에 맞춰 빌드돼 PostgreSQL 16에 바로 연결됩니다.</p>
+    <a href="https://github.com/taehyunan-99/sql-preshift/releases/latest/download/SQLPreShift-0.1.0-arm64.dmg" class="btn btn-primary gn-dl" data-i18n="dh-cta"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0 4.5-4.5M12 15l-4.5-4.5M5 19h14" stroke="#F2FBFA" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg> macOS용 .dmg 다운로드</a>
     <div class="dh-trust" data-stagger>
-      <span class="b"><svg viewBox="0 0 24 24" fill="none"><path d="M9 12.5 11 14.5 15.5 10M12 3 4 6v5c0 5 3.4 8.4 8 10 4.6-1.6 8-5 8-10V6l-8-3Z" stroke="currentColor" stroke-width="1.6"/></svg> 완전히 로컬에서 동작</span>
-      <span class="b"><svg viewBox="0 0 24 24" fill="none"><path d="M9 12.5 11 14.5 15.5 10M12 3 4 6v5c0 5 3.4 8.4 8 10 4.6-1.6 8-5 8-10V6l-8-3Z" stroke="currentColor" stroke-width="1.6"/></svg> 텔레메트리 없음</span>
-      <span class="b"><svg viewBox="0 0 24 24" fill="none"><path d="M9 12.5 11 14.5 15.5 10M12 3 4 6v5c0 5 3.4 8.4 8 10 4.6-1.6 8-5 8-10V6l-8-3Z" stroke="currentColor" stroke-width="1.6"/></svg> DB 접속 정보 미저장</span>
-      <span class="b"><svg viewBox="0 0 24 24" fill="none"><path d="M9 12.5 11 14.5 15.5 10M12 3 4 6v5c0 5 3.4 8.4 8 10 4.6-1.6 8-5 8-10V6l-8-3Z" stroke="currentColor" stroke-width="1.6"/></svg> MIT 라이선스</span>
+      <span class="b" data-i18n="trust-local"><svg viewBox="0 0 24 24" fill="none"><path d="M9 12.5 11 14.5 15.5 10M12 3 4 6v5c0 5 3.4 8.4 8 10 4.6-1.6 8-5 8-10V6l-8-3Z" stroke="currentColor" stroke-width="1.6"/></svg> 완전히 로컬에서 동작</span>
+      <span class="b" data-i18n="trust-telemetry"><svg viewBox="0 0 24 24" fill="none"><path d="M9 12.5 11 14.5 15.5 10M12 3 4 6v5c0 5 3.4 8.4 8 10 4.6-1.6 8-5 8-10V6l-8-3Z" stroke="currentColor" stroke-width="1.6"/></svg> 텔레메트리 없음</span>
+      <span class="b" data-i18n="trust-creds"><svg viewBox="0 0 24 24" fill="none"><path d="M9 12.5 11 14.5 15.5 10M12 3 4 6v5c0 5 3.4 8.4 8 10 4.6-1.6 8-5 8-10V6l-8-3Z" stroke="currentColor" stroke-width="1.6"/></svg> DB 접속 정보 미저장</span>
+      <span class="b" data-i18n="trust-mit"><svg viewBox="0 0 24 24" fill="none"><path d="M9 12.5 11 14.5 15.5 10M12 3 4 6v5c0 5 3.4 8.4 8 10 4.6-1.6 8-5 8-10V6l-8-3Z" stroke="currentColor" stroke-width="1.6"/></svg> MIT 라이선스</span>
     </div>
   </div>
 </section>
@@ -176,15 +182,15 @@ section.blk:first-of-type{border-top:none}
 <!-- ============ 시스템 요구사항 - 중앙 정렬 패널. ============ -->
 <section class="blk" id="requirements">
   <div class="wrap-narrow">
-    <div class="blk-head center" data-reveal="up"><div class="k">시스템 요구사항</div><h2>받기 전에 확인하세요.</h2><p>Apple Silicon 전용 빌드입니다. Apple 메뉴 &middot; 이 Mac에 관하여(About This Mac)의 칩(Chip) 항목이 Apple M1 이상이면 사용할 수 있습니다.</p></div>
+    <div class="blk-head center" data-reveal="up"><div class="k" data-i18n="req-k">시스템 요구사항</div><h2 data-i18n="req-h2">받기 전에 확인하세요.</h2><p data-i18n="req-sub">Apple Silicon 전용 빌드입니다. Apple 메뉴 &middot; 이 Mac에 관하여(About This Mac)의 칩(Chip) 항목이 Apple M1 이상이면 사용할 수 있습니다.</p></div>
     <div class="spec" data-anim="lift">
-      <div class="spec-h"><svg viewBox="0 0 24 24" fill="none"><path d="M5 4h14a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1ZM9 20h6M12 16v4" stroke="currentColor" stroke-width="1.6"/></svg> 시스템 요구사항</div>
+      <div class="spec-h" data-i18n="spec-h"><svg viewBox="0 0 24 24" fill="none"><path d="M5 4h14a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1ZM9 20h6M12 16v4" stroke="currentColor" stroke-width="1.6"/></svg> 시스템 요구사항</div>
       <div class="spec-rows">
-        <div class="r"><span class="lab">칩</span><span class="val ok">Apple Silicon (M1 이상)</span></div>
-        <div class="r"><span class="lab">운영체제</span><span class="val">macOS Big Sur 11 이상</span></div>
-        <div class="r"><span class="lab">데이터베이스</span><span class="val">PostgreSQL 16</span></div>
-        <div class="r"><span class="lab">다운로드 크기</span><span class="val">약 122 MiB</span></div>
-        <div class="r"><span class="lab">자연어 입력</span><span class="val">Ollama (선택)</span></div>
+        <div class="r"><span class="lab" data-i18n="spec-chip-lab">칩</span><span class="val ok" data-i18n="spec-chip-val">Apple Silicon (M1 이상)</span></div>
+        <div class="r"><span class="lab" data-i18n="spec-os-lab">운영체제</span><span class="val" data-i18n="spec-os-val">macOS Big Sur 11 이상</span></div>
+        <div class="r"><span class="lab" data-i18n="spec-db-lab">데이터베이스</span><span class="val">PostgreSQL 16</span></div>
+        <div class="r"><span class="lab" data-i18n="spec-size-lab">다운로드 크기</span><span class="val" data-i18n="spec-size-val">약 122 MiB</span></div>
+        <div class="r"><span class="lab" data-i18n="spec-nl-lab">자연어 입력</span><span class="val" data-i18n="spec-nl-val">Ollama (선택)</span></div>
       </div>
     </div>
   </div>
@@ -193,14 +199,110 @@ section.blk:first-of-type{border-top:none}
 <footer class="foot">
   <div class="wrap">
     <div class="foot-grid">
-      <div class="foot-brand"><a href="./index.html" class="brand"><span class="mark"><svg viewBox="0 0 24 24" fill="none"><path d="M5 7c0-1.7 3.1-3 7-3s7 1.3 7 3-3.1 3-7 3-7-1.3-7-3Z" stroke="#F2FBFA" stroke-width="1.6"/><path d="M5 7v10c0 1.7 3.1 3 7 3s7-1.3 7-3V7" stroke="#F2FBFA" stroke-width="1.6"/><path d="M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3" stroke="#F2FBFA" stroke-width="1.6"/></svg></span><span class="wm">SQL<span class="wm-accent">PreShift</span></span></a><p>PostgreSQL 스키마 마이그레이션을 위한 안전 게이트. 호스팅 서비스가 아닌 포트폴리오 데모로, 위험한 마이그레이션을 실수로 적용하는 일이 불가능하도록 만들었습니다.</p></div>
-      <div class="foot-col"><h5>제품</h5><a href="./index.html">홈</a><a href="./download.html">다운로드</a><a href="./guide.html">가이드</a></div>
-      <div class="foot-col"><h5>리소스</h5><a href="#requirements">시스템 요구사항</a><a href="./guide.html">가이드</a><a href="https://github.com/taehyunan-99/sql-preshift">GitHub 저장소</a></div>
-      <div class="foot-col"><h5>정보</h5><a href="https://github.com/taehyunan-99/sql-preshift/releases">릴리즈</a><a href="https://github.com/taehyunan-99/sql-preshift/blob/main/LICENSE">MIT 라이선스</a><a href="https://github.com/taehyunan-99/sql-preshift">소스에서 빌드</a></div>
+      <div class="foot-brand"><a href="./index.html" class="brand"><span class="mark"><svg viewBox="0 0 24 24" fill="none"><path d="M5 7c0-1.7 3.1-3 7-3s7 1.3 7 3-3.1 3-7 3-7-1.3-7-3Z" stroke="#F2FBFA" stroke-width="1.6"/><path d="M5 7v10c0 1.7 3.1 3 7 3s7-1.3 7-3V7" stroke="#F2FBFA" stroke-width="1.6"/><path d="M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3" stroke="#F2FBFA" stroke-width="1.6"/></svg></span><span class="wm">SQL<span class="wm-accent">PreShift</span></span></a><p data-i18n="foot-tagline">PostgreSQL 스키마 마이그레이션을 위한 안전 게이트. 호스팅 서비스가 아닌 포트폴리오 데모로, 위험한 마이그레이션을 실수로 적용하는 일이 불가능하도록 만들었습니다.</p></div>
+      <div class="foot-col"><h5 data-i18n="foot-product">제품</h5><a href="./index.html" data-i18n="nav-home">홈</a><a href="./download.html" data-i18n="nav-download">다운로드</a><a href="./guide.html" data-i18n="nav-guide">가이드</a></div>
+      <div class="foot-col"><h5 data-i18n="foot-resources">리소스</h5><a href="#requirements" data-i18n="foot-sysreq">시스템 요구사항</a><a href="./guide.html" data-i18n="nav-guide">가이드</a><a href="https://github.com/taehyunan-99/sql-preshift" data-i18n="foot-repo">GitHub 저장소</a></div>
+      <div class="foot-col"><h5 data-i18n="foot-about">정보</h5><a href="https://github.com/taehyunan-99/sql-preshift/releases" data-i18n="foot-releases">릴리즈</a><a href="https://github.com/taehyunan-99/sql-preshift/blob/main/LICENSE" data-i18n="foot-mit">MIT 라이선스</a><a href="https://github.com/taehyunan-99/sql-preshift" data-i18n="foot-source">소스에서 빌드</a></div>
     </div>
-    <div class="foot-bottom"><span>&copy; 2026 SQLPreShift &middot; MIT 라이선스 &middot; 완전히 로컬에서 동작.</span><span class="badges"><span class="badge">PostgreSQL 16</span><span class="badge">macOS Apple Silicon</span><span class="badge">텔레메트리 없음</span></span></div>
+    <div class="foot-bottom"><span data-i18n="foot-copyright">&copy; 2026 SQLPreShift &middot; MIT 라이선스 &middot; 완전히 로컬에서 동작.</span><span class="badges"><span class="badge">PostgreSQL 16</span><span class="badge">macOS Apple Silicon</span><span class="badge" data-i18n="badge-telemetry">텔레메트리 없음</span></span></div>
   </div>
 </footer>
+<!-- ============ i18n 사전 — 영어 SoT(en), 한국어 원문(ko). README.en.md 톤·용어 재사용. ============ -->
+<script>
+window.SPF_DICT = {
+  __title__: { en: 'Download · SQLPreShift for macOS', ko: '다운로드 · macOS용 SQLPreShift' },
+  __desc__: { en: 'Download SQLPreShift for macOS (Apple Silicon). A safety gate for PostgreSQL schema migrations that runs entirely on your machine. No telemetry, credentials never stored.', ko: 'macOS(Apple Silicon)용 SQLPreShift 다운로드. PostgreSQL 스키마 마이그레이션을 위한 안전 게이트로, 완전히 로컬에서 동작합니다. 텔레메트리 없음, DB 접속 정보 미저장.' },
+
+  'nav-home': { en: 'Home', ko: '홈' },
+  'nav-download': { en: 'Download', ko: '다운로드' },
+  'nav-guide': { en: 'Guide', ko: '가이드' },
+
+  'dh-ver': { en: '<span class="vd"></span> SQLPreShift v0.1.0', ko: '<span class="vd"></span> SQLPreShift v0.1.0' },
+  'dh-h1': { en: 'Install in seconds. Start right away.', ko: '몇 초 만에 설치하고, 바로 시작하세요.' },
+  'dh-sub': { en: 'Once installed, everything runs on your machine. Your database credentials and the inference never leave the device. Built for Apple Silicon, it connects straight to PostgreSQL 16.', ko: '한 번 설치하면 완전히 로컬에서 동작합니다. DB 접속 정보도 추론도 기기 밖으로 나가지 않으며, Apple Silicon에 맞춰 빌드돼 PostgreSQL 16에 바로 연결됩니다.' },
+  'dh-cta': { en: '<svg viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0 4.5-4.5M12 15l-4.5-4.5M5 19h14" stroke="#F2FBFA" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg> Download .dmg for macOS', ko: '<svg viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0 4.5-4.5M12 15l-4.5-4.5M5 19h14" stroke="#F2FBFA" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg> macOS용 .dmg 다운로드' },
+
+  'trust-local': { en: '<svg viewBox="0 0 24 24" fill="none"><path d="M9 12.5 11 14.5 15.5 10M12 3 4 6v5c0 5 3.4 8.4 8 10 4.6-1.6 8-5 8-10V6l-8-3Z" stroke="currentColor" stroke-width="1.6"/></svg> Runs entirely local', ko: '<svg viewBox="0 0 24 24" fill="none"><path d="M9 12.5 11 14.5 15.5 10M12 3 4 6v5c0 5 3.4 8.4 8 10 4.6-1.6 8-5 8-10V6l-8-3Z" stroke="currentColor" stroke-width="1.6"/></svg> 완전히 로컬에서 동작' },
+  'trust-telemetry': { en: '<svg viewBox="0 0 24 24" fill="none"><path d="M9 12.5 11 14.5 15.5 10M12 3 4 6v5c0 5 3.4 8.4 8 10 4.6-1.6 8-5 8-10V6l-8-3Z" stroke="currentColor" stroke-width="1.6"/></svg> No telemetry', ko: '<svg viewBox="0 0 24 24" fill="none"><path d="M9 12.5 11 14.5 15.5 10M12 3 4 6v5c0 5 3.4 8.4 8 10 4.6-1.6 8-5 8-10V6l-8-3Z" stroke="currentColor" stroke-width="1.6"/></svg> 텔레메트리 없음' },
+  'trust-creds': { en: '<svg viewBox="0 0 24 24" fill="none"><path d="M9 12.5 11 14.5 15.5 10M12 3 4 6v5c0 5 3.4 8.4 8 10 4.6-1.6 8-5 8-10V6l-8-3Z" stroke="currentColor" stroke-width="1.6"/></svg> Credentials never stored', ko: '<svg viewBox="0 0 24 24" fill="none"><path d="M9 12.5 11 14.5 15.5 10M12 3 4 6v5c0 5 3.4 8.4 8 10 4.6-1.6 8-5 8-10V6l-8-3Z" stroke="currentColor" stroke-width="1.6"/></svg> DB 접속 정보 미저장' },
+  'trust-mit': { en: '<svg viewBox="0 0 24 24" fill="none"><path d="M9 12.5 11 14.5 15.5 10M12 3 4 6v5c0 5 3.4 8.4 8 10 4.6-1.6 8-5 8-10V6l-8-3Z" stroke="currentColor" stroke-width="1.6"/></svg> MIT licensed', ko: '<svg viewBox="0 0 24 24" fill="none"><path d="M9 12.5 11 14.5 15.5 10M12 3 4 6v5c0 5 3.4 8.4 8 10 4.6-1.6 8-5 8-10V6l-8-3Z" stroke="currentColor" stroke-width="1.6"/></svg> MIT 라이선스' },
+
+  'req-k': { en: 'System requirements', ko: '시스템 요구사항' },
+  'req-h2': { en: 'Check before you download.', ko: '받기 전에 확인하세요.' },
+  'req-sub': { en: 'This is an Apple Silicon build. If the Chip line under Apple menu &middot; About This Mac reads Apple M1 or newer, you\'re good to go.', ko: 'Apple Silicon 전용 빌드입니다. Apple 메뉴 &middot; 이 Mac에 관하여(About This Mac)의 칩(Chip) 항목이 Apple M1 이상이면 사용할 수 있습니다.' },
+
+  'spec-h': { en: '<svg viewBox="0 0 24 24" fill="none"><path d="M5 4h14a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1ZM9 20h6M12 16v4" stroke="currentColor" stroke-width="1.6"/></svg> System requirements', ko: '<svg viewBox="0 0 24 24" fill="none"><path d="M5 4h14a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1ZM9 20h6M12 16v4" stroke="currentColor" stroke-width="1.6"/></svg> 시스템 요구사항' },
+  'spec-chip-lab': { en: 'Chip', ko: '칩' },
+  'spec-chip-val': { en: 'Apple Silicon (M1 or newer)', ko: 'Apple Silicon (M1 이상)' },
+  'spec-os-lab': { en: 'OS', ko: '운영체제' },
+  'spec-os-val': { en: 'macOS Big Sur 11 or later', ko: 'macOS Big Sur 11 이상' },
+  'spec-db-lab': { en: 'Database', ko: '데이터베이스' },
+  'spec-size-lab': { en: 'Download size', ko: '다운로드 크기' },
+  'spec-size-val': { en: '~122 MiB', ko: '약 122 MiB' },
+  'spec-nl-lab': { en: 'Natural language', ko: '자연어 입력' },
+  'spec-nl-val': { en: 'Ollama (optional)', ko: 'Ollama (선택)' },
+
+  'foot-tagline': { en: 'A safety gate for PostgreSQL schema migrations. Not a hosted service but a portfolio demo, built so a dangerous migration never slips through by accident.', ko: 'PostgreSQL 스키마 마이그레이션을 위한 안전 게이트. 호스팅 서비스가 아닌 포트폴리오 데모로, 위험한 마이그레이션을 실수로 적용하는 일이 불가능하도록 만들었습니다.' },
+  'foot-product': { en: 'Product', ko: '제품' },
+  'foot-resources': { en: 'Resources', ko: '리소스' },
+  'foot-sysreq': { en: 'System requirements', ko: '시스템 요구사항' },
+  'foot-repo': { en: 'GitHub repo', ko: 'GitHub 저장소' },
+  'foot-about': { en: 'About', ko: '정보' },
+  'foot-releases': { en: 'Releases', ko: '릴리즈' },
+  'foot-mit': { en: 'MIT License', ko: 'MIT 라이선스' },
+  'foot-source': { en: 'Run from source', ko: '소스에서 빌드' },
+  'foot-copyright': { en: '&copy; 2026 SQLPreShift &middot; MIT License &middot; Runs entirely local.', ko: '&copy; 2026 SQLPreShift &middot; MIT 라이선스 &middot; 완전히 로컬에서 동작.' },
+  'badge-telemetry': { en: 'No telemetry', ko: '텔레메트리 없음' }
+};
+</script>
+<!-- ============ i18n 엔진 — [data-i18n] 요소를 DICT의 {en,ko}로 innerHTML 교체. 모션 init 전에 실행돼 텍스트 확정. ============ -->
+<script>
+(function(){
+  var DICT = window.SPF_DICT || {};
+  var KEY = 'spf-lang';
+  function getLang(){
+    var s = null; try{ s = localStorage.getItem(KEY); }catch(e){}
+    return (s === 'ko' || s === 'en') ? s : 'en';   // 기본 en
+  }
+  function apply(lang){
+    var nodes = document.querySelectorAll('[data-i18n]');
+    for(var i=0;i<nodes.length;i++){
+      var k = nodes[i].getAttribute('data-i18n');
+      var e = DICT[k];
+      if(e && e[lang] != null) nodes[i].innerHTML = e[lang];
+    }
+    var an = document.querySelectorAll('[data-i18n-attr]');
+    for(var j=0;j<an.length;j++){
+      var spec = an[j].getAttribute('data-i18n-attr').split(';');
+      for(var s=0;s<spec.length;s++){
+        var pair = spec[s].split(':');
+        if(pair.length<2) continue;
+        var attr = pair[0].trim(), key = pair[1].trim();
+        var ee = DICT[key];
+        if(ee && ee[lang] != null) an[j].setAttribute(attr, ee[lang]);
+      }
+    }
+    document.documentElement.setAttribute('lang', lang === 'ko' ? 'ko' : 'en');
+    if(DICT.__title__ && DICT.__title__[lang]) document.title = DICT.__title__[lang];
+    var md = document.querySelector('meta[name="description"]');
+    if(md && DICT.__desc__ && DICT.__desc__[lang]) md.setAttribute('content', DICT.__desc__[lang]);
+    var btns = document.querySelectorAll('.lang-toggle .lang-btn');
+    for(var b=0;b<btns.length;b++){
+      var on = btns[b].getAttribute('data-lang') === lang;
+      btns[b].setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
+  }
+  apply(getLang());
+  document.addEventListener('click', function(ev){
+    var t = ev.target.closest ? ev.target.closest('.lang-toggle .lang-btn') : null;
+    if(!t) return;
+    var lang = t.getAttribute('data-lang');
+    if(lang !== 'en' && lang !== 'ko') return;
+    try{ localStorage.setItem(KEY, lang); }catch(e){}
+    location.reload();
+  });
+})();
+</script>
 <script>
 (function(){var t=document.getElementById('menuToggle'),n=document.getElementById('nav');if(t)t.addEventListener('click',function(){n.classList.toggle('open');});})();
 /* ===== 스크롤 진입 모션 엔진 — vanilla. guide.html과 동일. data-reveal/data-anim/data-stagger 통합. ===== */
