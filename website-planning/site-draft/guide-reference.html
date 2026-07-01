@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>SQLPreShift 가이드 · 레퍼런스</title>
+<title>가이드 · 레퍼런스 · SQLPreShift</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -20,6 +20,7 @@
   --space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-6:24px;--space-8:32px;--space-12:48px;--space-16:64px;--space-24:96px;
   --radius-sm:6px;--radius-md:10px;--radius-lg:16px;--radius-xl:22px;--radius-full:9999px;--ease:cubic-bezier(0.25,0.1,0.25,1);
   --maxw:1320px;--maxw-prose:820px;--maxw-wide:1600px;--gutter:40px;
+  --toc-w:212px;--toc-gap:clamp(40px,4vw,72px);
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
@@ -94,11 +95,18 @@ img{max-width:100%;display:block}
 .flow-cap{margin-top:var(--space-4);font-family:var(--font-mono);font-size:12px;color:var(--text-tertiary);text-align:center;line-height:1.6}
 @media(max-width:680px){.flow4{grid-template-columns:1fr 1fr}.flow4 .node:not(:last-child)::after{display:none}}
 
-/* ----- 2컬럼 본문 + sticky TOC — 홈탭처럼 전폭(--maxw-wide). 본문이 넓어 줄바꿈이 의미 단위로 자연스럽게 떨어진다. ----- */
-.g-layout{display:grid;grid-template-columns:minmax(0,1fr) 240px;gap:clamp(40px,4vw,64px);max-width:var(--maxw-wide);margin:0 auto;padding:var(--space-12) var(--gutter) var(--space-16)}
-.g-main{min-width:0;max-width:1140px}
-/* sticky 우측 TOC */
-.g-toc{position:sticky;top:88px;align-self:start;font-size:13px}
+/* ----- 레이아웃: TOC를 화면 왼쪽 끝에 고정(fixed), 본문은 그 오른쪽으로 전폭 확장 -----
+   docs 사이트(Stripe/Tailwind) 관용. 본문과 TOC가 붙지 않아 왼쪽 치우침이 사라지고,
+   본문이 화면 폭을 시원하게 쓴다. 화면 전폭 사용(중앙 max-width 컨테이너 없음). ----- */
+/* 좌측 정렬 축: nav/서브바가 max-width:1600 중앙정렬이므로 TOC도 같은 축에서 시작.
+   화면>1600이면 (100vw-1600)/2+gutter, 이하면 gutter. --nav-edge로 공유. */
+:root{--nav-edge:max(var(--gutter),calc((100vw - var(--maxw-wide))/2 + var(--gutter)))}
+.g-layout{position:relative;padding:var(--space-12) var(--nav-edge) var(--space-16);
+  padding-left:calc(var(--nav-edge) + var(--toc-w) + var(--toc-gap))}
+.g-main{min-width:0;max-width:1240px}
+/* 화면 왼쪽 nav 브랜드 축에 고정된 TOC */
+.g-toc{position:fixed;top:150px;left:var(--nav-edge);width:var(--toc-w);font-size:13px;max-height:calc(100vh - 180px);overflow-y:auto;z-index:20}
+.g-toc::-webkit-scrollbar{width:0}
 .toc-mobile{display:none}
 .toc-group{margin-bottom:var(--space-6)}
 .toc-group .tg-label{font-family:var(--font-mono);font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--text-tertiary);margin-bottom:var(--space-3)}
@@ -247,6 +255,14 @@ table.ref.warn thead th{color:var(--warning)}
 .demo-cap .hint svg{width:13px;height:13px}
 .demo .shot{display:block;width:100%;height:auto;background:var(--bg-canvas)}
 .demo.zoomable{cursor:zoom-in}
+/* 시작하기 슬림 카드: GIF + 핵심 요약 + "세부 기능 보기" 링크 */
+.qsec{margin-top:var(--space-6)}
+.qsec .lead-line{font-size:16px;color:var(--text-secondary);line-height:1.7;max-width:56em;margin-top:var(--space-3)}
+.qsec .lead-line b{color:var(--text-primary);font-weight:600}
+.more-link{display:inline-flex;align-items:center;gap:7px;margin-top:var(--space-4);font-size:14.5px;font-weight:600;color:var(--accent);transition:gap .2s var(--ease)}
+.more-link svg{width:15px;height:15px;transition:transform .2s var(--ease)}
+.more-link:hover{gap:11px}
+.more-link:hover svg{transform:translateX(3px)}
 .demo-note{font-family:var(--font-mono);font-size:12px;color:var(--text-tertiary);margin:calc(var(--space-6)*-1 + var(--space-2)) 0 var(--space-8);text-align:center;line-height:1.6}
 
 /* ----- zoomable 라이트박스 ----- */
@@ -270,8 +286,9 @@ table.ref.warn thead th{color:var(--warning)}
 
 @media(max-width:980px){
   .foot-grid{grid-template-columns:1fr 1fr}
-  /* 모바일: TOC를 본문 상단 접이식으로 강등 */
-  .g-layout{grid-template-columns:1fr;padding-top:var(--space-6)}
+  /* 모바일/좁은 화면: 고정 TOC 해제, 본문 전폭, TOC를 상단 접이식으로 강등 */
+  .g-layout{padding:var(--space-6) var(--gutter) var(--space-16)}
+  .g-main{max-width:none}
   .g-toc{display:none}
   .toc-mobile{display:block;position:sticky;top:74px;z-index:10;margin-bottom:var(--space-6)}
   details.toc-mobile{background:var(--bg-canvas);border:1px solid var(--border);border-radius:var(--radius-md)}
@@ -313,7 +330,7 @@ table.ref.warn thead th{color:var(--warning)}
 <nav class="gsub" aria-label="가이드 페이지">
   <div class="gsub-inner">
     <a href="./guide.html">시작하기</a>
-    <a href="./guide-advanced.html">고급 기능</a>
+    <a href="./guide-advanced.html">세부 기능</a>
     <a href="./guide-reference.html" class="active">레퍼런스</a>
   </div>
 </nav>
@@ -323,7 +340,7 @@ table.ref.warn thead th{color:var(--warning)}
   <div class="wrap-narrow gh" data-reveal="up">
     <span class="eyebrow"><span class="dot"></span> 레퍼런스</span>
     <h1>찾아보는 규칙과 표</h1>
-    <p>위험 규칙 17종(Critical 7 · Warning 10)의 전체 카탈로그, 하드 가드, 요구사항, 키보드 단축키, troubleshooting, FAQ를 한곳에 모았습니다. 기능 사용법은 <a href="./guide.html" style="color:var(--accent)">시작하기</a>와 <a href="./guide-advanced.html" style="color:var(--accent)">고급 기능</a>을 보세요.</p>
+    <p>위험 규칙 17종(Critical 7 · Warning 10)의 전체 카탈로그, 하드 가드, 요구사항, 키보드 단축키, troubleshooting, FAQ를 한곳에 모았습니다. 기능 사용법은 <a href="./guide.html" style="color:var(--accent)">시작하기</a>와 <a href="./guide-advanced.html" style="color:var(--accent)">세부 기능</a>을 보세요.</p>
   </div>
 </section>
 
@@ -337,7 +354,6 @@ table.ref.warn thead th{color:var(--warning)}
 
   <!-- ===================== 본문 ===================== -->
   <main class="g-main">
-    <!-- ============ SECTION 12 — #reference (advanced) ============ -->
     <section class="g-sec" id="reference" data-toc="레퍼런스" data-group="REFERENCE">
       <div class="sec-k">Section 12 · Reference</div>
       <h2>레퍼런스</h2>
