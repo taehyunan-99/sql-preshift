@@ -1,4 +1,4 @@
-// 타임라인 상수 — 30fps 기준. video-scenario.md의 초 단위를 프레임으로 환산.
+// 타임라인 상수 — 30fps 기준. 초 단위 시나리오를 프레임으로 환산.
 // 각 ACT의 시작 프레임과 길이를 한 곳에서 관리해 Sequence 배치를 일관되게 한다.
 export const FPS = 30;
 export const W = 1920;
