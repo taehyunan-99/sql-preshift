@@ -516,14 +516,23 @@ table.ref.warn thead th{color:var(--warning)}
   }
   if('IntersectionObserver' in window){
     var visible={};
-    var io=new IntersectionObserver(function(entries){
-      entries.forEach(function(en){ visible[en.target.id]=en.isIntersecting?en.intersectionRatio:0; });
-      // 화면에 보이는 섹션 중 가장 위(문서 순서 빠른)를 active로
+    function recompute(){
+      // 페이지를 거의 끝까지 내렸으면 마지막 섹션을 active로(짧은 마지막 섹션이 감지 대역에 안 걸리는 문제 보정).
+      if(window.innerHeight + window.scrollY >= document.body.scrollHeight - 4){
+        if(secs.length) setActive(secs[secs.length-1].id);
+        return;
+      }
       var best=null;
       secs.forEach(function(s){ if(visible[s.id]>0 && best===null) best=s.id; });
       if(best) setActive(best);
+    }
+    var io=new IntersectionObserver(function(entries){
+      entries.forEach(function(en){ visible[en.target.id]=en.isIntersecting?en.intersectionRatio:0; });
+      recompute();
     },{rootMargin:'-88px 0px -55% 0px',threshold:[0,0.1,0.5,1]});
     secs.forEach(function(s){ io.observe(s); });
+    // 바닥 도달은 IO가 항상 잡지 못하므로 scroll에서도 보정.
+    window.addEventListener('scroll', recompute, {passive:true});
   }
 })();
 
