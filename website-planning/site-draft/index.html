@@ -277,7 +277,7 @@ p.lede em{font-style:normal;color:var(--text-primary);font-weight:600}
     <span class="eyebrow" data-ch><span class="dot"></span> PostgreSQL 마이그레이션 안전장치</span>
     <h1 class="display"><span class="line" data-ch>적용한 뒤에 후회하지 말고,</span><span class="line" data-ch>적용하기 전에 막는다.</span></h1>
     <p class="hero-sub" data-ch>PostgreSQL 스키마 마이그레이션을 위한 안전 게이트.</p>
-    <p class="lede">모든 변경을 적용하기 <em>전에</em> 실제 데이터베이스에 대조해 검사하고, dry-run으로 검토한 뒤 단일 트랜잭션으로 적용합니다.</p>
+    <p class="lede">모든 변경을 적용하기 <em>전에</em> 실제 데이터베이스에 대조해 규칙 기반으로 위험을 검사하고, dry-run으로 검토한 뒤 단일 트랜잭션으로 적용합니다.</p>
     <p class="hero-meta" data-reveal="up"><b>Apple Silicon</b> &middot; 약 122 MiB &middot; PostgreSQL 16 &middot; 로컬 LLM(Ollama, 선택) &middot; MIT</p>
   </div>
 </section>
@@ -310,7 +310,7 @@ p.lede em{font-style:normal;color:var(--text-primary);font-weight:600}
     <div class="story-text" data-rev="text" data-text-motion="chars">
       <span class="tag"><span class="n">02</span> 위험 규칙</span>
       <h2 data-ch>막는 데 그치지 않고, 더 안전한 길을 보여줍니다.</h2>
-      <p>lock-queue를 유발하는 17개 작업을 적용 전에 잡아냅니다. 그냥 빨간 X가 아니라, 무중단으로 우회하는 golden-path를 함께 제시합니다.</p>
+      <p>lock-queue를 유발하는 17개 작업을 적용 전에 잡아냅니다. 위험 판정은 결정적 규칙으로 내려지며 AI 추론에 기대지 않습니다. 그냥 빨간 X가 아니라, 무중단으로 우회하는 golden-path를 함께 제시합니다.</p>
       <a href="./features.html#risk-rules" class="more">위험 검사 알아보기 <svg viewBox="0 0 24 24" fill="none"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="2"/></svg></a>
     </div>
     <div class="story-vis" data-rev="vis" data-motion="risk">
@@ -329,7 +329,7 @@ p.lede em{font-style:normal;color:var(--text-primary);font-weight:600}
     <div class="story-text" data-rev="text" data-text-motion="chars">
       <span class="tag"><span class="n">03</span> Ollama 기반 로컬 AI</span>
       <h2 data-ch class="h2-1line">말로 적어도, 모든 처리는 이 기기 안에서 끝납니다.</h2>
-      <p>로컬 Ollama가 자연어를 SQL로 바꾸고, 스키마를 근거로 RAG 검색을 합니다. 프롬프트도 결과도 기기를 떠나지 않으며, Ollama가 없어도 SQL을 직접 입력하면 안전 코어는 그대로 작동합니다.</p>
+      <p>로컬 Ollama는 자연어를 SQL로 바꾸고 스키마를 근거로 RAG 검색을 하는 편의 레이어입니다. 위험 판정 같은 안전 판단은 맡지 않습니다. 프롬프트도 결과도 기기를 떠나지 않으며, Ollama가 없어도 SQL을 직접 입력하면 안전 코어는 그대로 작동합니다.</p>
       <a href="./features.html#local-llm" class="more">로컬 AI 알아보기 <svg viewBox="0 0 24 24" fill="none"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="2"/></svg></a>
     </div>
     <div class="story-vis" data-rev="vis" data-motion="chat">

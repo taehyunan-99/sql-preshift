@@ -216,7 +216,7 @@ a{color:inherit;text-decoration:none}
     <div class="ftext">
       <span class="fnum-big"><span class="ring">02</span> 17개 위험 규칙 + golden-path</span>
       <h2>lock-queue 작업을 그냥 막는 데 그치지 않고, 더 안전한 경로를 제시합니다.</h2>
-      <p>SQLPreShift는 프로덕션에서 실제로 문제를 일으키는 지점, 즉 lock queue를 유발하는 작업에 맞춰 조정된 17개 규칙을 갖추고 있습니다. WHERE 없는 DELETE/UPDATE, DROP, 전체 테이블 재작성, 제약 조건 검증이 실행되기 전에 모두 표시됩니다.</p>
+      <p>SQLPreShift는 프로덕션에서 실제로 문제를 일으키는 지점, 즉 lock queue를 유발하는 작업에 맞춰 조정된 17개 규칙을 갖추고 있습니다. WHERE 없는 DELETE/UPDATE, DROP, 전체 테이블 재작성, 제약 조건 검증이 실행되기 전에 모두 표시됩니다. 판정은 결정적 규칙으로 내려지므로 같은 입력엔 항상 같은 결과가 나오며, LLM은 판정을 바꾸지 않고 해설만 덧붙입니다.</p>
       <ul class="fpoints">
         <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5 9-11" stroke="currentColor" stroke-width="2"/></svg><span><b>lock-queue 인식.</b> 진짜 위험은 구문 자체가 아니라 그 뒤에 쌓이는 큐입니다.</span></li>
         <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5 9-11" stroke="currentColor" stroke-width="2"/></svg><span><b>golden-path 대안.</b> <code style="font-family:var(--font-mono);font-size:12px">ADD CONSTRAINT … NOT VALID</code> 후 <code style="font-family:var(--font-mono);font-size:12px">VALIDATE</code>, 무중단으로요.</span></li>
@@ -288,7 +288,7 @@ a{color:inherit;text-decoration:none}
     <div class="ftext">
       <span class="fnum-big"><span class="ring">05</span> 로컬 LLM <span class="opt">(선택)</span></span>
       <h2>자연어를 SQL로, 모든 토큰이 사용자의 기기 안에 머뭅니다.</h2>
-      <p>로컬 Ollama 모델이 자연어를 SQL로 바꾸며, 스키마에 대한 RAG로 근거를 확보합니다. DB 접속 정보와 추론은 절대 기기를 떠나지 않습니다. Ollama가 설치되어 있지 않다면? SQLPreShift는 SQL을 직접 입력하도록 안내합니다. 안전 코어는 LLM 없이도 작동합니다.</p>
+      <p>로컬 Ollama 모델이 자연어를 SQL로 바꾸며, 스키마에 대한 RAG로 근거를 확보합니다. 위험 판정 같은 안전 판단은 규칙 코어가 맡고, LLM은 초안 생성과 해설만 담당합니다. DB 접속 정보와 추론은 절대 기기를 떠나지 않습니다. Ollama가 설치되어 있지 않다면? SQLPreShift는 SQL을 직접 입력하도록 안내합니다. 안전 코어는 LLM 없이도 작동합니다.</p>
       <ul class="fpoints">
         <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5 9-11" stroke="currentColor" stroke-width="2"/></svg><span><b>100% 로컬 추론.</b> Apple Silicon GPU에서 Ollama로 실행됩니다.</span></li>
         <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5 9-11" stroke="currentColor" stroke-width="2"/></svg><span><b>RAG 임베딩</b>이 실제 스키마에 생성을 고정합니다 (1024-dim).</span></li>
