@@ -95,16 +95,14 @@ img{max-width:100%;display:block}
 .flow-cap{margin-top:var(--space-4);font-family:var(--font-mono);font-size:12px;color:var(--text-tertiary);text-align:center;line-height:1.6}
 @media(max-width:680px){.flow4{grid-template-columns:1fr 1fr}.flow4 .node:not(:last-child)::after{display:none}}
 
-/* ----- 레이아웃: TOC를 화면 왼쪽 끝에 고정(fixed), 본문은 그 오른쪽으로 전폭 확장 -----
-   docs 사이트(Stripe/Tailwind) 관용. 본문과 TOC가 붙지 않아 왼쪽 치우침이 사라지고,
-   본문이 화면 폭을 시원하게 쓴다. 화면 전폭 사용(중앙 max-width 컨테이너 없음). ----- */
-/* 좌측 정렬 축: nav/서브바가 max-width:1600 중앙정렬이므로 TOC도 같은 축에서 시작.
-   화면>1600이면 (100vw-1600)/2+gutter, 이하면 gutter. --nav-edge로 공유. */
-:root{--nav-edge:max(var(--gutter),calc((100vw - var(--maxw-wide))/2 + var(--gutter)))}
-.g-layout{position:relative;padding:var(--space-12) var(--nav-edge) var(--space-16);
-  padding-left:calc(var(--nav-edge) + var(--toc-w) + var(--toc-gap))}
-.g-main{min-width:0;max-width:1240px}
-/* 화면 왼쪽 nav 브랜드 축에 고정된 TOC */
+/* ----- 레이아웃: full-bleed 3-zone. TOC를 viewport 진짜 왼쪽 끝(gutter)에 고정.
+   읽기 컬럼(본문)은 max-width 캡 + viewport 중앙 정렬 → hero(전체폭 중앙)와 같은 중심축에 온다.
+   좌측 padding(TOC 폭)만큼 우측에도 대칭 여백을 줘서, 컬럼이 화면 중앙에 정렬된다. ----- */
+:root{--nav-edge:var(--gutter); --read-w:940px; --toc-zone:calc(var(--nav-edge) + var(--toc-w) + var(--toc-gap))}
+.g-layout{position:relative;padding:var(--space-12) var(--toc-zone) var(--space-16)}
+/* 읽기 컬럼: measure 캡 + 좌우 대칭 padding 안에서 중앙(=viewport 중앙, hero와 정렬) */
+.g-main{min-width:0;max-width:var(--read-w);margin:0 auto}
+/* viewport 왼쪽 끝(gutter)에 고정된 TOC */
 .g-toc{position:fixed;top:150px;left:var(--nav-edge);width:var(--toc-w);font-size:13px;max-height:calc(100vh - 180px);overflow-y:auto;z-index:20}
 .g-toc::-webkit-scrollbar{width:0}
 .toc-mobile{display:none}

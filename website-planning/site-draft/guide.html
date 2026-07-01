@@ -95,16 +95,15 @@ img{max-width:100%;display:block}
 .flow-cap{margin-top:var(--space-4);font-family:var(--font-mono);font-size:12px;color:var(--text-tertiary);text-align:center;line-height:1.6}
 @media(max-width:680px){.flow4{grid-template-columns:1fr 1fr}.flow4 .node:not(:last-child)::after{display:none}}
 
-/* ----- 레이아웃: TOC를 화면 왼쪽 끝에 고정(fixed), 본문은 그 오른쪽으로 전폭 확장 -----
-   docs 사이트(Stripe/Tailwind) 관용. 본문과 TOC가 붙지 않아 왼쪽 치우침이 사라지고,
-   본문이 화면 폭을 시원하게 쓴다. 화면 전폭 사용(중앙 max-width 컨테이너 없음). ----- */
-/* 좌측 정렬 축: nav/서브바가 max-width:1600 중앙정렬이므로 TOC도 같은 축에서 시작.
-   화면>1600이면 (100vw-1600)/2+gutter, 이하면 gutter. --nav-edge로 공유. */
-:root{--nav-edge:max(var(--gutter),calc((100vw - var(--maxw-wide))/2 + var(--gutter)))}
-.g-layout{position:relative;padding:var(--space-12) var(--nav-edge) var(--space-16);
-  padding-left:calc(var(--nav-edge) + var(--toc-w) + var(--toc-gap))}
-.g-main{min-width:0;max-width:1240px}
-/* 화면 왼쪽 nav 브랜드 축에 고정된 TOC */
+/* ----- 레이아웃: full-bleed 3-zone. TOC를 viewport 진짜 왼쪽 끝(gutter)에 고정.
+   읽기 컬럼(본문)은 max-width 캡 + viewport 중앙 정렬 → hero(전체폭 중앙)와 같은 중심축에 온다.
+   좌측 padding(TOC 폭)만큼 우측에도 대칭 여백을 줘서, 840 컬럼이 화면 중앙에 정렬된다.
+   (docs 관용 — 사이드바는 left:0 full-bleed, 본문은 measure 캡. 여기선 hero 중앙축에 맞춰 본문도 중앙.) ----- */
+:root{--nav-edge:var(--gutter); --read-w:940px; --toc-zone:calc(var(--nav-edge) + var(--toc-w) + var(--toc-gap))}
+.g-layout{position:relative;padding:var(--space-12) var(--toc-zone) var(--space-16)}
+/* 읽기 컬럼: measure 캡 + 좌우 대칭 padding 안에서 중앙(=viewport 중앙, hero와 정렬) */
+.g-main{min-width:0;max-width:var(--read-w);margin:0 auto}
+/* viewport 왼쪽 끝(gutter)에 고정된 TOC */
 .g-toc{position:fixed;top:150px;left:var(--nav-edge);width:var(--toc-w);font-size:13px;max-height:calc(100vh - 180px);overflow-y:auto;z-index:20}
 .g-toc::-webkit-scrollbar{width:0}
 .toc-mobile{display:none}
@@ -245,8 +244,12 @@ table.ref.warn thead th{color:var(--warning)}
 .next-card .na svg{width:14px;height:14px}
 @media(max-width:680px){.next-grid{grid-template-columns:1fr}}
 
-/* ----- GIF 앱 윈도우 프레임 — 실제 앱 화면 녹화를 macOS 윈도우 크롬으로 감싼다. 섹션 제목 바로 아래 크게(먼저 보여주기). ----- */
+/* ----- GIF 앱 윈도우 프레임 — 실제 앱 화면 녹화를 macOS 윈도우 크롬으로 감싼다. 섹션 제목 바로 아래 크게(먼저 보여주기).
+   .demo-wide로 감싸면 읽기 컬럼보다 넓게(시원하게) 중앙 확장 — 조사 스펙: 미디어는 블록 중앙. 텍스트는 컬럼 measure 유지. ----- */
 .demo{margin:var(--space-6) 0 var(--space-8);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;background:var(--bg-canvas);box-shadow:var(--shadow-md)}
+/* GIF는 읽기 컬럼 폭을 그대로 채운다(컬럼 밖 확장은 정렬을 깨서 폐기).
+   컬럼이 넓어졌고(--read-w) GIF 원본이 1280px이라 이 폭에서도 선명하다. */
+.demo-wide{width:100%}
 .demo-cap{display:flex;align-items:center;gap:8px;padding:11px 16px;background:var(--surface);border-bottom:1px solid var(--border-subtle)}
 .demo-cap .tl{width:11px;height:11px;border-radius:50%;background:var(--border);flex:none}
 .demo-cap .tl:nth-child(1){background:#C45B5B}.demo-cap .tl:nth-child(2){background:#C4955A}.demo-cap .tl:nth-child(3){background:#5B9A6F}
@@ -392,7 +395,7 @@ table.ref.warn thead th{color:var(--warning)}
     <section class="g-sec" id="connect" data-toc="데이터베이스 연결" data-group="시작하기">
       <div class="sec-k">Connect</div>
       <h2>데이터베이스에 연결하기</h2>
-      <figure class="demo zoomable" data-reveal="up">
+      <figure class="demo demo-wide zoomable" data-reveal="up">
         <figcaption class="demo-cap"><span class="tl"></span><span class="tl"></span><span class="tl"></span><span class="nm">DatabaseConnect</span><span class="hint"><svg viewBox="0 0 24 24" fill="none"><path d="M15 3h6v6m0-6-9 9M10 5H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5" stroke="currentColor" stroke-width="1.6"/></svg>클릭하면 확대</span></figcaption>
         <img class="shot" src="./assets/guide/connect.gif" alt="데모 ERP DB에 연결하는 과정: Host·Port·Database·User·Password 입력 후 Test Connection, Connect" loading="lazy" width="1280" />
       </figure>
@@ -407,7 +410,7 @@ table.ref.warn thead th{color:var(--warning)}
     <section class="g-sec" id="analyze" data-toc="변경 미리보기" data-group="시작하기">
       <div class="sec-k">Analyze</div>
       <h2>첫 변경 미리보기</h2>
-      <figure class="demo zoomable" data-reveal="up">
+      <figure class="demo demo-wide zoomable" data-reveal="up">
         <figcaption class="demo-cap"><span class="tl"></span><span class="tl"></span><span class="tl"></span><span class="nm">Analyze · ERD diff</span><span class="hint"><svg viewBox="0 0 24 24" fill="none"><path d="M15 3h6v6m0-6-9 9M10 5H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5" stroke="currentColor" stroke-width="1.6"/></svg>클릭하면 확대</span></figcaption>
         <img class="shot" src="./assets/guide/analyze.gif" alt="입력창에 SQL을 타이핑하고 분석하면 ERD diff가 색으로 그려지는 과정" loading="lazy" width="1280" />
       </figure>
@@ -421,7 +424,7 @@ table.ref.warn thead th{color:var(--warning)}
     <section class="g-sec" id="risk" data-toc="위험 진단" data-group="시작하기">
       <div class="sec-k">Risk</div>
       <h2>위험 진단 읽기</h2>
-      <figure class="demo zoomable" data-reveal="up">
+      <figure class="demo demo-wide zoomable" data-reveal="up">
         <figcaption class="demo-cap"><span class="tl"></span><span class="tl"></span><span class="tl"></span><span class="nm">Critical risk detected</span><span class="hint"><svg viewBox="0 0 24 24" fill="none"><path d="M15 3h6v6m0-6-9 9M10 5H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5" stroke="currentColor" stroke-width="1.6"/></svg>클릭하면 확대</span></figcaption>
         <img class="shot" src="./assets/guide/risk.gif" alt="DROP COLUMN 같은 파괴적 변경을 입력하면 Critical 위험 모달이 떠 적용 전 확인을 강제하는 모습" loading="lazy" width="1280" />
       </figure>
@@ -435,7 +438,7 @@ table.ref.warn thead th{color:var(--warning)}
     <section class="g-sec" id="apply" data-toc="적용과 되돌리기" data-group="시작하기">
       <div class="sec-k">Apply &amp; Rollback</div>
       <h2>변경 적용하고 되돌리기</h2>
-      <figure class="demo zoomable" data-reveal="up">
+      <figure class="demo demo-wide zoomable" data-reveal="up">
         <figcaption class="demo-cap"><span class="tl"></span><span class="tl"></span><span class="tl"></span><span class="nm">Apply All · Rollback</span><span class="hint"><svg viewBox="0 0 24 24" fill="none"><path d="M15 3h6v6m0-6-9 9M10 5H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5" stroke="currentColor" stroke-width="1.6"/></svg>클릭하면 확대</span></figcaption>
         <img class="shot" src="./assets/guide/apply.gif" alt="안전한 변경을 Apply All로 적용해 Applied 상태가 되고, Rollback으로 되돌리는 과정" loading="lazy" width="1280" />
       </figure>
