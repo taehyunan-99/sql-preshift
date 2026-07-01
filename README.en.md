@@ -14,13 +14,6 @@ A **safety gate** for PostgreSQL schema migrations. Type natural language or SQL
 
 <br/><br/>
 
-<!-- TODO: capture → assets/hero.gif (full pipeline loop, 8-10s, ERP sample) -->
-<p align="center">
-  <img src="assets/placeholder.png" alt="SQLPreShift full pipeline demo" width="820" />
-</p>
-
-<br/><br/>
-
 ## Why
 
 Schema migrations are **hard to undo once applied.** The moment an `ALTER` hits a production database, a full-table lock can stall the service, or a change lands exactly as written but not as intended. The trouble is you only find out *after* applying — there's no gate that stops you *before*.
@@ -36,9 +29,9 @@ It isn't a daily tool for data engineers. It's a **safety gate that blocks dange
 ## Key Features
 
 - **Cumulative dry-run stack + single-transaction apply** — Each change is dry-run against the real database and pushed onto a stack. Review with Undo, then Apply All wraps everything into one transaction. No half-applied, in-between states.
-- **18 risk rules + golden-path alternatives** — Detects the operations that trigger lock queues: DELETE/UPDATE without WHERE, DROP, full table rewrites, validating constraints, and more. It doesn't just block — it offers zero-downtime alternatives like `ADD CONSTRAINT ... NOT VALID → VALIDATE`.
+- **17 risk rules + golden-path alternatives** — Detects the operations that trigger lock queues: DELETE/UPDATE without WHERE, DROP, full table rewrites, validating constraints, and more. It doesn't just block — most risks come with zero-downtime alternatives like `ADD CONSTRAINT ... NOT VALID → VALIDATE`.
 - **Size-aware impact** — Risk warnings carry the target table's estimated row count and size, so the same `SET NOT NULL` reads very differently on 100 rows versus 100 million.
-- **Read-only integrity diagnostics on connect** — The moment you connect, it runs four read-only checks (broken referential integrity and more). It changes nothing — it just surfaces risk signals in the current state.
+- **Read-only integrity diagnostics on connect** — The moment you connect, it runs five read-only checks (broken referential integrity and more). It changes nothing — it just surfaces risk signals in the current state.
 - **Local LLM for NL→SQL + RAG (optional)** — Natural language is turned into SQL by a local Ollama, with relevant tables retrieved via schema embeddings (bge-m3). Credentials and inference both stay local — nothing leaves for the cloud. Without Ollama you are guided to enter SQL directly, and the core features work without any LLM.
 
 <br/><br/>
@@ -63,7 +56,6 @@ Connecting runs the integrity diagnostics immediately. Type natural language or 
 
 Ships as an installable app for macOS (Apple Silicon). Launch it and the database connection screen appears right away.
 
-<!-- TODO: replace with the real URL once a release is published -->
 1. Grab the latest `SQLPreShift-*.dmg` from [Releases](https://github.com/taehyunan-99/sql-preshift/releases).
 2. Open the dmg and drag `SQLPreShift.app` into Applications.
 3. **First launch** — the app is not notarized yet, so a plain double-click is blocked by macOS. Open it once with either of these and it runs normally afterward:
@@ -81,11 +73,6 @@ Connect a database and integrity diagnostics run immediately; enter SQL to use t
 ollama pull gemma4:latest    # NL→SQL · explanations
 ollama pull bge-m3:latest    # RAG embeddings (1024-dim)
 ```
-
-<!-- TODO: capture → assets/s1-connect.png (connection screen) -->
-<p align="center">
-  <img src="assets/placeholder.png" alt="Database connection screen" width="720" />
-</p>
 
 <br/><br/>
 
