@@ -303,12 +303,43 @@ table.ref.warn thead th{color:var(--warning)}
   .step{padding:var(--space-4) var(--space-6)}
 }
 
-/* ============ 스크롤 진입 reveal - download.html과 동일 엔진. Torii식 1회성 fade. ============ */
-.js [data-reveal]{opacity:0;transition:opacity .7s var(--ease),transform .7s var(--ease)}
-.js [data-reveal="up"]{transform:translateY(22px)}
-.js [data-reveal].in{opacity:1;transform:none}
+/* ============ 스크롤 진입 모션 시스템 — vanilla, 외부 라이브러리 0. ============
+   기존 data-reveal(1회성 fade)을 확장: blur→clear + stagger + char 점등 + GIF lift +
+   표 행 slide-in + 위험 토큰 형광펜 sweep. 전부 IntersectionObserver 진입 시 1회 재생.
+   prefers-reduced-motion 완전 대응(모든 모션 즉시 최종 상태). GPU 힌트 will-change. */
+.js [data-reveal],.js [data-anim]{will-change:transform,opacity,filter}
+/* 1) 기본 reveal — fade + 상승 + 살짝 블러(focus-in) */
+.js [data-reveal]{opacity:0;transition:opacity .7s var(--ease),transform .7s var(--ease),filter .7s var(--ease)}
+.js [data-reveal="up"]{transform:translateY(18px);filter:blur(6px)}
+.js [data-reveal].in{opacity:1;transform:none;filter:none}
+/* 2) 히어로 h1 — 글자 단위 좌→우 점등(blur→clear). JS가 .ch로 분해, --p(0~1) 주입. */
+.js [data-anim="hero"] .ch{display:inline-block;white-space:pre;opacity:calc(.08 + .92*var(--p,0));
+  filter:blur(calc((1 - var(--p,0))*7px));transform:translateY(calc((1 - var(--p,0))*8px));
+  transition:opacity .05s linear,filter .05s linear,transform .05s linear}
+/* 3) GIF 데모 lift — 진입 시 scale+상승+블러 해제로 '안착'. */
+.js [data-anim="lift"]{opacity:0;transform:translateY(26px) scale(.965);filter:blur(8px);
+  transition:opacity .8s var(--ease),transform .8s var(--ease),filter .8s var(--ease)}
+.js [data-anim="lift"].in{opacity:1;transform:none;filter:none}
+/* 4) stagger 컨테이너 — 직계 자식이 시차로 등장. JS가 자식에 --i, 컨테이너에 .in. */
+.js [data-stagger]>*{opacity:0;transform:translateY(16px);filter:blur(4px);
+  transition:opacity .6s var(--ease),transform .6s var(--ease),filter .6s var(--ease);
+  transition-delay:calc(var(--i,0)*90ms)}
+.js [data-stagger].in>*{opacity:1;transform:none;filter:none}
+/* 5) 표 행 slide-in — tbody tr이 아래에서 순차 등장. */
+.js [data-anim="rows"] tbody tr{opacity:0;transform:translateY(12px);
+  transition:opacity .5s var(--ease),transform .5s var(--ease);transition-delay:calc(var(--i,0)*55ms)}
+.js [data-anim="rows"].in tbody tr{opacity:1;transform:none}
+/* 6) 위험 토큰 형광펜 sweep — .tok에 좌→우 채움. JS가 --hl(0~1) 순차 주입. */
+.js [data-anim="sweep"] .tok{position:relative;border-radius:2px;padding:0.02em 0.1em;
+  background-image:linear-gradient(104deg,rgba(196,91,91,0) 0.2%,rgba(196,91,91,0.30) 2%,rgba(196,91,91,0.28) 96%,rgba(196,91,91,0) 99%);
+  background-repeat:no-repeat;background-size:calc(var(--hl,0)*100%) 86%;background-position:0 90%;
+  -webkit-box-decoration-break:clone;box-decoration-break:clone}
 @media(prefers-reduced-motion:reduce){
-  .js [data-reveal],.js [data-reveal="up"]{opacity:1!important;transform:none!important;transition:none!important}
+  .js [data-reveal],.js [data-reveal="up"],.js [data-anim="lift"]{opacity:1!important;transform:none!important;filter:none!important;transition:none!important}
+  .js [data-anim="hero"] .ch{opacity:1!important;filter:none!important;transform:none!important}
+  .js [data-stagger]>*{opacity:1!important;transform:none!important;filter:none!important;transition:none!important}
+  .js [data-anim="rows"] tbody tr{opacity:1!important;transform:none!important;transition:none!important}
+  .js [data-anim="sweep"] .tok{background-size:100% 86%!important}
 }
 </style>
 <!-- 새로고침 시 항상 최상단에서 시작 — 브라우저 기본 스크롤 복원을 끄고 즉시 맨 위로. -->
@@ -337,7 +368,7 @@ table.ref.warn thead th{color:var(--warning)}
 <section class="g-hero" id="top">
   <div class="wrap-narrow gh" data-reveal="up">
     <span class="eyebrow"><span class="dot"></span> 레퍼런스</span>
-    <h1>찾아보는 규칙과 표</h1>
+    <h1 data-anim="hero">찾아보는 규칙과 표</h1>
     <p>위험 규칙 17종(Critical 7 · Warning 10)의 전체 카탈로그, 하드 가드, 요구사항, 키보드 단축키, troubleshooting, FAQ를 한곳에 모았습니다. 기능 사용법은 <a href="./guide.html" style="color:var(--accent)">시작하기</a>와 <a href="./guide-advanced.html" style="color:var(--accent)">세부 기능</a>을 보세요.</p>
   </div>
 </section>
@@ -357,7 +388,7 @@ table.ref.warn thead th{color:var(--warning)}
       <h2>레퍼런스</h2>
 
       <h3>위험 규칙 · CRITICAL 7 (Apply 전 명시 확인 강제, 100% 결정적)</h3>
-      <div class="tbl-wrap">
+      <div class="tbl-wrap" data-reveal="up" data-anim="rows">
         <table class="ref crit">
           <thead><tr><th>Rule</th><th>감지</th><th>golden-path</th></tr></thead>
           <tbody>
@@ -373,7 +404,7 @@ table.ref.warn thead th{color:var(--warning)}
       </div>
 
       <h3>위험 규칙 · WARNING 10 (정보성·비차단, 100% 결정적)</h3>
-      <div class="tbl-wrap">
+      <div class="tbl-wrap" data-reveal="up" data-anim="rows">
         <table class="ref warn">
           <thead><tr><th>Rule</th><th>위험</th><th>golden-path</th></tr></thead>
           <tbody>
@@ -401,7 +432,7 @@ table.ref.warn thead th{color:var(--warning)}
       </ul>
 
       <h3>Requirements 표</h3>
-      <div class="tbl-wrap">
+      <div class="tbl-wrap" data-reveal="up" data-anim="rows">
         <table class="ref">
           <tbody>
             <tr><td>Chip</td><td><code>macOS Apple Silicon</code></td></tr>
@@ -536,13 +567,68 @@ table.ref.warn thead th{color:var(--warning)}
   }
 })();
 
-/* ===== 스크롤 진입 reveal — download.html과 동일 엔진. ===== */
+/* ===== 스크롤 진입 모션 엔진 — vanilla. data-reveal/data-anim/data-stagger 통합. ===== */
 (function(){
   document.documentElement.classList.add('js');
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion:reduce)').matches;
+  function splitChars(host){
+    var out=[];
+    [].slice.call(host.childNodes).forEach(function(node){
+      if(node.nodeType===3){
+        var frag=document.createDocumentFragment();
+        [].concat.apply([],[...node.nodeValue]).forEach(function(c){
+          var s=document.createElement('span'); s.className='ch'; s.textContent=c; frag.appendChild(s); out.push(s);
+        });
+        host.replaceChild(frag,node);
+      }
+    });
+    return out;
+  }
+  function clamp(v,a,b){return v<a?a:v>b?b:v;}
+  function easeOutCubic(t){return 1-Math.pow(1-t,3);}
+  document.querySelectorAll('[data-anim="hero"]').forEach(function(el){ el._chars=splitChars(el); });
+  document.querySelectorAll('[data-stagger]').forEach(function(el){
+    [].slice.call(el.children).forEach(function(c,i){ c.style.setProperty('--i',i); });
+  });
+  document.querySelectorAll('[data-anim="rows"]').forEach(function(el){
+    [].slice.call(el.querySelectorAll('tbody tr')).forEach(function(tr,i){ tr.style.setProperty('--i',i); });
+  });
+  if(reduce){
+    document.querySelectorAll('[data-anim="hero"]').forEach(function(el){
+      (el._chars||[]).forEach(function(s){ s.style.setProperty('--p',1); });
+    });
+    return;
+  }
+  function playHero(el){
+    var chs=el._chars||[], N=chs.length, dur=900, start=0;
+    function step(now){
+      if(!start) start=now;
+      var seq=clamp((now-start)/dur,0,1);
+      for(var j=0;j<N;j++){ chs[j].style.setProperty('--p',clamp((seq-(j/N)*0.6)/0.2,0,1).toFixed(3)); }
+      if(seq<1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+  function playSweep(el){
+    var toks=[].slice.call(el.querySelectorAll('.tok')), N=toks.length, dur=1100, start=0;
+    function step(now){
+      if(!start) start=now;
+      var seq=clamp((now-start)/dur,0,1);
+      for(var j=0;j<N;j++){ toks[j].style.setProperty('--hl',easeOutCubic(clamp((seq-j*0.14)/0.4,0,1)).toFixed(3)); }
+      if(seq<1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
   var io=new IntersectionObserver(function(entries){
-    entries.forEach(function(en){ if(!en.isIntersecting)return; en.target.classList.add('in'); io.unobserve(en.target); });
+    entries.forEach(function(en){
+      if(!en.isIntersecting) return;
+      var el=en.target; el.classList.add('in');
+      if(el.getAttribute('data-anim')==='hero') playHero(el);
+      if(el.getAttribute('data-anim')==='sweep') playSweep(el);
+      io.unobserve(el);
+    });
   },{threshold:0.14,rootMargin:'0px 0px -8% 0px'});
-  document.querySelectorAll('[data-reveal]').forEach(function(el){io.observe(el);});
+  document.querySelectorAll('[data-reveal],[data-anim],[data-stagger]').forEach(function(el){io.observe(el);});
 })();
 
 /* ===== zoomable 라이트박스 — vanilla. alert/confirm/prompt 미사용, div 오버레이만. ESC/배경클릭/닫기버튼으로 닫기. ===== */

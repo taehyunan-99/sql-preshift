@@ -316,12 +316,43 @@ table.ref.warn thead th{color:var(--warning)}
   .step{padding:var(--space-4) var(--space-6)}
 }
 
-/* ============ 스크롤 진입 reveal - download.html과 동일 엔진. Torii식 1회성 fade. ============ */
-.js [data-reveal]{opacity:0;transition:opacity .7s var(--ease),transform .7s var(--ease)}
-.js [data-reveal="up"]{transform:translateY(22px)}
-.js [data-reveal].in{opacity:1;transform:none}
+/* ============ 스크롤 진입 모션 시스템 — vanilla, 외부 라이브러리 0. ============
+   기존 data-reveal(1회성 fade)을 확장: blur→clear + stagger + char 점등 + GIF lift +
+   표 행 slide-in + 위험 토큰 형광펜 sweep. 전부 IntersectionObserver 진입 시 1회 재생.
+   prefers-reduced-motion 완전 대응(모든 모션 즉시 최종 상태). GPU 힌트 will-change. */
+.js [data-reveal],.js [data-anim]{will-change:transform,opacity,filter}
+/* 1) 기본 reveal — fade + 상승 + 살짝 블러(focus-in) */
+.js [data-reveal]{opacity:0;transition:opacity .7s var(--ease),transform .7s var(--ease),filter .7s var(--ease)}
+.js [data-reveal="up"]{transform:translateY(18px);filter:blur(6px)}
+.js [data-reveal].in{opacity:1;transform:none;filter:none}
+/* 2) 히어로 h1 — 글자 단위 좌→우 점등(blur→clear). JS가 .ch로 분해, --p(0~1) 주입. */
+.js [data-anim="hero"] .ch{display:inline-block;white-space:pre;opacity:calc(.08 + .92*var(--p,0));
+  filter:blur(calc((1 - var(--p,0))*7px));transform:translateY(calc((1 - var(--p,0))*8px));
+  transition:opacity .05s linear,filter .05s linear,transform .05s linear}
+/* 3) GIF 데모 lift — 진입 시 scale+상승+블러 해제로 '안착'. */
+.js [data-anim="lift"]{opacity:0;transform:translateY(26px) scale(.965);filter:blur(8px);
+  transition:opacity .8s var(--ease),transform .8s var(--ease),filter .8s var(--ease)}
+.js [data-anim="lift"].in{opacity:1;transform:none;filter:none}
+/* 4) stagger 컨테이너 — 직계 자식이 시차로 등장. JS가 자식에 --i, 컨테이너에 .in. */
+.js [data-stagger]>*{opacity:0;transform:translateY(16px);filter:blur(4px);
+  transition:opacity .6s var(--ease),transform .6s var(--ease),filter .6s var(--ease);
+  transition-delay:calc(var(--i,0)*90ms)}
+.js [data-stagger].in>*{opacity:1;transform:none;filter:none}
+/* 5) 표 행 slide-in — tbody tr이 아래에서 순차 등장. */
+.js [data-anim="rows"] tbody tr{opacity:0;transform:translateY(12px);
+  transition:opacity .5s var(--ease),transform .5s var(--ease);transition-delay:calc(var(--i,0)*55ms)}
+.js [data-anim="rows"].in tbody tr{opacity:1;transform:none}
+/* 6) 위험 토큰 형광펜 sweep — .tok에 좌→우 채움. JS가 --hl(0~1) 순차 주입. */
+.js [data-anim="sweep"] .tok{position:relative;border-radius:2px;padding:0.02em 0.1em;
+  background-image:linear-gradient(104deg,rgba(196,91,91,0) 0.2%,rgba(196,91,91,0.30) 2%,rgba(196,91,91,0.28) 96%,rgba(196,91,91,0) 99%);
+  background-repeat:no-repeat;background-size:calc(var(--hl,0)*100%) 86%;background-position:0 90%;
+  -webkit-box-decoration-break:clone;box-decoration-break:clone}
 @media(prefers-reduced-motion:reduce){
-  .js [data-reveal],.js [data-reveal="up"]{opacity:1!important;transform:none!important;transition:none!important}
+  .js [data-reveal],.js [data-reveal="up"],.js [data-anim="lift"]{opacity:1!important;transform:none!important;filter:none!important;transition:none!important}
+  .js [data-anim="hero"] .ch{opacity:1!important;filter:none!important;transform:none!important}
+  .js [data-stagger]>*{opacity:1!important;transform:none!important;filter:none!important;transition:none!important}
+  .js [data-anim="rows"] tbody tr{opacity:1!important;transform:none!important;transition:none!important}
+  .js [data-anim="sweep"] .tok{background-size:100% 86%!important}
 }
 </style>
 <!-- 새로고침 시 항상 최상단에서 시작 — 브라우저 기본 스크롤 복원을 끄고 즉시 맨 위로. -->
@@ -350,7 +381,7 @@ table.ref.warn thead th{color:var(--warning)}
 <section class="g-hero" id="top">
   <div class="wrap-narrow gh" data-reveal="up">
     <span class="eyebrow"><span class="dot"></span> 시작 가이드</span>
-    <h1>SQLPreShift 처음 실행하기</h1>
+    <h1 data-anim="hero">SQLPreShift 처음 실행하기</h1>
     <p>SQLPreShift는 PostgreSQL 스키마 변경을 적용하기 <b>전에</b> 검토하는 macOS 데스크톱 앱입니다. 변경을 실제 데이터베이스에 던지기 전에 ERD diff로 미리 보고, 규칙 기반 위험 진단을 확인한 다음, 단일 트랜잭션으로 한 번에 적용하거나 롤백합니다. 모든 작업은 로컬에서 동작하며, 자연어를 SQL로 바꾸는 기능은 선택 사항입니다. 이 가이드는 데이터베이스 연결부터 첫 위험 리포트를 받아보기까지의 흐름을 순서대로 안내합니다.</p>
     <span class="promise">About 5 minutes from download to your first risk report.</span>
   </div>
@@ -373,7 +404,7 @@ table.ref.warn thead th{color:var(--warning)}
       <h2>이 앱을 어떻게 생각하면 되나</h2>
       <p class="lead">SQLPreShift의 모든 작업은 네 단계로 흐릅니다. 이 흐름은 앱 상단 상태 표시와 그대로 대응합니다.</p>
 
-      <div class="flow4" data-reveal="up">
+      <div class="flow4" data-stagger>
         <div class="node"><div class="nl">Input</div><div class="ns">SQL 또는 자연어 입력</div></div>
         <div class="node"><div class="nl">Analyze</div><div class="ns">ERD diff 미리보기</div></div>
         <div class="node warn"><div class="nl">Risk</div><div class="ns">결정적 위험 진단</div></div>
@@ -403,7 +434,7 @@ table.ref.warn thead th{color:var(--warning)}
     <section class="g-sec" id="connect" data-toc="데이터베이스 연결" data-group="시작하기">
       <div class="sec-k">Connect</div>
       <h2>데이터베이스에 연결하기</h2>
-      <figure class="demo demo-wide zoomable" data-reveal="up">
+      <figure class="demo demo-wide zoomable" data-anim="lift">
         <figcaption class="demo-cap"><span class="tl"></span><span class="tl"></span><span class="tl"></span><span class="nm">DatabaseConnect</span><span class="hint"><svg viewBox="0 0 24 24" fill="none"><path d="M15 3h6v6m0-6-9 9M10 5H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5" stroke="currentColor" stroke-width="1.6"/></svg>클릭하면 확대</span></figcaption>
         <img class="shot" src="./assets/guide/connect.gif" alt="데모 ERP DB에 연결하는 과정: Host·Port·Database·User·Password 입력 후 Test Connection, Connect" loading="lazy" width="1280" />
       </figure>
@@ -418,7 +449,7 @@ table.ref.warn thead th{color:var(--warning)}
     <section class="g-sec" id="analyze" data-toc="변경 미리보기" data-group="시작하기">
       <div class="sec-k">Analyze</div>
       <h2>첫 변경 미리보기</h2>
-      <figure class="demo demo-wide zoomable" data-reveal="up">
+      <figure class="demo demo-wide zoomable" data-anim="lift">
         <figcaption class="demo-cap"><span class="tl"></span><span class="tl"></span><span class="tl"></span><span class="nm">Analyze · ERD diff</span><span class="hint"><svg viewBox="0 0 24 24" fill="none"><path d="M15 3h6v6m0-6-9 9M10 5H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5" stroke="currentColor" stroke-width="1.6"/></svg>클릭하면 확대</span></figcaption>
         <img class="shot" src="./assets/guide/analyze.gif" alt="입력창에 SQL을 타이핑하고 분석하면 ERD diff가 색으로 그려지는 과정" loading="lazy" width="1280" />
       </figure>
@@ -432,7 +463,7 @@ table.ref.warn thead th{color:var(--warning)}
     <section class="g-sec" id="risk" data-toc="위험 진단" data-group="시작하기">
       <div class="sec-k">Risk</div>
       <h2>위험 진단 읽기</h2>
-      <figure class="demo demo-wide zoomable" data-reveal="up">
+      <figure class="demo demo-wide zoomable" data-anim="lift">
         <figcaption class="demo-cap"><span class="tl"></span><span class="tl"></span><span class="tl"></span><span class="nm">Critical risk detected</span><span class="hint"><svg viewBox="0 0 24 24" fill="none"><path d="M15 3h6v6m0-6-9 9M10 5H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5" stroke="currentColor" stroke-width="1.6"/></svg>클릭하면 확대</span></figcaption>
         <img class="shot" src="./assets/guide/risk.gif" alt="DROP COLUMN 같은 파괴적 변경을 입력하면 Critical 위험 모달이 떠 적용 전 확인을 강제하는 모습" loading="lazy" width="1280" />
       </figure>
@@ -446,7 +477,7 @@ table.ref.warn thead th{color:var(--warning)}
     <section class="g-sec" id="apply" data-toc="적용과 되돌리기" data-group="시작하기">
       <div class="sec-k">Apply &amp; Rollback</div>
       <h2>변경 적용하고 되돌리기</h2>
-      <figure class="demo demo-wide zoomable" data-reveal="up">
+      <figure class="demo demo-wide zoomable" data-anim="lift">
         <figcaption class="demo-cap"><span class="tl"></span><span class="tl"></span><span class="tl"></span><span class="nm">Apply All · Rollback</span><span class="hint"><svg viewBox="0 0 24 24" fill="none"><path d="M15 3h6v6m0-6-9 9M10 5H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5" stroke="currentColor" stroke-width="1.6"/></svg>클릭하면 확대</span></figcaption>
         <img class="shot" src="./assets/guide/apply.gif" alt="안전한 변경을 Apply All로 적용해 Applied 상태가 되고, Rollback으로 되돌리는 과정" loading="lazy" width="1280" />
       </figure>
@@ -461,7 +492,7 @@ table.ref.warn thead th{color:var(--warning)}
       <div class="sec-k">Workflow</div>
       <h2>핵심 워크플로 한눈에</h2>
       <p class="lead">입력 &rarr; 미리보기(read-only) &rarr; 위험 진단 &rarr; 단일 트랜잭션 <code>Apply</code> / 전체 <code>Rollback</code>.</p>
-      <div class="flow4" data-reveal="up">
+      <div class="flow4" data-stagger>
         <a class="node" href="#analyze" style="text-decoration:none"><div class="nl">Input</div><div class="ns">SQL · 자연어 입력</div></a>
         <a class="node" href="#analyze" style="text-decoration:none"><div class="nl">Preview</div><div class="ns">read-only diff</div></a>
         <a class="node warn" href="#risk" style="text-decoration:none"><div class="nl">Risk</div><div class="ns">결정적 진단</div></a>
@@ -563,13 +594,69 @@ table.ref.warn thead th{color:var(--warning)}
   }
 })();
 
-/* ===== 스크롤 진입 reveal — download.html과 동일 엔진. ===== */
+/* ===== 스크롤 진입 모션 엔진 — vanilla. data-reveal/data-anim/data-stagger 통합. ===== */
 (function(){
   document.documentElement.classList.add('js');
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion:reduce)').matches;
+  // 텍스트 노드를 코드포인트(한글 자모 분해 방지) 단위 .ch span으로 분해. init 1회.
+  function splitChars(host){
+    var out=[];
+    [].slice.call(host.childNodes).forEach(function(node){
+      if(node.nodeType===3){
+        var frag=document.createDocumentFragment();
+        [].concat.apply([],[...node.nodeValue]).forEach(function(c){
+          var s=document.createElement('span'); s.className='ch'; s.textContent=c; frag.appendChild(s); out.push(s);
+        });
+        host.replaceChild(frag,node);
+      }
+    });
+    return out;
+  }
+  function clamp(v,a,b){return v<a?a:v>b?b:v;}
+  function easeOutCubic(t){return 1-Math.pow(1-t,3);}
+  document.querySelectorAll('[data-anim="hero"]').forEach(function(el){ el._chars=splitChars(el); });
+  document.querySelectorAll('[data-stagger]').forEach(function(el){
+    [].slice.call(el.children).forEach(function(c,i){ c.style.setProperty('--i',i); });
+  });
+  document.querySelectorAll('[data-anim="rows"]').forEach(function(el){
+    [].slice.call(el.querySelectorAll('tbody tr')).forEach(function(tr,i){ tr.style.setProperty('--i',i); });
+  });
+  if(reduce){
+    document.querySelectorAll('[data-anim="hero"]').forEach(function(el){
+      (el._chars||[]).forEach(function(s){ s.style.setProperty('--p',1); });
+    });
+    return; // 나머지는 CSS 미디어쿼리가 즉시 최종 상태.
+  }
+  function playHero(el){
+    var chs=el._chars||[], N=chs.length, dur=900, start=0;
+    function step(now){
+      if(!start) start=now;
+      var seq=clamp((now-start)/dur,0,1);
+      for(var j=0;j<N;j++){ chs[j].style.setProperty('--p',clamp((seq-(j/N)*0.6)/0.2,0,1).toFixed(3)); }
+      if(seq<1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+  function playSweep(el){
+    var toks=[].slice.call(el.querySelectorAll('.tok')), N=toks.length, dur=1100, start=0;
+    function step(now){
+      if(!start) start=now;
+      var seq=clamp((now-start)/dur,0,1);
+      for(var j=0;j<N;j++){ toks[j].style.setProperty('--hl',easeOutCubic(clamp((seq-j*0.14)/0.4,0,1)).toFixed(3)); }
+      if(seq<1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
   var io=new IntersectionObserver(function(entries){
-    entries.forEach(function(en){ if(!en.isIntersecting)return; en.target.classList.add('in'); io.unobserve(en.target); });
+    entries.forEach(function(en){
+      if(!en.isIntersecting) return;
+      var el=en.target; el.classList.add('in');
+      if(el.getAttribute('data-anim')==='hero') playHero(el);
+      if(el.getAttribute('data-anim')==='sweep') playSweep(el);
+      io.unobserve(el);
+    });
   },{threshold:0.14,rootMargin:'0px 0px -8% 0px'});
-  document.querySelectorAll('[data-reveal]').forEach(function(el){io.observe(el);});
+  document.querySelectorAll('[data-reveal],[data-anim],[data-stagger]').forEach(function(el){io.observe(el);});
 })();
 
 /* ===== zoomable 라이트박스 — vanilla. alert/confirm/prompt 미사용, div 오버레이만. ESC/배경클릭/닫기버튼으로 닫기. ===== */
