@@ -116,15 +116,31 @@ section.blk:first-of-type{border-top:none}
   .spec-rows .r .val{text-align:left}
 }
 
-/* ============ 스크롤 진입 reveal - index.html/features.html과 동일 엔진. Torii식 절제: 1회성 opacity+미세 translate만 ============ */
-.js [data-reveal]{opacity:0;transition:opacity .7s var(--ease),transform .7s var(--ease)}
-.js [data-reveal="up"]{transform:translateY(22px)}
-.js [data-reveal].in{opacity:1;transform:none}
-.js [data-reveal="stagger"]{opacity:1}
-.js [data-reveal="stagger"]>*{opacity:0;transform:translateY(18px);transition:opacity .6s var(--ease),transform .6s var(--ease)}
-.js [data-reveal="stagger"].in>*{opacity:1;transform:none;transition-delay:calc(var(--i,0)*70ms)}
+/* ============ 스크롤 진입 모션 시스템 — vanilla, 외부 라이브러리 0. guide.html과 동일 엔진. ============
+   기본 reveal(blur→clear focus-in) + 히어로 char 점등 + 패널 lift + stagger.
+   전부 IntersectionObserver 진입 시 1회 재생. prefers-reduced-motion 완전 대응. */
+.js [data-reveal],.js [data-anim]{will-change:transform,opacity,filter}
+/* 1) 기본 reveal — fade + 상승 + 살짝 블러(focus-in) */
+.js [data-reveal]{opacity:0;transition:opacity .7s var(--ease),transform .7s var(--ease),filter .7s var(--ease)}
+.js [data-reveal="up"]{transform:translateY(18px);filter:blur(6px)}
+.js [data-reveal].in{opacity:1;transform:none;filter:none}
+/* 2) 히어로 h1 — 글자 단위 좌→우 점등(blur→clear). JS가 .ch로 분해, --p(0~1) 주입. */
+.js [data-anim="hero"] .ch{display:inline-block;white-space:pre;opacity:calc(.08 + .92*var(--p,0));
+  filter:blur(calc((1 - var(--p,0))*7px));transform:translateY(calc((1 - var(--p,0))*8px));
+  transition:opacity .05s linear,filter .05s linear,transform .05s linear}
+/* 3) 패널 lift — 진입 시 scale+상승+블러 해제로 '안착'. */
+.js [data-anim="lift"]{opacity:0;transform:translateY(26px) scale(.965);filter:blur(8px);
+  transition:opacity .8s var(--ease),transform .8s var(--ease),filter .8s var(--ease)}
+.js [data-anim="lift"].in{opacity:1;transform:none;filter:none}
+/* 4) stagger 컨테이너 — 직계 자식이 시차로 등장. JS가 자식에 --i, 컨테이너에 .in. */
+.js [data-stagger]>*{opacity:0;transform:translateY(16px);filter:blur(4px);
+  transition:opacity .6s var(--ease),transform .6s var(--ease),filter .6s var(--ease);
+  transition-delay:calc(var(--i,0)*90ms)}
+.js [data-stagger].in>*{opacity:1;transform:none;filter:none}
 @media(prefers-reduced-motion:reduce){
-  .js [data-reveal],.js [data-reveal="up"],.js [data-reveal="stagger"]>*{opacity:1!important;transform:none!important;transition:none!important}
+  .js [data-reveal],.js [data-reveal="up"],.js [data-anim="lift"]{opacity:1!important;transform:none!important;filter:none!important;transition:none!important}
+  .js [data-anim="hero"] .ch{opacity:1!important;filter:none!important;transform:none!important}
+  .js [data-stagger]>*{opacity:1!important;transform:none!important;filter:none!important;transition:none!important}
 }
 </style>
 <!-- 새로고침 시 항상 최상단에서 시작 — 브라우저 기본 스크롤 복원을 끄고 즉시 맨 위로. -->
@@ -144,10 +160,10 @@ section.blk:first-of-type{border-top:none}
 <section class="dl-hero">
   <div class="wrap-narrow dh">
     <span class="dh-ver"><span class="vd"></span> SQLPreShift v0.1.0</span>
-    <h1>몇 초 만에 설치하고, 바로 시작하세요.</h1>
+    <h1 data-anim="hero">몇 초 만에 설치하고, 바로 시작하세요.</h1>
     <p>한 번 설치하면 완전히 로컬에서 동작합니다. DB 접속 정보도 추론도 기기 밖으로 나가지 않으며, Apple Silicon에 맞춰 빌드돼 PostgreSQL 16에 바로 연결됩니다.</p>
     <a href="https://github.com/taehyunan-99/sql-preshift/releases" class="btn btn-primary gn-dl"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0 4.5-4.5M12 15l-4.5-4.5M5 19h14" stroke="#F2FBFA" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg> macOS용 .dmg 다운로드</a>
-    <div class="dh-trust">
+    <div class="dh-trust" data-stagger>
       <span class="b"><svg viewBox="0 0 24 24" fill="none"><path d="M9 12.5 11 14.5 15.5 10M12 3 4 6v5c0 5 3.4 8.4 8 10 4.6-1.6 8-5 8-10V6l-8-3Z" stroke="currentColor" stroke-width="1.6"/></svg> 완전히 로컬에서 동작</span>
       <span class="b"><svg viewBox="0 0 24 24" fill="none"><path d="M9 12.5 11 14.5 15.5 10M12 3 4 6v5c0 5 3.4 8.4 8 10 4.6-1.6 8-5 8-10V6l-8-3Z" stroke="currentColor" stroke-width="1.6"/></svg> 텔레메트리 없음</span>
       <span class="b"><svg viewBox="0 0 24 24" fill="none"><path d="M9 12.5 11 14.5 15.5 10M12 3 4 6v5c0 5 3.4 8.4 8 10 4.6-1.6 8-5 8-10V6l-8-3Z" stroke="currentColor" stroke-width="1.6"/></svg> DB 접속 정보 미저장</span>
@@ -160,7 +176,7 @@ section.blk:first-of-type{border-top:none}
 <section class="blk" id="requirements">
   <div class="wrap-narrow">
     <div class="blk-head center" data-reveal="up"><div class="k">시스템 요구사항</div><h2>받기 전에 확인하세요.</h2><p>Apple Silicon 전용 빌드입니다. Apple 메뉴 &middot; 이 Mac에 관하여(About This Mac)의 칩(Chip) 항목이 Apple M1 이상이면 사용할 수 있습니다.</p></div>
-    <div class="spec" data-reveal="up">
+    <div class="spec" data-anim="lift">
       <div class="spec-h"><svg viewBox="0 0 24 24" fill="none"><path d="M5 4h14a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1ZM9 20h6M12 16v4" stroke="currentColor" stroke-width="1.6"/></svg> 시스템 요구사항</div>
       <div class="spec-rows">
         <div class="r"><span class="lab">칩</span><span class="val ok">Apple Silicon (M1 이상)</span></div>
@@ -186,19 +202,54 @@ section.blk:first-of-type{border-top:none}
 </footer>
 <script>
 (function(){var t=document.getElementById('menuToggle'),n=document.getElementById('nav');if(t)t.addEventListener('click',function(){n.classList.toggle('open');});})();
-// 스크롤 진입 reveal - index.html/features.html과 동일 엔진(콘텐츠 페이지용 간소). Torii식 1회성 fade.
+/* ===== 스크롤 진입 모션 엔진 — vanilla. guide.html과 동일. data-reveal/data-anim/data-stagger 통합. ===== */
 (function(){
   document.documentElement.classList.add('js');
-  document.querySelectorAll('[data-reveal="stagger"]').forEach(function(box){
-    Array.prototype.forEach.call(box.children,function(c,i){c.style.setProperty('--i',i);});
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion:reduce)').matches;
+  // 텍스트 노드를 코드포인트(한글 자모 분해 방지) 단위 .ch span으로 분해. init 1회.
+  function splitChars(host){
+    var out=[];
+    [].slice.call(host.childNodes).forEach(function(node){
+      if(node.nodeType===3){
+        var frag=document.createDocumentFragment();
+        [].concat.apply([],[...node.nodeValue]).forEach(function(c){
+          var s=document.createElement('span'); s.className='ch'; s.textContent=c; frag.appendChild(s); out.push(s);
+        });
+        host.replaceChild(frag,node);
+      }
+    });
+    return out;
+  }
+  function clamp(v,a,b){return v<a?a:v>b?b:v;}
+  document.querySelectorAll('[data-anim="hero"]').forEach(function(el){ el._chars=splitChars(el); });
+  document.querySelectorAll('[data-stagger]').forEach(function(el){
+    [].slice.call(el.children).forEach(function(c,i){ c.style.setProperty('--i',i); });
   });
+  if(reduce){
+    document.querySelectorAll('[data-anim="hero"]').forEach(function(el){
+      (el._chars||[]).forEach(function(s){ s.style.setProperty('--p',1); });
+    });
+    return; // 나머지는 CSS 미디어쿼리가 즉시 최종 상태.
+  }
+  function playHero(el){
+    var chs=el._chars||[], N=chs.length, dur=900, start=0;
+    function step(now){
+      if(!start) start=now;
+      var seq=clamp((now-start)/dur,0,1);
+      for(var j=0;j<N;j++){ chs[j].style.setProperty('--p',clamp((seq-(j/N)*0.6)/0.2,0,1).toFixed(3)); }
+      if(seq<1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
   var io=new IntersectionObserver(function(entries){
     entries.forEach(function(en){
-      if(!en.isIntersecting)return;
-      en.target.classList.add('in');io.unobserve(en.target);
+      if(!en.isIntersecting) return;
+      var el=en.target; el.classList.add('in');
+      if(el.getAttribute('data-anim')==='hero') playHero(el);
+      io.unobserve(el);
     });
-  },{threshold:0.18,rootMargin:'0px 0px -8% 0px'});
-  document.querySelectorAll('[data-reveal]').forEach(function(el){io.observe(el);});
+  },{threshold:0.14,rootMargin:'0px 0px -8% 0px'});
+  document.querySelectorAll('[data-reveal],[data-anim],[data-stagger]').forEach(function(el){io.observe(el);});
 })();
 </script>
 </body>
