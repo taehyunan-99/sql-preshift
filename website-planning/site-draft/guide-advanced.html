@@ -438,7 +438,7 @@ table.ref.warn thead th{color:var(--warning)}
       <div class="sec-k">Connect</div>
       <h2>데이터베이스에 연결하기 (또는 데모 DB로 시작)</h2>
 
-      <p class="lead">SQLPreShift는 항상 살아있는 target DB에 붙어 동작합니다. 첫 화면 온보딩 게이트가 연결을 요구합니다. 붙을 DB가 없어도 내장 데모 DB로 바로 시작할 수 있습니다.</p>
+      <p class="lead">SQLPreShift는 항상 살아있는 target DB에 붙어 동작합니다. 첫 화면 온보딩 게이트가 연결을 요구합니다. 붙을 DB가 없어도 함께 제공되는 로컬 데모 PostgreSQL로 시작할 수 있습니다. 앱 안에 데모 진입 버튼이 따로 있는 것은 아니고, 같은 연결 폼에 데모 DB 접속 정보(ERP는 <code>localhost:5433</code>, Pagila는 <code>localhost:5434</code>)를 입력해 연결하면 됩니다.</p>
 
       <div class="two-col" data-reveal="up">
         <div class="col">
@@ -453,14 +453,14 @@ table.ref.warn thead th{color:var(--warning)}
               <li><code>User</code></li>
               <li><code>Password</code></li>
             </ol>
-            <p>입력 후 <code>Test Connection</code> 버튼을 눌러 연결을 확인하고, 성공하면 <code>Connect</code> 버튼을 눌러 진입합니다. <b>순서는 반드시 입력 &rarr; <code>Test Connection</code> &rarr; <code>Connect</code>입니다.</b></p>
+            <p>입력 후 <code>Test Connection</code>으로 연결을 확인한 뒤 <code>Connect</code>를 눌러 진입하는 것을 권장합니다. Test Connection은 선택 단계이며, 건너뛰고 바로 <code>Connect</code>할 수도 있습니다.</p>
           </div>
-          <div class="step-block"><div class="bl">What you'll see</div><div class="step-see"><span class="se">연결 성공 시 좌측에 ERD 캔버스가 뜨고, 데모 ERP DB라면 92개 테이블이 나열됩니다.</span></div></div>
+          <div class="step-block"><div class="bl">What you'll see</div><div class="step-see"><span class="se">연결 성공 시 좌측에 빈 캔버스와 중앙 입력창이 뜹니다. 입력창 아래 <code>View full schema</code>를 누르면 전체 스키마 ERD가 그려지며, 데모 ERP DB라면 92개 테이블이 나열됩니다(200개 초과 시 성능 경고).</span></div></div>
         </div>
         <div class="col">
           <h4>No database yet? Try with demo data</h4>
-          <div class="demo-badges"><span class="b">ERP · 92 tables</span><span class="b">Pagila</span></div>
-          <p style="margin-top:var(--space-3)">앱 내장 로컬 데모입니다. 외부나 GitHub 의존이 전혀 없습니다.</p>
+          <div class="demo-badges"><span class="b">데모 DB · ERP (92 tables)</span><span class="b">데모 DB · Pagila</span></div>
+          <p style="margin-top:var(--space-3)">앱과 함께 제공되는 로컬 데모 PostgreSQL입니다(앱 바이너리에 내장된 것은 아닌 별도 로컬 DB). 외부 서버나 계정 없이 로컬로 완결됩니다.</p>
           <div class="placeholder"><div class="ph-cap">[ DatabaseConnect · Host / Port / Database / User / Password<br>+ Test Connection · Connect ]</div></div>
         </div>
       </div>
@@ -502,15 +502,15 @@ table.ref.warn thead th{color:var(--warning)}
         <div class="step-block step-steps"><div class="bl">Steps</div>
           <ol>
             <li>하단 입력 pill에 SQL을 직접 타이핑하거나, 모델이 ready라면 자연어 문장을 타이핑합니다.</li>
-            <li>타이핑하면 자동 감지 칩이 뜹니다. <span class="detect-chip">Detected: SQL 92%</span> 또는 <span class="detect-chip">Detected: Natural Language 87%</span>.</li>
-            <li><span class="kbd">Cmd/Ctrl+Enter</span>로 제출합니다. 줄바꿈은 <span class="kbd">Enter</span>, 들여쓰기는 <span class="kbd">Tab</span> / <span class="kbd">Shift+Tab</span>.</li>
+            <li>타이핑하면 자동 감지 칩이 뜹니다. 감지는 결정적이라 신뢰도는 항상 두 값 중 하나입니다. <span class="detect-chip">Detected: SQL 100%</span> 또는 <span class="detect-chip">Detected: Natural Language 90%</span>.</li>
+            <li><span class="kbd">Cmd/Ctrl+Enter</span>로 제출합니다. 줄바꿈은 <span class="kbd">Enter</span>, 들여쓰기는 <span class="kbd">Tab</span>, 내어쓰기는 <span class="kbd">Shift+Tab</span>.</li>
           </ol>
         </div>
         <div class="step-block"><div class="bl">What you'll see</div><div class="step-see"><span class="se">자동 감지 칩과 placeholder <code>Enter natural language or SQL (auto-detected) — Cmd/Ctrl+Enter to analyze</code>. 제출하면 stage가 <code>Analyzing</code> &rarr; <code>Preview</code>로 전이됩니다.</span></div></div>
       </div>
 
       <h3>자연어를 제출하면 무슨 일이 일어나나</h3>
-      <p>자연어를 제출하면 &rarr; 자동 감지(<code>Detected: Natural Language 87%</code>) &rarr; 모델이 자연어를 SQL로 변환 &rarr; <code>Analyzing</code> &rarr; <code>Preview</code>(ERD diff 시각화) &rarr; 위험 진단으로 이어집니다. 예를 들어 <code>users</code> 테이블에 <code>nickname</code> 컬럼을 추가하는 변경은 대개 위험이 없거나, <code>NOT NULL</code>로 추가하면 <code>ADD_NOT_NULL_NO_DEFAULT</code>(Warning, 주황)가 붙습니다.</p>
+      <p>자연어를 제출하면 &rarr; 자동 감지(<code>Detected: Natural Language 90%</code>) &rarr; 모델이 자연어를 SQL로 변환 &rarr; <code>Analyzing</code> &rarr; <code>Preview</code>(ERD diff 시각화) &rarr; 위험 진단으로 이어집니다. 예를 들어 <code>users</code> 테이블에 <code>nickname</code> 컬럼을 추가하는 변경은 대개 위험이 없거나, <code>NOT NULL</code>로 추가하면 <code>ADD_NOT_NULL_NO_DEFAULT</code>(Warning, 주황)가 붙습니다.</p>
 
       <div class="callout callout--caution">
         <span class="callout-label">Safety guards</span>
@@ -551,7 +551,7 @@ table.ref.warn thead th{color:var(--warning)}
         </div>
       </details><details class="adv"><summary>SQL 탭 (Up/Down)으로 실행 SQL과 롤백 SQL 확인하기 <span class="tag">A5</span></summary>
         <div class="adv-body">
-          <p style="margin-top:0">실행될 SQL과 자동 생성된 롤백 SQL을 확인하는 곳은 <b>DiagnosticsPanel의 SQL 탭</b>입니다. <code>Up</code>이 실제 실행될 SQL, <code>Down</code>이 앱이 자동 생성한 롤백 SQL이며, 둘 다 Monaco 에디터에 <b>읽기 전용</b>으로 표시됩니다. (이 <code>down_script</code>는 메타 DB의 <code>migration_history</code>에 저장됩니다.)</p>
+          <p style="margin-top:0">실행될 SQL과 자동 생성된 롤백 SQL을 확인하는 곳은 <b>DiagnosticsPanel의 SQL 탭</b>입니다. <code>Up</code>이 실제 실행될 SQL, <code>Down</code>이 앱이 자동 생성한 롤백 SQL이며, 둘 다 Monaco 에디터에 <b>읽기 전용</b>으로 표시됩니다. (이 <code>down_script</code>는 메타 DB의 <code>migration_history</code>에 저장됩니다.) 다만 익명 제약(제약명 미지정)이나 원본 타입·DDL 정보가 없는 일부 변경은 실행 가능한 롤백 SQL 대신 주석으로 표시됩니다(자세한 한계는 <a href="#apply">Apply</a> 섹션 참고).</p>
         </div>
       </details><details class="adv"><summary>변경 설명 <span class="tag">A6</span></summary>
         <div class="adv-body"><p style="margin-top:0">DiagnosticsPanel의 Explanation이 SQL을 한 문장 자연어로 설명합니다. Ollama 폴백 시 토큰 기반으로 동작하므로 모델이 없어도 됩니다.</p></div>
@@ -685,7 +685,7 @@ table.ref.warn thead th{color:var(--warning)}
           </div>
         </div>
       </details><details class="adv"><summary>모델 관리 (ModelSettings) <span class="tag">A8</span></summary>
-        <div class="adv-body"><p style="margin-top:0">모델 교체/다운로드(인앱 SSE 진행률 <code>1/2 chat</code> &rarr; <code>2/2 embed</code>, <code>manifest &rarr; verifying &rarr; success</code>, 취소 가능)/Advanced 직접 태그 입력/<code>None</code>.</p></div>
+        <div class="adv-body"><p style="margin-top:0">모델 교체/다운로드(인앱 SSE 진행률; 필요한 모델만 순서대로 받고 이미 설치된 모델은 건너뜁니다. 보통 embed &rarr; chat 순, <code>manifest &rarr; verifying &rarr; success</code>, 취소 가능)/Advanced 직접 태그 입력/<code>None</code>.</p></div>
       </details><details class="adv"><summary>임베딩 모델 고정</summary>
         <div class="adv-body"><p style="margin-top:0"><code>bge-m3</code>(1.2GB)는 고정·자동 동반되며 사용자가 변경할 수 없습니다.</p></div>
       </details><details class="adv"><summary>NL 활성 조건</summary>

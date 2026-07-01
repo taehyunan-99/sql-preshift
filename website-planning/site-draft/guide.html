@@ -382,7 +382,7 @@ table.ref.warn thead th{color:var(--warning)}
   <div class="wrap-narrow gh" data-reveal="up">
     <span class="eyebrow"><span class="dot"></span> 시작 가이드</span>
     <h1 data-anim="hero">SQLPreShift 처음 실행하기</h1>
-    <p>SQLPreShift는 PostgreSQL 스키마 변경을 적용하기 <b>전에</b> 검토하는 macOS 데스크톱 앱입니다. 변경을 실제 데이터베이스에 던지기 전에 ERD diff로 미리 보고, 규칙 기반 위험 진단을 확인한 다음, 단일 트랜잭션으로 한 번에 적용하거나 롤백합니다. 모든 작업은 로컬에서 동작하며, 자연어를 SQL로 바꾸는 기능은 선택 사항입니다. 이 가이드는 데이터베이스 연결부터 첫 위험 리포트를 받아보기까지의 흐름을 순서대로 안내합니다.</p>
+    <p>SQLPreShift는 PostgreSQL 스키마 변경을 적용하기 <b>전에</b> 검토하는 macOS 데스크톱 앱입니다. 변경을 실제 데이터베이스에 던지기 전에 ERD diff로 미리 보고, 규칙 기반 위험 진단을 확인한 다음, 단일 트랜잭션으로 한 번에 적용하고, 적용 뒤에는 자동 생성된 역방향 SQL로 통째로 되돌립니다. 모든 작업은 로컬에서 동작하며, 자연어를 SQL로 바꾸는 기능은 선택 사항입니다. 이 가이드는 데이터베이스 연결부터 첫 위험 리포트를 받아보기까지의 흐름을 순서대로 안내합니다.</p>
     <span class="promise">About 5 minutes from download to your first risk report.</span>
   </div>
 </section>
@@ -415,7 +415,7 @@ table.ref.warn thead th{color:var(--warning)}
       <div class="callout callout--note callout--center">
         <span class="callout-label">Requirements</span>
         <p><code>macOS Apple Silicon</code> &middot; <code>~122 MiB</code> &middot; <code>macOS Big Sur 11+</code> &middot; <code>PostgreSQL 16 target</code> &middot; 완전히 로컬에서 동작.</p>
-        <p>필요한 것은 앱 본체와 로컬 PostgreSQL 16, 또는 내장 데모 DB뿐입니다. 자연어 입력을 쓰려면 Ollama와 모델이 있으면 되지만, 없어도 SQL 직접 입력으로 바로 시작할 수 있습니다.</p>
+        <p>필요한 것은 앱 본체와 로컬 PostgreSQL 16, 또는 함께 제공하는 데모 DB(ERP·Pagila, 로컬에서 별도로 띄우는 PostgreSQL)뿐입니다. 자연어 입력을 쓰려면 Ollama와 모델이 있으면 되지만, 없어도 SQL 직접 입력으로 바로 시작할 수 있습니다.</p>
       </div>
     </section>
 
@@ -439,8 +439,8 @@ table.ref.warn thead th{color:var(--warning)}
         <img class="shot" src="./assets/guide/connect.gif" alt="데모 ERP DB에 연결하는 과정: Host·Port·Database·User·Password 입력 후 Test Connection, Connect" loading="lazy" width="1280" />
       </figure>
       <div class="qsec">
-        <p class="lead-line"><code>Host</code> / <code>Port</code> / <code>Database</code> / <code>User</code> / <code>Password</code>를 입력하고 <b><code>Test Connection</code> &rarr; <code>Connect</code></b> 순서로 진입합니다. 연결되면 왼쪽에 ERD가 뜨고, 데모 ERP DB라면 92개 테이블이 나타납니다.</p>
-        <p class="lead-line">붙을 DB가 없어도 내장 데모 DB(ERP / Pagila)로 바로 시작할 수 있습니다.</p>
+        <p class="lead-line"><code>Host</code> / <code>Port</code> / <code>Database</code> / <code>User</code> / <code>Password</code>를 입력하고 <code>Test Connection</code>으로 연결을 확인한 뒤 <code>Connect</code>를 누르면 됩니다(Test는 선택). 연결되면 왼쪽에 빈 캔버스와 입력창이 뜨고, <code>View full schema</code>를 누르면 전체 스키마 ERD가 그려집니다. 데모 ERP DB라면 92개 테이블이 나타납니다.</p>
+        <p class="lead-line">붙을 DB가 없어도, 함께 제공하는 데모 DB(ERP / Pagila)를 로컬에 띄우면 바로 시작할 수 있습니다.</p>
         <a href="./guide-advanced.html#connect" class="more-link">연결 설정·데모 DB·문제 해결 자세히 <svg viewBox="0 0 24 24" fill="none"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="2"/></svg></a>
       </div>
     </section>
