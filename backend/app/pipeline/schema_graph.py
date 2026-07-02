@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from sqlalchemy import Engine, inspect, text
+from sqlalchemy import Engine, inspect
 
 from app.schemas.schema_graph import (
     ColumnChange,

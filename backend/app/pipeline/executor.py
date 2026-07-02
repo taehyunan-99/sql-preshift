@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from collections import OrderedDict
 from typing import Optional
 
 import sqlglot.expressions as exp
@@ -15,12 +16,17 @@ from app.schemas.analysis import AnalyzeResponse, ApplyResult, RollbackResult
 import datetime
 
 # ─── analyze token 캐시 (프로세스 내 메모리) ─────────────────────────
-_token_cache: dict[str, AnalyzeResponse] = {}
+# apply 없이 analyze만 반복하면 토큰이 무한 누적되므로 상한을 둔다(FIFO).
+# 단일 사용자 데모 기준 상한이며, 초과 시 가장 오래된 미소비 토큰부터 밀어낸다.
+_TOKEN_CACHE_MAX = 256
+_token_cache: "OrderedDict[str, AnalyzeResponse]" = OrderedDict()
 
 
 def store_token(response: AnalyzeResponse) -> str:
     token = str(uuid.uuid4())
     _token_cache[token] = response
+    while len(_token_cache) > _TOKEN_CACHE_MAX:
+        _token_cache.popitem(last=False)  # 가장 오래된 것 제거(FIFO)
     return token
 
 

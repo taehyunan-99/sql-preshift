@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
-from app.llm.client import OllamaError, complete
+from app.llm.client import complete
 from app.pipeline.rag import SchemaChunk
 
 
