@@ -67,11 +67,7 @@ img{max-width:100%;display:block}
 .film-hero{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:88px var(--gutter) var(--space-16);overflow:hidden}
 .film-hero .hero-film{position:relative;width:100%;max-width:var(--maxw-wide);border-radius:var(--radius-lg);overflow:hidden;border:1px solid var(--border);box-shadow:0 0 0 1px rgba(43,168,160,.12),0 40px 120px -30px rgba(43,168,160,.35),var(--shadow-lg);background:var(--bg-canvas)}
 .film-hero .hero-film::after{content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}
-.hero-video{display:block;width:100%;height:auto;aspect-ratio:16/9;object-fit:cover;opacity:0;transition:opacity .35s var(--ease)}
-/* 영상 실제 재생(playing) 전까지 poster 이미지를 위에 깔아 캐시 중간 프레임 플래시를 가린다. */
-.hero-video.is-playing{opacity:1}
-.hero-poster{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;transition:opacity .35s var(--ease)}
-.hero-poster.is-hidden{opacity:0}
+.hero-video{display:block;width:100%;height:auto;aspect-ratio:16/9;object-fit:cover}
 /* 스크롤 유도 힌트 */
 .scroll-hint{position:absolute;left:50%;bottom:32px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:8px;color:var(--text-tertiary);font-size:12px;font-family:var(--font-mono);letter-spacing:.05em;animation:hintbob 2s var(--ease) infinite}
 .scroll-hint svg{width:20px;height:20px}
@@ -282,23 +278,6 @@ p.lede em{font-style:normal;color:var(--text-primary);font-weight:600}
            모든 브라우저가 H.264를 재생하므로 WebM 없이 충분하다. -->
       <source src="./assets/hero-demo-v2.mp4" type="video/mp4">
     </video>
-    <!-- poster 오버레이: 영상이 실제 재생(playing) 시작할 때까지 첫 프레임 이미지를 덮어
-         새로고침 시 캐시된 중간 프레임이 순간 노출되는 플래시를 차단한다. -->
-    <img class="hero-poster" src="./assets/hero-poster-v2.jpg" alt="" aria-hidden="true">
-    <script>
-      // 영상이 실제로 첫 프레임을 그리기 시작(playing)하면 poster를 페이드아웃하고 영상을 페이드인.
-      (function(){
-        var film = document.currentScript.closest('.hero-film');
-        var video = film.querySelector('.hero-video');
-        var poster = film.querySelector('.hero-poster');
-        function reveal(){
-          video.classList.add('is-playing');
-          poster.classList.add('is-hidden');
-        }
-        if (video.readyState >= 3 && !video.paused) reveal();
-        video.addEventListener('playing', reveal, { once: true });
-      })();
-    </script>
   </div>
   <div class="scroll-hint" aria-hidden="true">SCROLL<svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14m-6-6 6 6 6-6" stroke="currentColor" stroke-width="1.6"/></svg></div>
 </section>
