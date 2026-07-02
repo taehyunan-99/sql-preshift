@@ -2,9 +2,8 @@
   <img src="assets/logo.png" alt="SQLPreShift" width="440" />
 </p>
 
-<!-- 배포 후 아래 홈페이지 URL(href)만 교체하면 됨 -->
 <p align="center">
-  <a href="https://example.com"><img src="https://img.shields.io/badge/Homepage-Visit-2BA8A0?style=for-the-badge&logo=safari&logoColor=white" alt="Homepage" /></a>
+  <a href="https://sqlpreshift.netlify.app/"><img src="https://img.shields.io/badge/Homepage-Visit-2BA8A0?style=for-the-badge&logo=safari&logoColor=white" alt="Homepage" /></a>
 </p>
 
 <p align="center"><b>한국어</b> | <a href="README.en.md">English</a></p>
