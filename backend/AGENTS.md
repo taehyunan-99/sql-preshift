@@ -34,7 +34,7 @@
 - `run_server.py` — PyInstaller sidecar 진입점(uvicorn 프로그래매틱 기동, 동적 포트)
 - `sqlpreshift-backend.spec` — PyInstaller onedir 번들 spec
 - `migrations/` — Alembic(docker 개발 경로 전용) + 시드 스크립트 (`seed_ecommerce.py`, `seed_erp.py`, `seed_sample.py`, `test_scenarios.py`)
-- `tests/` — pytest 스위트 (m2~m7 마일스톤별 + `test_risk_rules.py`, `test_llm_pull.py`)
+- `tests/` — pytest 스위트 (m2~m7 마일스톤별 + `test_risk_rules.py`, `test_llm_pull.py`, `test_safety_gate_bypass.py` 안전 게이트 우회 회귀)
 
 기술 스택: Python, FastAPI, SQLAlchemy 2.0, sqlglot, psycopg3, Pydantic. NL→SQL은 Ollama 연동.
 <!-- prev: PostgreSQL 16 + pgvector + Alembic 고정 (init 2026-06-23) -->
@@ -50,6 +50,8 @@
 - **`runtime_paths.bootstrap_paths()`는 config(BaseSettings) import 이전에 호출**해야 한다 — frozen일 때 .env/SQLite 경로를 실행 바이너리 기준으로 주입하기 때문. `run_server.py`가 이 순서를 지킨다. PyInstaller `_MEIPASS`는 재실행마다 휘발하므로 영속 데이터(SQLite)를 거기 두면 안 된다.
 - **설치형 SQLite 메타 DB에 Alembic을 돌리거나 pgvector 의존을 추가하지 말 것** — 3개 테이블뿐이고 벡터는 numpy 코사인으로 처리한다. Alembic/pgvector는 docker 개발 경로(postgres 메타) 한정.
 - **런타임 변경 값을 config 기본값에서 직접 읽지 말 것** — `app_settings` 테이블(`settings_store`)이 SoT다. config 기본값을 직접 읽으면 사용자가 바꾼 설정(예: LLM 모델 태그)이 무시된다.
+- **SQL 검증은 화이트리스트로 fail-closed — 블랙리스트로 위험 구문을 막지 말 것** — `validation.parse`는 `_ALLOWED_STATEMENTS`(DML + 마이그레이션 DDL)에 없는 최상위 노드를 전부 거부한다. sqlglot이 미지원 구문(DO 블록/COPY FROM PROGRAM/CLUSTER/CHECKPOINT/VACUUM 등)을 `Command`/`Copy`/`Alias`/`Column`으로 폴백하기 때문에, 새 위험 구문을 블랙리스트로 하나씩 막으려 하면 `risk.py`가 못 보는 폴백 노드로 새어나간다. 지원 구문을 늘릴 때만 `_ALLOWED_STATEMENTS`에 노드를 추가한다(커밋 e1f4a4e C1). non-public 스키마 대상도 `check_forbidden`이 명시 거부한다 — `build_graph`가 public만 reflection해 diff가 비어 보여도 Apply는 실행되므로(H1). 스키마명 비교는 따옴표를 벗긴 `Identifier.name`으로 한다(인용 식별자 오탐 방지).
+- **analyze 응답을 캐시할 때 무한 성장을 막을 것** — `executor._token_cache`는 `OrderedDict` LRU(256 상한, FIFO). apply 없이 analyze만 반복하면 토큰이 무한 누적되므로 `store_token`이 상한 초과분을 가장 오래된 것부터 제거한다(커밋 3eceff4). 새 캐시를 추가할 때도 상한 없는 dict 누적을 피한다.
 
 ## 5. WHERE — 다른 모듈과의 의존성
 
@@ -83,6 +85,7 @@ root map의 공통 가드와 중복 금지.
 
 **영역 가드**:
 - Alembic 명령은 docker 개발 경로(postgres 메타 DB)에서만 유효하다 — 설치형 SQLite 메타 DB에는 적용하지 말 것(3개 테이블, 마이그레이션 불필요).
+- 안전 게이트/파이프라인을 수정한 뒤에는 docker pytest만으로 끝내지 말 것 — 패키징 sidecar를 직접 실행해 `/api/analyze` e2e까지 검증한다. docker 경로에는 의존성이 정상 설치돼 있어 sqlglot 방언 번들 누락 같은 패키징 전용 결함을 절대 못 잡는다(커밋 594bde3에서 설치형 dmg e2e로만 실측). sidecar 재빌드는 `.venv-build/bin/pyinstaller --noconfirm --clean sqlpreshift-backend.spec`, 검증은 `dist/sqlpreshift-backend/sqlpreshift-backend` 실행 → stdout `SQLPRESHIFT_PORT=n` 파싱 후 target 연결(localhost:5433 demo DB)로 5케이스(안전/tautology/DROP/VACUUM거부/non-public거부). ([[pyinstaller-sqlglot-dialects]], [[backend-reload-stale-verify]] 참고)
 
 ## 8. ⚠️ LEARNED CAUTIONS — 학습된 주의사항
 <!--
