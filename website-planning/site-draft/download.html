@@ -99,6 +99,20 @@ section.blk:first-of-type{border-top:none}
 .spec-rows .r .lab{color:var(--text-secondary)}
 .spec-rows .r .val{font-family:var(--font-mono);font-size:13px;color:var(--text-primary);text-align:right}
 .spec-rows .r .val.ok{color:var(--accent)}
+/* ----- 첫 실행(First launch) 안내 ----- */
+.launch{margin-top:var(--space-6)}
+.launch-note{display:flex;gap:12px;align-items:flex-start;background:rgba(196,149,90,0.08);border:1px solid rgba(196,149,90,0.28);border-radius:var(--radius-lg);padding:16px 18px;margin-bottom:var(--space-6)}
+.launch-note svg{flex:none;width:18px;height:18px;color:var(--warning);margin-top:1px}
+.launch-note p{font-size:14.5px;color:var(--text-secondary);line-height:1.6}
+.launch-note b{color:var(--text-primary);font-weight:600}
+.launch-steps{counter-reset:ls;display:flex;flex-direction:column;gap:var(--space-4)}
+.launch-steps li{list-style:none;position:relative;padding-left:38px;font-size:15px;color:var(--text-secondary);line-height:1.6}
+.launch-steps li::before{counter-increment:ls;content:counter(ls);position:absolute;left:0;top:0;width:24px;height:24px;border-radius:50%;background:var(--surface);border:1px solid var(--border);color:var(--accent);font-family:var(--font-mono);font-size:12px;font-weight:600;display:grid;place-items:center}
+.launch-steps li b{color:var(--text-primary);font-weight:600}
+.code-copy{margin-top:10px;display:flex;align-items:center;gap:10px;background:var(--bg-canvas);border:1px solid var(--border);border-radius:10px;padding:11px 14px}
+.code-copy code{flex:1;font-family:var(--font-mono);font-size:13px;color:var(--text-primary);overflow-x:auto;white-space:nowrap}
+.code-copy button{flex:none;font-family:var(--font-mono);font-size:12px;color:var(--accent);background:var(--surface);border:1px solid var(--border-subtle);border-radius:7px;padding:5px 11px;cursor:pointer;transition:background .2s var(--ease),color .2s var(--ease)}
+.code-copy button:hover{background:var(--surface-2)}
 .foot{background:var(--bg-canvas);border-top:1px solid var(--border-subtle);padding:var(--space-16) 0 var(--space-8)}
 .foot-grid{display:grid;grid-template-columns:1.6fr 1fr 1fr 1fr;gap:var(--space-8)}
 .foot-brand .brand{margin-bottom:var(--space-4)}
@@ -180,6 +194,29 @@ section.blk:first-of-type{border-top:none}
   </div>
 </section>
 
+<!-- ============ 첫 실행 - 다운로드 직후 여는 법. 요구사항보다 먼저. ============ -->
+<section class="blk" id="first-launch">
+  <div class="wrap-narrow">
+    <div class="blk-head center" data-reveal="up"><div class="k" data-i18n="fl-k">첫 실행</div><h2 data-i18n="fl-h2">처음 열 때 한 번만.</h2><p data-i18n="fl-sub">이 앱은 Apple 공증(notarization)을 받지 않은 오픈소스 빌드라, 처음 실행할 때 macOS가 한 번 차단합니다. 앱은 안전하며, 아래 방법으로 한 번만 열면 이후에는 그냥 실행됩니다.</p></div>
+    <div class="launch spec" data-anim="lift">
+      <div class="spec-h" data-i18n="fl-h"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3 4 6v5c0 5 3.4 8.4 8 10 4.6-1.6 8-5 8-10V6l-8-3Z" stroke="currentColor" stroke-width="1.6"/><path d="M9 12.5 11 14.5 15.5 10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg> macOS에서 여는 법</div>
+      <div class="spec-rows">
+        <div class="launch-note">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M12 9v4m0 4h.01M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <p data-i18n="fl-warn"><b>&ldquo;손상되었다&rdquo;는 경고가 떠도 정상입니다.</b> 앱이 실제로 손상된 것이 아니라, 서명과 공증이 없어 macOS가 표시하는 메시지입니다. 경고 창이 뜨면 <b>취소</b>를 누르고 아래 방법으로 여세요.</p>
+        </div>
+        <ol class="launch-steps">
+          <li data-i18n="fl-step0"><b>먼저</b>, dmg를 열어 SQLPreShift를 <b>Applications 폴더</b>로 옮깁니다.</li>
+          <li data-i18n="fl-step1"><b>권장 방법 (터미널)</b>: 터미널을 열고 아래 명령을 실행하면, 이후에는 더블클릭으로 바로 열립니다.
+            <div class="code-copy"><code id="fl-cmd">xattr -dr com.apple.quarantine /Applications/SQLPreShift.app</code><button type="button" data-copy="fl-cmd" data-i18n="fl-copy">복사</button></div>
+          </li>
+          <li data-i18n="fl-step2"><b>또는 (우클릭)</b>: Applications에서 SQLPreShift를 우클릭(Control+클릭)하고 <b>열기</b>를 누른 뒤, 경고 창에서 다시 <b>열기</b>를 선택합니다. 일부 macOS 버전에서는 이 방법이 막힐 수 있어, 위 터미널 방법을 권장합니다.</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- ============ 시스템 요구사항 - 중앙 정렬 패널. ============ -->
 <section class="blk" id="requirements">
   <div class="wrap-narrow">
@@ -202,7 +239,7 @@ section.blk:first-of-type{border-top:none}
     <div class="foot-grid">
       <div class="foot-brand"><a href="./index.html" class="brand"><span class="mark"><svg viewBox="0 0 24 24" fill="none"><defs><linearGradient id="wsym" x1="12" y1="2.5" x2="12" y2="21.5" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#3ACDC2"/><stop offset="0.55" stop-color="#31B8AE"/><stop offset="1" stop-color="#279E96"/></linearGradient></defs><path d="M12 2.6 C13.9 4.1 16 4.9 18.3 5.2 C18.6 5.2 18.8 5.4 18.8 5.7 L18.8 12.2 C18.8 16 16.4 18.6 12.3 20.5 C12.1 20.6 11.9 20.6 11.7 20.5 C7.6 18.6 5.2 16 5.2 12.2 L5.2 5.7 C5.2 5.4 5.4 5.2 5.7 5.2 C8 4.9 10.1 4.1 12 2.6 Z" fill="url(#wsym)"/><path d="M12 2.6 C13.9 4.1 16 4.9 18.3 5.2 C18.6 5.2 18.8 5.4 18.8 5.7 L18.8 6.9 C16.4 6.6 14.2 5.8 12 4.3 C9.8 5.8 7.6 6.6 5.2 6.9 L5.2 5.7 C5.2 5.4 5.4 5.2 5.7 5.2 C8 4.9 10.1 4.1 12 2.6 Z" fill="#EAEFF0" fill-opacity="0.26"/><path d="M9.6 12.1 L11.2 13.7 L14.6 10.2 L15.8 11.4 L11.6 15.7 C11.5 15.8 11.3 15.8 11.2 15.7 L8.4 12.9 Z" fill="#F2F6F6"/></svg></span><span class="wm">SQL<span class="wm-accent">PreShift</span></span></a><p data-i18n="foot-tagline">PostgreSQL 스키마 마이그레이션을 위한 안전 게이트. 호스팅 서비스가 아닌 포트폴리오 데모로, 위험한 마이그레이션을 실수로 적용하는 일이 불가능하도록 만들었습니다.</p></div>
       <div class="foot-col"><h5 data-i18n="foot-product">제품</h5><a href="./index.html" data-i18n="nav-home">홈</a><a href="./download.html" data-i18n="nav-download">다운로드</a><a href="./guide.html" data-i18n="nav-guide">가이드</a></div>
-      <div class="foot-col"><h5 data-i18n="foot-resources">리소스</h5><a href="#requirements" data-i18n="foot-sysreq">시스템 요구사항</a><a href="./guide.html" data-i18n="nav-guide">가이드</a><a href="https://github.com/taehyunan-99/sql-preshift" data-i18n="foot-repo">GitHub 저장소</a></div>
+      <div class="foot-col"><h5 data-i18n="foot-resources">리소스</h5><a href="#requirements" data-i18n="foot-sysreq">시스템 요구사항</a><a href="#first-launch" data-i18n="foot-firstlaunch">첫 실행</a><a href="./guide.html" data-i18n="nav-guide">가이드</a><a href="https://github.com/taehyunan-99/sql-preshift" data-i18n="foot-repo">GitHub 저장소</a></div>
       <div class="foot-col"><h5 data-i18n="foot-about">정보</h5><a href="https://github.com/taehyunan-99/sql-preshift/releases" data-i18n="foot-releases">릴리즈</a><a href="https://github.com/taehyunan-99/sql-preshift/blob/main/LICENSE" data-i18n="foot-mit">MIT 라이선스</a><a href="https://github.com/taehyunan-99/sql-preshift" data-i18n="foot-source">소스에서 빌드</a></div>
     </div>
     <div class="foot-bottom"><span data-i18n="foot-copyright">&copy; 2026 SQLPreShift &middot; MIT 라이선스 &middot; 완전히 로컬에서 동작.</span><span class="badges"><span class="badge">PostgreSQL 16</span><span class="badge">macOS Apple Silicon</span><span class="badge" data-i18n="badge-telemetry">텔레메트리 없음</span></span></div>
@@ -243,9 +280,20 @@ window.SPF_DICT = {
   'spec-nl-lab': { en: 'Natural language', ko: '자연어 입력' },
   'spec-nl-val': { en: 'Ollama (optional)', ko: 'Ollama (선택)' },
 
+  'fl-k': { en: 'First launch', ko: '첫 실행' },
+  'fl-h2': { en: 'One time only, on the first open.', ko: '처음 열 때 한 번만.' },
+  'fl-sub': { en: 'This is an open-source build without Apple notarization, so macOS blocks it once on first launch. The app is safe; open it once with a method below and it just launches from then on.', ko: '이 앱은 Apple 공증(notarization)을 받지 않은 오픈소스 빌드라, 처음 실행할 때 macOS가 한 번 차단합니다. 앱은 안전하며, 아래 방법으로 한 번만 열면 이후에는 그냥 실행됩니다.' },
+  'fl-h': { en: '<svg viewBox="0 0 24 24" fill="none"><path d="M12 3 4 6v5c0 5 3.4 8.4 8 10 4.6-1.6 8-5 8-10V6l-8-3Z" stroke="currentColor" stroke-width="1.6"/><path d="M9 12.5 11 14.5 15.5 10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg> Opening it on macOS', ko: '<svg viewBox="0 0 24 24" fill="none"><path d="M12 3 4 6v5c0 5 3.4 8.4 8 10 4.6-1.6 8-5 8-10V6l-8-3Z" stroke="currentColor" stroke-width="1.6"/><path d="M9 12.5 11 14.5 15.5 10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg> macOS에서 여는 법' },
+  'fl-warn': { en: '<b>A &ldquo;damaged&rdquo; warning is expected.</b> The app is not actually damaged; it is the message macOS shows for a build without signing and notarization. If the dialog appears, click <b>Cancel</b> and open it with a method below.', ko: '<b>&ldquo;손상되었다&rdquo;는 경고가 떠도 정상입니다.</b> 앱이 실제로 손상된 것이 아니라, 서명과 공증이 없어 macOS가 표시하는 메시지입니다. 경고 창이 뜨면 <b>취소</b>를 누르고 아래 방법으로 여세요.' },
+  'fl-step0': { en: '<b>First</b>, open the dmg and drag SQLPreShift into your <b>Applications folder</b>.', ko: '<b>먼저</b>, dmg를 열어 SQLPreShift를 <b>Applications 폴더</b>로 옮깁니다.' },
+  'fl-step1': { en: '<b>Recommended (Terminal)</b>: open Terminal, run the command below, and it opens on a double-click from then on.<div class="code-copy"><code id="fl-cmd">xattr -dr com.apple.quarantine /Applications/SQLPreShift.app</code><button type="button" data-copy="fl-cmd" data-i18n="fl-copy">Copy</button></div>', ko: '<b>권장 방법 (터미널)</b>: 터미널을 열고 아래 명령을 실행하면, 이후에는 더블클릭으로 바로 열립니다.<div class="code-copy"><code id="fl-cmd">xattr -dr com.apple.quarantine /Applications/SQLPreShift.app</code><button type="button" data-copy="fl-cmd" data-i18n="fl-copy">복사</button></div>' },
+  'fl-step2': { en: '<b>Or (right-click)</b>: right-click (Control-click) SQLPreShift in Applications, choose <b>Open</b>, then click <b>Open</b> again in the warning dialog. Some macOS versions block this route, so the Terminal method above is preferred.', ko: '<b>또는 (우클릭)</b>: Applications에서 SQLPreShift를 우클릭(Control+클릭)하고 <b>열기</b>를 누른 뒤, 경고 창에서 다시 <b>열기</b>를 선택합니다. 일부 macOS 버전에서는 이 방법이 막힐 수 있어, 위 터미널 방법을 권장합니다.' },
+  'fl-copy': { en: 'Copy', ko: '복사' },
+
   'foot-tagline': { en: 'A safety gate for PostgreSQL schema migrations. Not a hosted service but a portfolio demo, built so a dangerous migration never slips through by accident.', ko: 'PostgreSQL 스키마 마이그레이션을 위한 안전 게이트. 호스팅 서비스가 아닌 포트폴리오 데모로, 위험한 마이그레이션을 실수로 적용하는 일이 불가능하도록 만들었습니다.' },
   'foot-product': { en: 'Product', ko: '제품' },
   'foot-resources': { en: 'Resources', ko: '리소스' },
+  'foot-firstlaunch': { en: 'First launch', ko: '첫 실행' },
   'foot-sysreq': { en: 'System requirements', ko: '시스템 요구사항' },
   'foot-repo': { en: 'GitHub repo', ko: 'GitHub 저장소' },
   'foot-about': { en: 'About', ko: '정보' },
@@ -306,6 +354,20 @@ window.SPF_DICT = {
 </script>
 <script>
 (function(){var t=document.getElementById('menuToggle'),n=document.getElementById('nav');if(t)t.addEventListener('click',function(){n.classList.toggle('open');});})();
+/* 코드 복사 버튼. 언어 토글로 버튼이 재생성되므로 이벤트 위임으로 처리. */
+(function(){
+  document.addEventListener('click', function(ev){
+    var btn = ev.target.closest ? ev.target.closest('[data-copy]') : null;
+    if(!btn) return;
+    var code = document.getElementById(btn.getAttribute('data-copy'));
+    if(!code) return;
+    var text = code.textContent, label = btn.textContent;
+    function done(){ btn.textContent = 'OK'; setTimeout(function(){ btn.textContent = label; }, 1400); }
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(done).catch(function(){});
+    }
+  });
+})();
 /* ===== 스크롤 진입 모션 엔진 — vanilla. guide.html과 동일. data-reveal/data-anim/data-stagger 통합. ===== */
 (function(){
   document.documentElement.classList.add('js');
