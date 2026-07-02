@@ -27,6 +27,7 @@
       { "from": "../frontend/out", "to": "out", "filter": ["**/*"] }
     ],
     "mac": {
+      "icon": "build/icon.icns",
       "target": [{ "target": "dmg", "arch": ["arm64"] }],
       "category": "public.app-category.developer-tools",
       "electronLanguages": ["en"]

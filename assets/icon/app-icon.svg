@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <path id="tile" d="M 100,285.4 C 100,182.6 182.6,100 285.4,100 L 738.6,100 C 841.4,100 924,182.6 924,285.4 L 924,738.6 C 924,841.4 841.4,924 738.6,924 L 285.4,924 C 182.6,924 100,841.4 100,738.6 Z"/>
+    <clipPath id="tileClip"><use href="#tile"/></clipPath>
+
+    <linearGradient id="bg" x1="512" y1="100" x2="512" y2="924" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#303B43"/>
+      <stop offset="0.52" stop-color="#212A30"/>
+      <stop offset="1" stop-color="#12181C"/>
+    </linearGradient>
+
+    <radialGradient id="gloss" cx="512" cy="132" r="500" gradientUnits="userSpaceOnUse" gradientTransform="matrix(1 0 0 0.44 0 74)">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.24"/>
+      <stop offset="0.62" stop-color="#FFFFFF" stop-opacity="0.05"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+
+    <linearGradient id="topFade" x1="512" y1="100" x2="512" y2="430" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#000000"/>
+    </linearGradient>
+    <mask id="topHalf"><rect x="100" y="100" width="824" height="824" fill="url(#topFade)"/></mask>
+
+    <linearGradient id="botFade" x1="512" y1="924" x2="512" y2="700" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#000000"/>
+    </linearGradient>
+    <mask id="botHalf"><rect x="100" y="100" width="824" height="824" fill="url(#botFade)"/></mask>
+
+    <filter id="drop" x="-25%" y="-25%" width="150%" height="150%">
+      <feDropShadow dx="0" dy="14" stdDeviation="15" flood-color="#000000" flood-opacity="0.5"/>
+    </filter>
+
+    <linearGradient id="sym" x1="512" y1="252" x2="512" y2="792" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3ACDC2"/>
+      <stop offset="0.55" stop-color="#31B8AE"/>
+      <stop offset="1" stop-color="#279E96"/>
+    </linearGradient>
+
+    <radialGradient id="symGloss" cx="512" cy="300" r="300" gradientUnits="userSpaceOnUse" gradientTransform="matrix(1 0 0 0.9 0 30)">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.40"/>
+      <stop offset="0.7" stop-color="#FFFFFF" stop-opacity="0.05"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+
+    <path id="shield" d="M 512,258 C 579,309 656,337 735,346 C 744,347 751,355 751,364 L 751,530 C 751,662 668,754 522,819 C 516,822 508,822 502,819 C 356,754 273,662 273,530 L 273,364 C 273,355 280,347 289,346 C 368,337 445,309 512,258 Z"/>
+    <clipPath id="shieldClip"><use href="#shield"/></clipPath>
+
+    <filter id="symShadow" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000000" flood-opacity="0.34"/>
+    </filter>
+  </defs>
+
+  <use href="#tile" fill="#000000" filter="url(#drop)"/>
+
+  <g clip-path="url(#tileClip)">
+    <rect x="100" y="100" width="824" height="824" fill="url(#bg)"/>
+    <rect x="100" y="100" width="824" height="824" fill="url(#gloss)"/>
+    <use href="#tile" fill="none" stroke="#000000" stroke-opacity="0.38" stroke-width="6"/>
+    <use href="#tile" fill="none" stroke="#3E4B54" stroke-opacity="0.7" stroke-width="1.5"/>
+  </g>
+
+  <use href="#tile" fill="none" stroke="#EAEFF0" stroke-opacity="0.55" stroke-width="2.5" mask="url(#topHalf)"/>
+  <use href="#tile" fill="none" stroke="#EAEFF0" stroke-opacity="0.14" stroke-width="2" mask="url(#botHalf)"/>
+
+  <g filter="url(#symShadow)">
+    <use href="#shield" fill="url(#sym)"/>
+    <g clip-path="url(#shieldClip)">
+      <rect x="273" y="258" width="478" height="564" fill="url(#symGloss)"/>
+      <path d="M 512,258 C 579,309 656,337 735,346 C 744,347 751,355 751,364 L 751,398 C 665,389 590,360 512,305 C 434,360 359,389 273,398 L 273,364 C 273,355 280,347 289,346 C 368,337 445,309 512,258 Z" fill="#EAEFF0" fill-opacity="0.26"/>
+      <path d="M 512,819 C 668,754 751,662 751,530 L 751,582 C 751,700 676,772 512,832 C 348,772 273,700 273,582 L 273,530 C 273,662 356,754 502,819 C 508,822 516,822 512,819 Z" fill="#00312E" fill-opacity="0.16"/>
+    </g>
+    <path d="M 408,516 L 476,586 L 622,434 L 672,484 L 494,668 C 489,673 481,673 476,668 L 358,546 Z" fill="#F2F6F6"/>
+    <path d="M 622,434 L 672,484 L 651,506 L 601,456 Z" fill="#FFFFFF" fill-opacity="0.4"/>
+  </g>
+</svg>

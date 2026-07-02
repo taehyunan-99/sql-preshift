@@ -23,6 +23,7 @@ import ModelSettings from '../components/ModelSettings';
 import DiffControls, { type DiffMode } from '../components/DiffControls';
 import DatabaseConnect from '../components/DatabaseConnect';
 import AppBackdrop from '../components/AppBackdrop';
+import { BrandMark } from '../components/BrandMark';
 import { DEFAULT_HOPS, type SubsetInfo } from '../components/erd/ErdDiffViewer';
 
 // 전체 스키마를 그대로 그리면 무거울 수 있는 임계 테이블 수 — 넘으면 경고 후 진행.
@@ -261,7 +262,10 @@ export default function Home() {
           zIndex: 40,
         }}
       >
-        <span style={{ fontWeight: 700, fontSize: 15, letterSpacing: '-0.01em' }}>SQL<span style={{ color: 'var(--color-accent)' }}>PreShift</span></span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontWeight: 700, fontSize: 15, letterSpacing: '-0.01em' }}>
+          <BrandMark size={20} />
+          <span>SQL<span style={{ color: 'var(--color-accent)' }}>PreShift</span></span>
+        </span>
         <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
           {language === 'ko' ? '안전한 스키마 마이그레이션 관리' : 'Safe schema migration control'}
         </span>

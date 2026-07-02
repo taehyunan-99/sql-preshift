@@ -5,6 +5,9 @@ docs/
 node_modules/
 dist/
 build/
+# desktop 앱 아이콘은 소스 에셋이라 추적(build/ 규칙 예외)
+!desktop/build/
+!desktop/build/icon.icns
 .next/
 # Next static export 산출물(설치형 빌드 입력) — 추적 안 함
 out/

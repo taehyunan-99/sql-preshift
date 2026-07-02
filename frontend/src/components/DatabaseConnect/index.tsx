@@ -14,6 +14,7 @@ import { usePipelineStore } from '../../store/pipeline';
 import LanguageToggle from '../LanguageToggle';
 import AppBackdrop from '../AppBackdrop';
 import ModelPicker from '../ModelSettings/ModelPicker';
+import { BrandMark } from '../BrandMark';
 
 // 온보딩 전체화면 게이트 — target DB 미연결 시 메인 진입 전 노출.
 // 첫 화면은 2카드 허브(진입형): 왼쪽 Language model 카드 / 오른쪽 Database 카드.
@@ -345,10 +346,18 @@ function HubView({
     <div style={{ position: 'relative', zIndex: 1, width: 720, maxWidth: '94vw' }}>
       {/* 브랜드 헤더 — 진입 stagger fade-up. 카드와는 넉넉히 떨어뜨려 메인 화면의 광활함을 잇는다. */}
       <div style={{ textAlign: 'center', marginBottom: 'var(--space-12)' }}>
-        <motion.h1
+        <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, ease: [0.34, 1.2, 0.64, 1] }}
+          style={{ display: 'flex', justifyContent: 'center', marginBottom: 'var(--space-3)' }}
+        >
+          <BrandMark size={56} />
+        </motion.div>
+        <motion.h1
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, ease: [0.34, 1.2, 0.64, 1], delay: 0.04 }}
           style={{ margin: 0, fontSize: 26, fontWeight: 800, letterSpacing: '-0.02em' }}
         >
           SQL<span style={{ color: 'var(--color-accent)' }}>PreShift</span>

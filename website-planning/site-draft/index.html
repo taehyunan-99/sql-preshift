@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="icon" type="image/svg+xml" href="./assets/favicon.svg">
 <title>SQLPreShift · A safety gate for PostgreSQL schema migrations</title>
 <meta name="description" content="A safety gate for PostgreSQL schema migrations. See the change before it runs, catch risky operations, dry-run the whole stack, then apply in a single transaction." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -41,8 +42,8 @@ img{max-width:100%;display:block}
 .nav{position:sticky;top:0;z-index:50;background:rgba(22,28,32,0.82);backdrop-filter:saturate(150%) blur(14px);border-bottom:1px solid var(--border-subtle)}
 .nav-inner{max-width:var(--maxw-wide);margin:0 auto;height:68px;padding:0 var(--gutter);display:flex;align-items:center;gap:var(--space-8)}
 .brand{display:flex;align-items:center;gap:10px;font-weight:600;font-size:17px;letter-spacing:-0.01em}
-.brand .mark{width:30px;height:30px;border-radius:9px;flex:none;background:linear-gradient(150deg,#34C2B8,#34C2B8);display:grid;place-items:center;box-shadow:var(--shadow-sm)}
-.brand .mark svg{width:17px;height:17px}
+.brand .mark{width:28px;height:28px;flex:none;display:grid;place-items:center}
+.brand .mark svg{width:28px;height:28px}
 .brand .wm-accent{color:var(--accent)}
 .nav-links{display:flex;gap:var(--space-6);margin-left:var(--space-4)}
 .nav-links a{font-size:15px;color:var(--text-secondary);font-weight:500;padding:6px 2px;position:relative;transition:color .2s var(--ease)}
@@ -260,7 +261,7 @@ p.lede em{font-style:normal;color:var(--text-primary);font-weight:600}
 <body>
 <header class="nav" id="nav">
   <div class="nav-inner">
-    <a href="./index.html" class="brand"><span class="mark"><svg viewBox="0 0 24 24" fill="none"><path d="M5 7c0-1.7 3.1-3 7-3s7 1.3 7 3-3.1 3-7 3-7-1.3-7-3Z" stroke="#F2FBFA" stroke-width="1.6"/><path d="M5 7v10c0 1.7 3.1 3 7 3s7-1.3 7-3V7" stroke="#F2FBFA" stroke-width="1.6"/><path d="M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3" stroke="#F2FBFA" stroke-width="1.6"/></svg></span><span class="wm">SQL<span class="wm-accent">PreShift</span></span></a>
+    <a href="./index.html" class="brand"><span class="mark"><svg viewBox="0 0 24 24" fill="none"><defs><linearGradient id="wsym" x1="12" y1="2.5" x2="12" y2="21.5" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#3ACDC2"/><stop offset="0.55" stop-color="#31B8AE"/><stop offset="1" stop-color="#279E96"/></linearGradient></defs><path d="M12 2.6 C13.9 4.1 16 4.9 18.3 5.2 C18.6 5.2 18.8 5.4 18.8 5.7 L18.8 12.2 C18.8 16 16.4 18.6 12.3 20.5 C12.1 20.6 11.9 20.6 11.7 20.5 C7.6 18.6 5.2 16 5.2 12.2 L5.2 5.7 C5.2 5.4 5.4 5.2 5.7 5.2 C8 4.9 10.1 4.1 12 2.6 Z" fill="url(#wsym)"/><path d="M12 2.6 C13.9 4.1 16 4.9 18.3 5.2 C18.6 5.2 18.8 5.4 18.8 5.7 L18.8 6.9 C16.4 6.6 14.2 5.8 12 4.3 C9.8 5.8 7.6 6.6 5.2 6.9 L5.2 5.7 C5.2 5.4 5.4 5.2 5.7 5.2 C8 4.9 10.1 4.1 12 2.6 Z" fill="#EAEFF0" fill-opacity="0.26"/><path d="M9.6 12.1 L11.2 13.7 L14.6 10.2 L15.8 11.4 L11.6 15.7 C11.5 15.8 11.3 15.8 11.2 15.7 L8.4 12.9 Z" fill="#F2F6F6"/></svg></span><span class="wm">SQL<span class="wm-accent">PreShift</span></span></a>
     <nav class="nav-links"><a href="./index.html" class="active" data-i18n="nav-home">홈</a><a href="./download.html" data-i18n="nav-download">다운로드</a><a href="./guide.html" data-i18n="nav-guide">가이드</a></nav>
     <div class="nav-right"><div class="lang-toggle" role="group" aria-label="Language">
       <button type="button" data-lang="en" class="lang-btn">EN</button>
@@ -363,7 +364,7 @@ p.lede em{font-style:normal;color:var(--text-primary);font-weight:600}
 <footer class="foot">
   <div class="wrap">
     <div class="foot-grid">
-      <div class="foot-brand"><a href="./index.html" class="brand"><span class="mark"><svg viewBox="0 0 24 24" fill="none"><path d="M5 7c0-1.7 3.1-3 7-3s7 1.3 7 3-3.1 3-7 3-7-1.3-7-3Z" stroke="#F2FBFA" stroke-width="1.6"/><path d="M5 7v10c0 1.7 3.1 3 7 3s7-1.3 7-3V7" stroke="#F2FBFA" stroke-width="1.6"/><path d="M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3" stroke="#F2FBFA" stroke-width="1.6"/></svg></span><span class="wm">SQL<span class="wm-accent">PreShift</span></span></a><p data-i18n="foot-tagline">PostgreSQL 스키마 마이그레이션을 위한 안전 게이트. 호스팅 서비스가 아닌 포트폴리오 데모로, 위험한 마이그레이션을 실수로 적용하는 일이 불가능하도록 만들었습니다.</p></div>
+      <div class="foot-brand"><a href="./index.html" class="brand"><span class="mark"><svg viewBox="0 0 24 24" fill="none"><defs><linearGradient id="wsym" x1="12" y1="2.5" x2="12" y2="21.5" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#3ACDC2"/><stop offset="0.55" stop-color="#31B8AE"/><stop offset="1" stop-color="#279E96"/></linearGradient></defs><path d="M12 2.6 C13.9 4.1 16 4.9 18.3 5.2 C18.6 5.2 18.8 5.4 18.8 5.7 L18.8 12.2 C18.8 16 16.4 18.6 12.3 20.5 C12.1 20.6 11.9 20.6 11.7 20.5 C7.6 18.6 5.2 16 5.2 12.2 L5.2 5.7 C5.2 5.4 5.4 5.2 5.7 5.2 C8 4.9 10.1 4.1 12 2.6 Z" fill="url(#wsym)"/><path d="M12 2.6 C13.9 4.1 16 4.9 18.3 5.2 C18.6 5.2 18.8 5.4 18.8 5.7 L18.8 6.9 C16.4 6.6 14.2 5.8 12 4.3 C9.8 5.8 7.6 6.6 5.2 6.9 L5.2 5.7 C5.2 5.4 5.4 5.2 5.7 5.2 C8 4.9 10.1 4.1 12 2.6 Z" fill="#EAEFF0" fill-opacity="0.26"/><path d="M9.6 12.1 L11.2 13.7 L14.6 10.2 L15.8 11.4 L11.6 15.7 C11.5 15.8 11.3 15.8 11.2 15.7 L8.4 12.9 Z" fill="#F2F6F6"/></svg></span><span class="wm">SQL<span class="wm-accent">PreShift</span></span></a><p data-i18n="foot-tagline">PostgreSQL 스키마 마이그레이션을 위한 안전 게이트. 호스팅 서비스가 아닌 포트폴리오 데모로, 위험한 마이그레이션을 실수로 적용하는 일이 불가능하도록 만들었습니다.</p></div>
       <div class="foot-col"><h5 data-i18n="foot-col-product">제품</h5><a href="./index.html" data-i18n="foot-home">홈</a><a href="./download.html" data-i18n="foot-download">다운로드</a><a href="./guide.html" data-i18n="foot-guide">가이드</a></div>
       <div class="foot-col"><h5 data-i18n="foot-col-resources">리소스</h5><a href="./guide.html#install" data-i18n="foot-install">설치 &amp; Gatekeeper</a><a href="./guide.html#workflow" data-i18n="foot-workflow">핵심 워크플로</a><a href="https://github.com/taehyunan-99/sql-preshift" data-i18n="foot-repo">GitHub 저장소</a></div>
       <div class="foot-col"><h5 data-i18n="foot-col-about">정보</h5><a href="https://github.com/taehyunan-99/sql-preshift/releases" data-i18n="foot-releases">릴리즈</a><a href="https://github.com/taehyunan-99/sql-preshift/blob/main/LICENSE" data-i18n="foot-license-link">MIT 라이선스</a></div>
