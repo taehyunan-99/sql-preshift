@@ -4,6 +4,9 @@
 
 <p align="center"><a href="README.md">한국어</a> | <b>English</b></p>
 
+<!-- 배포 후 아래 홈페이지 URL만 교체하면 됨 -->
+<p align="center"><a href="https://example.com">Homepage</a></p>
+
 A **safety gate** for PostgreSQL schema migrations. Type natural language or SQL, see the schema diff as an ERD, catch risky operations and get safer alternatives, dry-run before you commit, apply in one transaction, and roll back anytime.
 
 <br/>
@@ -95,11 +98,6 @@ docker compose up -d
 
 ## Architecture
 
-<details>
-<summary>Tech stack details</summary>
-
-<br/>
-
 **Backend**: Python · FastAPI 0.115 · SQLAlchemy 2.0 · sqlglot 25 · psycopg3
 
 - `sqlglot` parses SQL into an AST to evaluate risk rules deterministically.
@@ -114,16 +112,9 @@ docker compose up -d
 
 - Runs on the host to use the Mac Metal GPU. Containers reach it via `host.docker.internal`.
 
-</details>
-
 <br/><br/>
 
 ## API
-
-<details>
-<summary>Endpoint overview</summary>
-
-<br/>
 
 | Group | Endpoints |
 |-------|-----------|
@@ -134,8 +125,6 @@ docker compose up -d
 | `/audit` | `GET ""` · `POST /{id}/rollback` |
 
 `POST /connection/test` only verifies the connection with `SELECT 1` and changes no state. `POST /connection` verifies, registers the runtime engine, and reindexes the schema.
-
-</details>
 
 <br/><br/>
 

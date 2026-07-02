@@ -4,6 +4,9 @@
 
 <p align="center"><b>한국어</b> | <a href="README.en.md">English</a></p>
 
+<!-- 배포 후 아래 홈페이지 URL만 교체하면 됨 -->
+<p align="center"><a href="https://example.com">Homepage</a></p>
+
 PostgreSQL 스키마 마이그레이션을 위한 **안전 게이트**. 자연어 또는 SQL을 입력하면 스키마 diff를 ERD로 시각화하고, 위험을 감지해 더 안전한 대안을 제시하며, dry-run으로 미리 돌려본 뒤 승인하면 적용하고 언제든 롤백한다.
 
 <br/>
@@ -95,11 +98,6 @@ docker compose up -d
 
 ## Architecture
 
-<details>
-<summary>기술 스택 자세히</summary>
-
-<br/>
-
 **Backend**: Python · FastAPI 0.115 · SQLAlchemy 2.0 · sqlglot 25 · psycopg3
 
 - `sqlglot`로 SQL을 AST로 파싱해 위험 룰을 결정적으로 판정한다.
@@ -114,16 +112,9 @@ docker compose up -d
 
 - 호스트에서 직접 구동해 Mac Metal GPU를 활용한다. 컨테이너는 `host.docker.internal`로 접속한다.
 
-</details>
-
 <br/><br/>
 
 ## API
-
-<details>
-<summary>엔드포인트 개요</summary>
-
-<br/>
 
 | 그룹 | 엔드포인트 |
 |------|-----------|
@@ -134,8 +125,6 @@ docker compose up -d
 | `/audit` | `GET ""` · `POST /{id}/rollback` |
 
 `POST /connection/test`는 `SELECT 1`로 연결만 확인하고 상태를 바꾸지 않는다. `POST /connection`은 연결 확인에 더해 런타임 엔진을 등록하고 스키마를 재색인한다.
-
-</details>
 
 <br/><br/>
 
