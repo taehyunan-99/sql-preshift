@@ -65,8 +65,7 @@ img{max-width:100%;display:block}
 /* ===== hero 2분할: 영상 한 화면 → 스크롤 → 텍스트 한 화면 ===== */
 /* 1) 영상 풀스크린 — 첫 화면. 영상이 화면을 가득 채우고 짤리지 않게 contain. */
 .film-hero{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:88px var(--gutter) var(--space-16);overflow:hidden}
-.film-hero /* background는 영상 첫 프레임(poster) 톤과 맞춰 poster 사각형 경계가 떠 보이지 않게 한다. */
-.hero-film{position:relative;width:100%;max-width:var(--maxw-wide);border-radius:var(--radius-lg);overflow:hidden;border:1px solid var(--border);box-shadow:0 0 0 1px rgba(43,168,160,.12),0 40px 120px -30px rgba(43,168,160,.35),var(--shadow-lg);background:#162023}
+.film-hero .hero-film{position:relative;width:100%;max-width:var(--maxw-wide);border-radius:var(--radius-lg);overflow:hidden;border:1px solid var(--border);box-shadow:0 0 0 1px rgba(43,168,160,.12),0 40px 120px -30px rgba(43,168,160,.35),var(--shadow-lg);background:var(--bg-canvas)}
 .film-hero .hero-film::after{content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}
 .hero-video{display:block;width:100%;height:auto;aspect-ratio:16/9;object-fit:cover}
 /* 스크롤 유도 힌트 */
@@ -274,7 +273,7 @@ p.lede em{font-style:normal;color:var(--text-primary);font-weight:600}
 <!-- 1) 영상 풀스크린 — 첫 화면 -->
 <section class="film-hero snap-section">
   <div class="hero-film" aria-hidden="true">
-    <video class="hero-video" autoplay muted loop playsinline preload="auto" poster="./assets/hero-poster-v2.jpg">
+    <video class="hero-video" autoplay muted loop playsinline preload="auto">
       <!-- H.264 8bit + gradfun 평활. VP9는 다크 발광 영역에 블록 얼룩이 생겨 MP4 단일로 통일.
            모든 브라우저가 H.264를 재생하므로 WebM 없이 충분하다. -->
       <source src="./assets/hero-demo-v2.mp4" type="video/mp4">
