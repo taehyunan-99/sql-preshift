@@ -1,0 +1,4 @@
+# Netlify 배포 설정 — 순수 정적 HTML(빌드 스텝 없음)
+# 사이트 루트가 저장소 루트가 아니라 website-planning/site-draft/ 이므로 publish로 지정한다.
+[build]
+  publish = "website-planning/site-draft"
