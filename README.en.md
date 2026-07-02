@@ -2,10 +2,12 @@
   <img src="assets/logo.png" alt="SQLPreShift" width="440" />
 </p>
 
-<p align="center"><a href="README.md">한국어</a> | <b>English</b></p>
+<!-- 배포 후 아래 홈페이지 URL(href)만 교체하면 됨 -->
+<p align="center">
+  <a href="https://example.com"><img src="https://img.shields.io/badge/Homepage-Visit-2BA8A0?style=for-the-badge&logo=safari&logoColor=white" alt="Homepage" /></a>
+</p>
 
-<!-- 배포 후 아래 홈페이지 URL만 교체하면 됨 -->
-<p align="center"><a href="https://example.com">Homepage</a></p>
+<p align="center"><a href="README.md">한국어</a> | <b>English</b></p>
 
 A **safety gate** for PostgreSQL schema migrations. Type natural language or SQL, see the schema diff as an ERD, catch risky operations and get safer alternatives, dry-run before you commit, apply in one transaction, and roll back anytime.
 
