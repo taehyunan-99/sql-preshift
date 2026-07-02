@@ -4,12 +4,19 @@ import { useEffect, useState } from 'react';
 import { usePipelineStore } from '../../store/pipeline';
 import { rollbackAudit } from '../../lib/api';
 
+// DROP TABLE / DROP COLUMN 등 파괴적 연산 판정 — 역연산이 빈 구조만 복원하므로 데이터는 소실된다.
+// 대소문자 무시. ADD COLUMN / CREATE TABLE 등 안전 연산은 매칭되지 않는다.
+const DESTRUCTIVE_RE = /\bDROP\s+(TABLE|COLUMN)\b/i;
+const isDestructive = (sqls: string[]) => sqls.some((s) => DESTRUCTIVE_RE.test(s));
+
 // stage==='applied'에서만 렌더되는 하단 중앙 floating pill.
 // [Rollback][New] — Rollback은 "방금 적용한 변경 전체"를 역순으로 되돌린다(나중 변경부터).
 // 적용 직후의 auditIds(store.lastAppliedAuditIds)를 역순으로 rollbackAudit 호출.
 export default function CompletedBar() {
-  const { stage, reset, rollbackApplied, language, lastAppliedAuditIds } = usePipelineStore();
+  const { stage, reset, rollbackApplied, language, lastAppliedAuditIds, appliedStackBackup } =
+    usePipelineStore();
   const [rollingBack, setRollingBack] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const ko = language === 'ko';
 
@@ -18,6 +25,7 @@ export default function CompletedBar() {
   useEffect(() => {
     if (stage !== 'applied') {
       setRollingBack(false);
+      setConfirming(false);
       setError(null);
     }
   }, [stage]);
@@ -25,9 +33,17 @@ export default function CompletedBar() {
   if (stage !== 'applied') return null;
 
   const canRollback = lastAppliedAuditIds.length > 0;
+  // 방금 적용한 SQL 백업(prepareApply가 보관, rollbackApplied 전까지 유효)으로 파괴적 여부 판정.
+  const destructive = isDestructive(appliedStackBackup);
 
   const handleRollback = async () => {
     if (!canRollback || rollingBack) return;
+    // 파괴적 연산이면 첫 클릭은 경고만 노출하고 확인 단계로 전환한다(데이터 소실 사실을 보게).
+    if (destructive && !confirming) {
+      setConfirming(true);
+      return;
+    }
+    setConfirming(false);
     setRollingBack(true);
     setError(null);
     try {
@@ -101,13 +117,17 @@ export default function CompletedBar() {
           onClick={handleRollback}
           disabled={!canRollback || rollingBack}
           title={
-            canRollback
+            destructive
               ? ko
-                ? `방금 적용한 ${lastAppliedAuditIds.length}건을 모두 되돌립니다.`
-                : `Undo all ${lastAppliedAuditIds.length} change${lastAppliedAuditIds.length === 1 ? '' : 's'} just applied.`
-              : ko
-                ? '되돌릴 변경이 없습니다.'
-                : 'Nothing to roll back.'
+                ? '롤백은 구조만 복원하며, 삭제된 데이터는 복구되지 않습니다.'
+                : 'Rollback restores structure only. Dropped data is not recovered.'
+              : canRollback
+                ? ko
+                  ? `방금 적용한 ${lastAppliedAuditIds.length}건을 모두 되돌립니다.`
+                  : `Undo all ${lastAppliedAuditIds.length} change${lastAppliedAuditIds.length === 1 ? '' : 's'} just applied.`
+                : ko
+                  ? '되돌릴 변경이 없습니다.'
+                  : 'Nothing to roll back.'
           }
           style={{
             padding: '6px 14px',
@@ -121,7 +141,17 @@ export default function CompletedBar() {
             opacity: !canRollback || rollingBack ? 0.5 : 1,
           }}
         >
-          {rollingBack ? (ko ? '되돌리는 중…' : 'Rolling back…') : ko ? '되돌리기' : 'Rollback'}
+          {rollingBack
+            ? ko
+              ? '되돌리는 중…'
+              : 'Rolling back…'
+            : confirming
+              ? ko
+                ? '롤백 확인'
+                : 'Confirm rollback'
+              : ko
+                ? '되돌리기'
+                : 'Rollback'}
         </button>
 
         {/* New — 파이프라인 초기화 */}
@@ -143,6 +173,26 @@ export default function CompletedBar() {
           {ko ? '새 작업' : 'New'}
         </button>
       </div>
+
+      {/* 파괴적 연산 경고 — 롤백은 구조만 복원하고 삭제된 데이터는 복구되지 않음을 상시 노출. */}
+      {destructive && canRollback && (
+        <span
+          style={{
+            fontSize: 11,
+            color: 'var(--color-warning)',
+            background: 'var(--color-warning-bg)',
+            border: '1px solid var(--color-warning)',
+            borderRadius: 'var(--radius-sm)',
+            padding: '3px 10px',
+            maxWidth: 320,
+            textAlign: 'center',
+          }}
+        >
+          {ko
+            ? '롤백은 구조만 복원하며, 삭제된 데이터는 복구되지 않습니다.'
+            : 'Rollback restores structure only. Dropped data is not recovered.'}
+        </span>
+      )}
 
       {error && (
         <span

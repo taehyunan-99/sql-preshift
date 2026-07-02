@@ -59,6 +59,29 @@ async def llm_explain_risk(
         return _fallback_risk_note(risks)
 
 
+def _is_tautology_where(where_expr: exp.Expression) -> bool:
+    """WHERE 절이 상수 tautology(항상 참 → 전체 행 매칭)인지 판정한다.
+
+    확실한 흔한 케이스만 잡는다(1=1, WHERE true, 'a'='a'). 컬럼 의존 조건이나
+    AND/OR 복합은 보수적으로 False로 둔다 — 진짜 위험(no-WHERE)은 이미 잡히므로
+    이 헬퍼에선 오탐보다 미탐이 안전하다.
+    """
+    cond = where_expr.this
+    # WHERE true
+    if isinstance(cond, exp.Boolean):
+        return bool(cond.this)
+    # 양변이 같은 리터럴/불리언인 비교 (1=1, 'a'='a')
+    if isinstance(cond, exp.EQ):
+        left, right = cond.left, cond.right
+        if (
+            isinstance(left, (exp.Literal, exp.Boolean))
+            and isinstance(right, (exp.Literal, exp.Boolean))
+            and left.sql() == right.sql()
+        ):
+            return True
+    return False
+
+
 def deterministic_rules(
     ast: exp.Expression,
     data_sim=None,
@@ -84,9 +107,10 @@ def deterministic_rules(
     """
     risks: list[Risk] = []
 
-    # WHERE 없는 DELETE
+    # WHERE 없는 DELETE / 항상 참인 WHERE
     for delete in ast.find_all(exp.Delete):
-        if not delete.args.get("where"):
+        where = delete.args.get("where")
+        if not where:
             risks.append(
                 Risk(
                     level="critical",
@@ -96,16 +120,37 @@ def deterministic_rules(
                     tables=_table_names(delete),
                 )
             )
+        elif _is_tautology_where(where):
+            risks.append(
+                Risk(
+                    level="critical",
+                    rule="DELETE_TAUTOLOGY_WHERE",
+                    message="DELETE with an always-true WHERE (e.g. 1=1) affects all rows.",
+                    message_ko="항상 참인 WHERE (예: 1=1) — 테이블 전체 행이 영향받습니다.",
+                    tables=_table_names(delete),
+                )
+            )
 
-    # WHERE 없는 UPDATE
+    # WHERE 없는 UPDATE / 항상 참인 WHERE
     for update in ast.find_all(exp.Update):
-        if not update.args.get("where"):
+        where = update.args.get("where")
+        if not where:
             risks.append(
                 Risk(
                     level="critical",
                     rule="UPDATE_WITHOUT_WHERE",
                     message="UPDATE without WHERE — all rows in the table will be changed.",
                     message_ko="WHERE 없는 UPDATE — 테이블 전체 행이 변경됩니다.",
+                    tables=_table_names(update),
+                )
+            )
+        elif _is_tautology_where(where):
+            risks.append(
+                Risk(
+                    level="critical",
+                    rule="UPDATE_TAUTOLOGY_WHERE",
+                    message="UPDATE with an always-true WHERE (e.g. 1=1) affects all rows.",
+                    message_ko="항상 참인 WHERE (예: 1=1) — 테이블 전체 행이 영향받습니다.",
                     tables=_table_names(update),
                 )
             )
@@ -330,6 +375,7 @@ def deterministic_rules(
     # VACUUM FULL — 테이블 전체를 ACCESS EXCLUSIVE 락으로 재작성(읽기/쓰기 전면 차단).
     # sqlglot은 VACUUM을 Command(this='VACUUM', expression='FULL <table>')로 파싱한다.
     # (CLUSTER는 parse 단계에서 ValidationError로 이미 거부되므로 여기 도달 안 함.)
+    # NOTE: VACUUM FULL은 이제 parse()가 Command로 거부한다(C1). 이 블록은 도달 불가지만 방어적으로 유지.
     for cmd in ast.find_all(exp.Command):
         if str(cmd.args.get("this", "")).upper() != "VACUUM":
             continue
@@ -438,10 +484,19 @@ _GOLDEN_PATHS: dict[str, tuple[str, str]] = {
         "If you meant to affect every row, scope it explicitly. For large updates use a keyset batch loop (id > :last ORDER BY id LIMIT 10000), each batch in its own committed transaction — keeps locks brief and avoids pinning the xmin horizon.",
         "전체 행이 의도였다면 명시적으로 범위를 지정하세요. 대량 변경은 keyset 배치 루프(id > :last ORDER BY id LIMIT 10000)로, 각 배치를 개별 커밋하세요 — 락을 짧게 유지하고 xmin horizon 고정을 피합니다.",
     ),
+    "DELETE_TAUTOLOGY_WHERE": (
+        "If you meant to affect every row, scope it explicitly. For large deletes use a keyset batch loop (id > :last ORDER BY id LIMIT 10000), each batch in its own committed transaction — keeps locks brief and avoids pinning the xmin horizon.",
+        "전체 행이 의도였다면 명시적으로 범위를 지정하세요. 대량 삭제는 keyset 배치 루프(id > :last ORDER BY id LIMIT 10000)로, 각 배치를 개별 커밋하세요 — 락을 짧게 유지하고 xmin horizon 고정을 피합니다.",
+    ),
+    "UPDATE_TAUTOLOGY_WHERE": (
+        "If you meant to affect every row, scope it explicitly. For large updates use a keyset batch loop (id > :last ORDER BY id LIMIT 10000), each batch in its own committed transaction — keeps locks brief and avoids pinning the xmin horizon.",
+        "전체 행이 의도였다면 명시적으로 범위를 지정하세요. 대량 변경은 keyset 배치 루프(id > :last ORDER BY id LIMIT 10000)로, 각 배치를 개별 커밋하세요 — 락을 짧게 유지하고 xmin horizon 고정을 피합니다.",
+    ),
     "CASCADE": (
         "CASCADE silently drops dependent objects (views, FKs, grants), possibly across schemas, without listing them. Run the same statement with RESTRICT first — it fails and names every dependent object so you can confirm the blast radius.",
         "CASCADE는 의존 객체(view, FK, 권한)를 다른 스키마까지 나열 없이 조용히 드롭합니다. 같은 구문을 RESTRICT로 먼저 실행하세요 — 실패하면서 의존 객체를 이름까지 알려줘 영향 범위를 확인할 수 있습니다.",
     ),
+    # NOTE: VACUUM FULL은 이제 parse()가 Command로 거부한다(C1). 이 항목은 도달 불가지만 방어적으로 유지.
     "TABLE_REWRITE_FULL": (
         "VACUUM FULL rewrites the whole table under ACCESS EXCLUSIVE — a full outage proportional to table size. Use pg_repack for online repacking, or schedule a maintenance window.",
         "VACUUM FULL은 ACCESS EXCLUSIVE 락으로 테이블 전체를 재작성합니다 — 크기에 비례한 전면 중단입니다. 온라인 재정리는 pg_repack을 쓰거나 점검 창을 잡으세요.",
@@ -453,6 +508,7 @@ _GOLDEN_PATHS: dict[str, tuple[str, str]] = {
 # 메시지: "{verb} ~{rows} rows ({size})". rows는 reltuples 추정치.
 _SIZE_AWARE_RULES: dict[str, tuple[str, str]] = {
     "ALTER_COLUMN_TYPE": ("Rewrites", "재작성"),
+    # NOTE: VACUUM FULL은 이제 parse()가 Command로 거부한다(C1). 이 항목은 도달 불가지만 방어적으로 유지.
     "TABLE_REWRITE_FULL": ("Rewrites", "재작성"),
     "ADD_FK_VALIDATING": ("Validates", "검증"),
     "CREATE_INDEX_BLOCKING": ("Indexes", "인덱싱"),

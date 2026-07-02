@@ -319,6 +319,15 @@ def rollback(
     if migration is None or not migration.down_script:
         raise ValidationError(f"롤백 스크립트가 없습니다. (migration_id={audit.migration_id})")
 
+    # 이중 롤백 가드: 같은 migration_id에 rollback 이벤트가 이미 있으면 down_script 재실행 차단.
+    already_rolled_back = (
+        session.query(AuditLog)
+        .filter_by(migration_id=migration.id, action="rollback")
+        .first()
+    )
+    if already_rolled_back is not None:
+        raise ValidationError("This migration has already been rolled back.")
+
     down_sql = migration.down_script
 
     # down_script 각 구문을 parse+check_forbidden으로 검증 후 실행 (fail-closed)

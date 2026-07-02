@@ -77,36 +77,41 @@ export default function InputPanel() {
   const count = dryRunStack.length;
   // preview이고 스택이 쌓여 있으면 누적 액션 행 노출.
   const showActions = stage === 'preview' && count > 0;
-  const hasCritical = analyzeResult?.hasCritical ?? false;
-  const allRisks = analyzeResult?.risks ?? [];
-  // 모달에 표시할 위험 — critical+warning 모두(info는 정보성이라 제외). critical을 위로 정렬.
-  const alertRisks = allRisks
+  // 스택 전체 critical 집계 — Apply All은 스택 전수(sqls[0]부터)를 선검사하므로,
+  // 마지막 analyzeResult가 아니라 resultCache(스택과 1:1) 전체에서 critical을 봐야 게이트가 정확하다.
+  // (앞선 critical + 마지막 safe 조합에서 백엔드 422 데드락을 막는 핵심.)
+  const stackHasCritical = resultCache.some((r) => r.risks.some((x) => x.level === 'critical'));
+  // 스택 상태 식별 키 — 길이 + 마지막 token. 스택이 바뀌면(추가/Undo) 키가 달라져 재확인을 강제한다.
+  const stackToken = `${dryRunStack.length}|${resultCache[resultCache.length - 1]?.token ?? ''}`;
+  // 모달에 표시할 위험 — 스택 전체(resultCache)의 critical+warning을 모은다(마지막 결과만 보면 앞선 critical 누락).
+  // critical을 위로 정렬. info는 정보성이라 제외.
+  const alertRisks = resultCache
+    .flatMap((r) => r.risks)
     .filter((r) => r.level === 'critical' || r.level === 'warning')
     .sort((a, b) => (a.level === 'critical' ? -1 : 0) - (b.level === 'critical' ? -1 : 0));
-  const hasWarning = allRisks.some((r) => r.level === 'warning');
-  // 모달의 대표 수준 — critical 우선, 없으면 warning. 색/문구 분기 기준.
-  const alertLevel: 'critical' | 'warning' | null = hasCritical
+  const hasWarning = alertRisks.some((r) => r.level === 'warning');
+  // 모달의 대표 수준 — critical 우선, 없으면 warning. 색/문구 분기 기준. 스택 전체 기준.
+  const alertLevel: 'critical' | 'warning' | null = stackHasCritical
     ? 'critical'
     : hasWarning
       ? 'warning'
       : null;
 
-  // critical/warning이 감지되면(새 결과) 즉시 경고 모달 — 확인한 결과(token)는 다시 안 띄움.
-  // 새 분석(token 변경)마다 확인은 리셋(스택이 바뀌면 다시 확인받아야 함).
+  // critical/warning이 감지되면(스택 변화) 즉시 경고 모달 — 확인한 스택(stackToken)은 다시 안 띄움.
+  // 스택이 바뀌면(길이·내용 변경) 재확인받아야 함.
   useEffect(() => {
-    const token = analyzeResult?.token ?? null;
-    if (stage === 'preview' && alertLevel && token && token !== ackedToken) {
+    if (stage === 'preview' && alertLevel && stackToken !== ackedToken) {
       setCriticalOpen(true);
     }
-  }, [stage, alertLevel, analyzeResult?.token, ackedToken]);
+  }, [stage, alertLevel, stackToken, ackedToken]);
 
-  // 현재 분석 결과의 critical을 사용자가 확인했는가 → Apply All 허용 + confirmCritical 전송 기준.
+  // 스택 전체의 critical을 사용자가 확인했는가 → Apply All 허용 + confirmCritical 전송 기준.
   // (warning은 Apply를 막지 않으므로 critical만 게이트.)
-  const criticalAcked = !hasCritical || ackedToken === (analyzeResult?.token ?? null);
+  const criticalAcked = !stackHasCritical || ackedToken === stackToken;
 
   const acknowledgeCritical = () => {
     setCriticalOpen(false);
-    setAckedToken(analyzeResult?.token ?? null);
+    setAckedToken(stackToken);
   };
 
   const mapResult = (res: Awaited<ReturnType<typeof analyzeInput>>) => ({
@@ -169,8 +174,8 @@ export default function InputPanel() {
   };
 
   const handleApplyAll = async () => {
-    // critical인데 아직 모달을 확인하지 않았으면 경고 모달을 띄우고 멈춤. 확인 후 다시 누르면 진행.
-    if (hasCritical && !criticalAcked) {
+    // 스택 전체에 critical이 있는데 아직 모달을 확인하지 않았으면 경고 모달을 띄우고 멈춤. 확인 후 다시 누르면 진행.
+    if (stackHasCritical && !criticalAcked) {
       setCriticalOpen(true);
       return;
     }
@@ -185,7 +190,7 @@ export default function InputPanel() {
     setActionError(null);
     try {
       const appliedCount = dryRunStack.length; // prepareApply 전 캡처
-      const res = await applyAll(dryRunStack, hasCritical); // critical이면 확인을 거쳤으므로 confirmCritical 전송
+      const res = await applyAll(dryRunStack, stackHasCritical); // 스택 전체 critical 기준 — 확인을 거쳤으므로 confirmCritical 전송
       prepareApply(); // 스택을 백업+비움 — Rollback이 백업에서 프리뷰를 복원
       setLastAppliedAuditIds(res.auditIds); // Applied 바의 Rollback이 역순 롤백에 사용
       setStage('applied'); // page.tsx가 현재 DB 그래프 재로드
@@ -474,14 +479,14 @@ export default function InputPanel() {
             disabled={applyDisabled}
             title={
               language === 'ko'
-                ? hasCritical && !criticalAcked
+                ? stackHasCritical && !criticalAcked
                   ? '심각한 위험이 있습니다. 누르면 먼저 확인 경고가 표시됩니다.'
-                  : hasCritical
+                  : stackHasCritical
                     ? `확인한 심각한 위험을 포함해 ${count}건의 변경을 적용합니다.`
                     : `${count}건의 변경을 단일 트랜잭션으로 적용합니다.`
-                : hasCritical && !criticalAcked
+                : stackHasCritical && !criticalAcked
                   ? 'Critical risk present. Pressing this shows a warning to confirm first.'
-                  : hasCritical
+                  : stackHasCritical
                     ? `Applying ${count} change${count === 1 ? '' : 's'} including a critical risk you confirmed.`
                     : `Apply all ${count} change${count === 1 ? '' : 's'} in a single transaction.`
             }

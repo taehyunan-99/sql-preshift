@@ -4,6 +4,10 @@ import { useEffect, useState } from 'react';
 import { usePipelineStore } from '../../store/pipeline';
 import { fetchAuditLog, rollbackAudit, type AuditEntry } from '../../lib/api';
 
+// DROP TABLE / DROP COLUMN 등 파괴적 연산 판정 — 역연산이 빈 구조만 복원하므로 데이터는 소실된다.
+// 대소문자 무시. ADD COLUMN / CREATE TABLE 등 안전 연산은 매칭되지 않는다.
+const DESTRUCTIVE_RE = /\bDROP\s+(TABLE|COLUMN)\b/i;
+
 function formatDate(iso: string): string {
   const d = new Date(iso);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
@@ -152,6 +156,26 @@ export default function AuditDrawer() {
               >
                 {entry.sql}
               </pre>
+
+              {/* 파괴적 연산 경고 — 롤백해도 삭제된 데이터는 복구되지 않음을 명시. */}
+              {DESTRUCTIVE_RE.test(entry.sql) && !entry.rolledBack && (
+                <p
+                  style={{
+                    margin: '0 0 8px',
+                    fontSize: 10,
+                    lineHeight: 1.4,
+                    color: 'var(--color-warning)',
+                    background: 'var(--color-warning-bg)',
+                    border: '1px solid var(--color-warning)',
+                    borderRadius: 3,
+                    padding: '4px 6px',
+                  }}
+                >
+                  {language === 'ko'
+                    ? '롤백은 구조만 복원하며, 삭제된 데이터는 복구되지 않습니다.'
+                    : 'Rollback restores structure only. Dropped data is not recovered.'}
+                </p>
+              )}
 
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ fontSize: 10, color: 'var(--text-secondary)', flex: 1 }}>
