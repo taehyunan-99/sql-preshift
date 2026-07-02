@@ -33,7 +33,7 @@ It isn't a daily tool for data engineers. It's a **safety gate that blocks dange
 ## Key Features
 
 - **Cumulative dry-run stack + single-transaction apply**: Each change is dry-run against the real database and pushed onto a stack. Review with Undo, then Apply All wraps everything into one transaction. No half-applied, in-between states.
-- **17 risk rules + golden-path alternatives**: Detects the operations that trigger lock queues: DELETE/UPDATE without WHERE, DROP, full table rewrites, validating constraints, and more. It doesn't just block. Most risks come with zero-downtime alternatives like `ADD CONSTRAINT ... NOT VALID → VALIDATE`.
+- **19 risk rules + golden-path alternatives**: Detects the operations that trigger lock queues or touch every row: DELETE/UPDATE without WHERE, constant tautology WHERE, DROP, full table rewrites, validating constraints, and more. It doesn't just block. Most risks come with zero-downtime alternatives like `ADD CONSTRAINT ... NOT VALID → VALIDATE`.
 - **Size-aware impact**: Risk warnings carry the target table's estimated row count and size, so the same `SET NOT NULL` reads very differently on 100 rows versus 100 million.
 - **Read-only integrity diagnostics on connect**: The moment you connect, it runs five read-only checks (broken referential integrity and more). It changes nothing; it just surfaces risk signals in the current state.
 - **Local LLM for NL→SQL + RAG (optional)**: Natural language is turned into SQL by a local Ollama, with relevant tables retrieved via schema embeddings (bge-m3). Credentials and inference both stay local, so nothing leaves for the cloud. Without Ollama you are guided to enter SQL directly, and the core features work without any LLM.

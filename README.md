@@ -33,7 +33,7 @@ SQLPreShift는 그 게이트다. 변경을 실제로 적용하기 전에 diff로
 ## Key Features
 
 - **누적 dry-run 스택 + 단일 트랜잭션 적용**: 변경을 실제 DB 기준으로 미리 돌려 스택에 쌓고, Undo로 되돌리며 검토한 뒤 Apply All로 한 트랜잭션에 묶어 적용한다. 부분 적용으로 인한 어정쩡한 상태가 없다.
-- **위험 룰 17종 + golden path 안전 대안**: DELETE/UPDATE without WHERE, DROP, 전체 테이블 재작성, 검증형 제약 추가 등 락 큐를 유발하는 진짜 위험을 감지한다. 위험을 막기만 하지 않고 대부분의 위험에 `ADD CONSTRAINT ... NOT VALID → VALIDATE` 같은 무중단 대안(golden path)을 함께 제시한다.
+- **위험 룰 19종 + golden path 안전 대안**: DELETE/UPDATE without WHERE, 상수 tautology WHERE, DROP, 전체 테이블 재작성, 검증형 제약 추가 등 락 큐를 유발하거나 전체 행을 건드리는 진짜 위험을 감지한다. 위험을 막기만 하지 않고 대부분의 위험에 `ADD CONSTRAINT ... NOT VALID → VALIDATE` 같은 무중단 대안(golden path)을 함께 제시한다.
 - **size-aware 영향 규모**: 위험 경고에 대상 테이블의 추정 행 수·크기를 주입해, 같은 `SET NOT NULL`이라도 100행짜리인지 1억 행짜리인지로 위험을 체감하게 한다.
 - **연결 직후 read-only 무결성 진단**: DB에 붙는 즉시 끊어진 참조(broken referential) 등 5항목을 읽기 전용으로 점검한다. 아무것도 변경하지 않고 현재 상태의 위험 신호만 띄운다.
 - **로컬 LLM 기반 NL→SQL + RAG (선택)**: 자연어 입력을 로컬 Ollama로 SQL로 변환하고, 스키마 임베딩(bge-m3)으로 관련 테이블을 RAG 검색한다. 자격증명도 추론도 전부 로컬에서 처리되어 클라우드로 나가는 데이터가 없다. Ollama가 없으면 SQL 직접 입력으로 안내되며, 핵심 기능은 LLM 없이 전부 동작한다.
