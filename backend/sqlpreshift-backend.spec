@@ -10,6 +10,10 @@ datas += copy_metadata('uvicorn')
 datas += copy_metadata('fastapi')
 hiddenimports += collect_submodules('uvicorn')
 hiddenimports += collect_submodules('sqlalchemy.dialects')
+# sqlglot은 방언(postgres 등)을 런타임에 importlib로 동적 import한다.
+# PyInstaller 정적 분석이 이를 못 잡아 sqlglot.dialects.* 가 번들에서 누락되므로
+# 전체 서브모듈을 명시 수집한다 — 이게 빠지면 dialect="postgres" parse가 패키징 환경에서 죽는다.
+hiddenimports += collect_submodules('sqlglot')
 tmp_ret = collect_all('psycopg')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 tmp_ret = collect_all('psycopg_binary')
