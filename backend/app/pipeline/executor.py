@@ -11,7 +11,12 @@ from sqlalchemy import Engine, text
 from sqlalchemy.orm import Session
 
 from app.pipeline.validation import ValidationError, check_forbidden, parse
-from app.schemas.analysis import AnalyzeResponse, ApplyResult, RollbackResult
+from app.schemas.analysis import (
+    AnalyzeResponse,
+    ApplyResult,
+    RollbackBatchResult,
+    RollbackResult,
+)
 
 import datetime
 
@@ -111,12 +116,19 @@ def build_down_script(ast: exp.Expression, before_tables: dict) -> str:
                                 f"ADD COLUMN {col_name} <원본 타입 정보 없음>"
                             )
 
-            # ALTER COLUMN TYPE → 이전 타입으로 복구
+            # ALTER COLUMN — TYPE / SET·DROP DEFAULT / SET·DROP NOT NULL 역연산
             elif isinstance(action, exp.AlterColumn):
                 col_ident = action.args.get("this")
                 col_name = col_ident.name if col_ident else None
-                if col_name and action.args.get("dtype") is not None:
-                    before_col = col_map.get(col_name)
+                if not col_name:
+                    continue
+                before_col = col_map.get(col_name)
+                is_drop = bool(action.args.get("drop"))
+                allow_null = action.args.get("allow_null")  # None / True / False
+                default = action.args.get("default")
+                dtype = action.args.get("dtype")
+
+                if dtype is not None:  # TYPE 변경 → 이전 타입으로 복구
                     if before_col:
                         parts.append(
                             f"ALTER TABLE {tbl.sql(dialect='postgres')} "
@@ -126,6 +138,45 @@ def build_down_script(ast: exp.Expression, before_tables: dict) -> str:
                         parts.append(
                             f"-- ROLLBACK UNSUPPORTED: ALTER TABLE {tbl.sql(dialect='postgres')} "
                             f"ALTER COLUMN {col_name} TYPE -- 원본 타입 정보 없음"
+                        )
+                # NOT NULL 계열 — DROP DEFAULT와 drop=True를 공유하므로 allow_null 키 존재로 먼저 구분.
+                elif allow_null is not None:
+                    if allow_null is False:  # SET NOT NULL → DROP NOT NULL
+                        parts.append(
+                            f"ALTER TABLE {tbl.sql(dialect='postgres')} "
+                            f"ALTER COLUMN {col_name} DROP NOT NULL;"
+                        )
+                    else:  # DROP NOT NULL → SET NOT NULL
+                        parts.append(
+                            f"ALTER TABLE {tbl.sql(dialect='postgres')} "
+                            f"ALTER COLUMN {col_name} SET NOT NULL;"
+                        )
+                # SET DEFAULT → 이전 default가 있으면 그 값으로 복원, 없었으면 DROP DEFAULT.
+                # reflection(columnDefault)으로 이전 값을 캡처하므로 원래 default 소실을 막는다.
+                elif default is not None:
+                    prev = before_col.columnDefault if before_col else None
+                    if prev:
+                        parts.append(
+                            f"ALTER TABLE {tbl.sql(dialect='postgres')} "
+                            f"ALTER COLUMN {col_name} SET DEFAULT {prev};"
+                        )
+                    else:
+                        parts.append(
+                            f"ALTER TABLE {tbl.sql(dialect='postgres')} "
+                            f"ALTER COLUMN {col_name} DROP DEFAULT;"
+                        )
+                # DROP DEFAULT → 이전 default가 있으면 그 값으로 복원, 없으면 복원 불가.
+                elif is_drop:
+                    prev = before_col.columnDefault if before_col else None
+                    if prev:
+                        parts.append(
+                            f"ALTER TABLE {tbl.sql(dialect='postgres')} "
+                            f"ALTER COLUMN {col_name} SET DEFAULT {prev};"
+                        )
+                    else:
+                        parts.append(
+                            f"-- ROLLBACK UNSUPPORTED: ALTER TABLE {tbl.sql(dialect='postgres')} "
+                            f"ALTER COLUMN {col_name} SET DEFAULT -- 원본 default 정보 없음"
                         )
 
             # RENAME COLUMN → 역방향 RENAME
@@ -364,3 +415,92 @@ def rollback(
         auditId=str(audit_id),
         rolledBackAt=rolled_back_at,
     )
+
+
+def rollback_batch(
+    audit_ids: list[str],
+    session: Session,
+    target_engine: Optional[Engine] = None,
+) -> RollbackBatchResult:
+    """여러 audit을 단일 target TX로 일괄 롤백한다(all-or-nothing). apply_all과 대칭.
+
+    apply_all이 여러 SQL을 하나의 engine.begin()으로 적용하는 것과 대칭이 되도록,
+    롤백도 모든 down_script를 단일 target TX에서 실행해 중간 실패 시 전부 되돌린다.
+    프론트가 audit을 하나씩 순차 호출하던 방식(부분 롤백 위험)을 이걸로 대체한다.
+
+    한계(알려진 잔여 위험): target TX(engine.begin)와 meta 기록(session.commit)은
+    물리적으로 분리된 DB다(설치형 meta=SQLite, target=PostgreSQL). target 성공 후
+    meta commit이 실패하면 target은 되돌려졌는데 rollback AuditLog가 안 남아
+    이중롤백 가드가 무력화될 수 있다. 기존 단일 rollback과 동일 구조이나 배치는
+    N건을 한 meta commit에 몰아 창이 넓다. 완전한 2PC는 범위 밖 — target-atomic 보장까지.
+    """
+    from app.models.audit import AuditLog, MigrationHistory
+
+    if not audit_ids:
+        raise ValidationError("롤백할 항목이 없습니다.")
+
+    # 역순(나중 적용부터 되돌림 — FK/의존 순서 안전) + int 변환 + 중복 제거.
+    ordered = list(dict.fromkeys(int(a) for a in reversed(audit_ids)))
+
+    # ① TX 진입 전 전수 선검사 — 하나라도 실패면 실행 전 전체 거부(apply_all 선검사와 동형, fail-closed).
+    plan: list[tuple[int, "MigrationHistory", list[str]]] = []
+    seen_migrations: set[int] = set()
+    for aid in ordered:
+        audit = session.get(AuditLog, aid)
+        if audit is None:
+            raise ValidationError(f"감사 로그 ID {aid}를 찾을 수 없습니다.")
+        migration = session.get(MigrationHistory, audit.migration_id)
+        if migration is None or not migration.down_script:
+            raise ValidationError(f"롤백 스크립트가 없습니다. (migration_id={audit.migration_id})")
+        # 서로 다른 audit이 같은 migration을 가리키면 down 중복 실행 방지(apply_all은 1:1이라 실무상 없음).
+        if migration.id in seen_migrations:
+            continue
+        # 이중 롤백 가드: 같은 migration에 rollback 이벤트가 이미 있으면 거부.
+        if (
+            session.query(AuditLog)
+            .filter_by(migration_id=migration.id, action="rollback")
+            .first()
+            is not None
+        ):
+            raise ValidationError("This migration has already been rolled back.")
+        stmts = [
+            s.strip()
+            for s in migration.down_script.split(";")
+            if s.strip() and not s.strip().startswith("--")
+        ]
+        # down_script 각 구문 parse+check_forbidden (fail-closed) — 실행 전 검증.
+        for stmt in stmts:
+            violations = check_forbidden(parse(stmt))
+            if violations:
+                raise ValidationError(
+                    f"Rollback script forbidden pattern: {violations[0].message} (stmt: {stmt[:80]})"
+                )
+        seen_migrations.add(migration.id)
+        plan.append((aid, migration, stmts))
+
+    # ② 단일 target TX — 중간 실패 시 전부 롤백(all-or-nothing)
+    engine = target_engine if target_engine is not None else session.get_bind()
+    with engine.begin() as conn:
+        for _aid, _migration, stmts in plan:
+            for stmt in stmts:
+                conn.execute(text(stmt))
+
+    # ③ target TX 정상 종료 후에만 메타 기록 — migration당 rollback AuditLog 1건.
+    rolled_ids: list[str] = []
+    rolled_at = ""
+    for aid, migration, _stmts in plan:
+        rollback_audit = AuditLog(
+            migration_id=migration.id,
+            action="rollback",
+            detail=f"batch rollback: {migration.down_script[:200]}",
+        )
+        session.add(rollback_audit)
+        session.flush()
+        rolled_ids.append(str(aid))
+        rolled_at = (
+            rollback_audit.created_at.isoformat()
+            if rollback_audit.created_at
+            else datetime.datetime.utcnow().isoformat()
+        )
+
+    return RollbackBatchResult(rolledBackAuditIds=rolled_ids, rolledBackAt=rolled_at)

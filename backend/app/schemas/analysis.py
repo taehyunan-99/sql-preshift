@@ -154,3 +154,16 @@ class RollbackResult(BaseModel):
     """§5 계약 — auditId:str, rolledBackAt:str."""
     auditId: str
     rolledBackAt: str
+
+
+class RollbackBatchRequest(BaseModel):
+    """apply-all로 적용한 auditIds 전체를 단일 target TX로 일괄 롤백(all-or-nothing)."""
+    model_config = ConfigDict(populate_by_name=True)
+
+    auditIds: list[str]
+
+
+class RollbackBatchResult(BaseModel):
+    """실제 롤백된 auditId 목록(역순 처리 후) + 마지막 롤백 기록 시각."""
+    rolledBackAuditIds: list[str]
+    rolledBackAt: str

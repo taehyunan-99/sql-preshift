@@ -196,17 +196,37 @@ def apply_ast_to_graph(ast: exp.Expression, before: SchemaGraph) -> SchemaGraph:
                         col_map.pop(col_ref.name)
                         changed = True
 
-            # ALTER COLUMN (타입 변경 등)
+            # ALTER COLUMN — TYPE / SET·DROP DEFAULT / SET·DROP NOT NULL을 baseline에 fold.
+            # 이 fold가 있어야 apply_all의 단계별 baseline(before_tables)이 정확해져
+            # 다단계 배치에서 이전 default/nullable을 참조하는 down_script가 올바르게 생성된다.
             elif isinstance(action, exp.AlterColumn):
                 # AlterColumn.args["this"]는 Identifier — find(exp.Column)이 None 반환
                 col_ident = action.args.get("this")
                 col_name = col_ident.name if col_ident else None
                 if col_name and col_name in col_map:
                     dtype = action.args.get("dtype")
+                    is_drop = bool(action.args.get("drop"))
+                    allow_null = action.args.get("allow_null")
+                    default = action.args.get("default")
+                    old_col = col_map[col_name]
                     if dtype:
-                        old_col = col_map[col_name]
                         col_map[col_name] = old_col.model_copy(
                             update={"type": str(dtype).lower(), "diff": "modified"}
+                        )
+                        changed = True
+                    elif allow_null is not None:  # SET/DROP NOT NULL (DROP DEFAULT와 키로 구분)
+                        col_map[col_name] = old_col.model_copy(
+                            update={"nullable": bool(allow_null), "diff": "modified"}
+                        )
+                        changed = True
+                    elif default is not None:  # SET DEFAULT — 새 default 표현식을 baseline에 반영
+                        col_map[col_name] = old_col.model_copy(
+                            update={"columnDefault": default.sql(dialect="postgres"), "diff": "modified"}
+                        )
+                        changed = True
+                    elif is_drop:  # DROP DEFAULT
+                        col_map[col_name] = old_col.model_copy(
+                            update={"columnDefault": None, "diff": "modified"}
                         )
                         changed = True
 

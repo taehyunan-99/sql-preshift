@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { usePipelineStore } from '../../store/pipeline';
-import { rollbackAudit } from '../../lib/api';
+import { rollbackAuditBatch } from '../../lib/api';
 
 // DROP TABLE / DROP COLUMN 등 파괴적 연산 판정 — 역연산이 빈 구조만 복원하므로 데이터는 소실된다.
 // 대소문자 무시. ADD COLUMN / CREATE TABLE 등 안전 연산은 매칭되지 않는다.
@@ -10,8 +10,8 @@ const DESTRUCTIVE_RE = /\bDROP\s+(TABLE|COLUMN)\b/i;
 const isDestructive = (sqls: string[]) => sqls.some((s) => DESTRUCTIVE_RE.test(s));
 
 // stage==='applied'에서만 렌더되는 하단 중앙 floating pill.
-// [Rollback][New] — Rollback은 "방금 적용한 변경 전체"를 역순으로 되돌린다(나중 변경부터).
-// 적용 직후의 auditIds(store.lastAppliedAuditIds)를 역순으로 rollbackAudit 호출.
+// [Rollback][New] — Rollback은 "방금 적용한 변경 전체"를 단일 배치로 되돌린다(백엔드가 역순·단일 TX).
+// 적용 직후의 auditIds(store.lastAppliedAuditIds)를 rollbackAuditBatch로 일괄 전달.
 export default function CompletedBar() {
   const { stage, reset, rollbackApplied, language, lastAppliedAuditIds, appliedStackBackup } =
     usePipelineStore();
@@ -47,10 +47,9 @@ export default function CompletedBar() {
     setRollingBack(true);
     setError(null);
     try {
-      // 역순 롤백 — 나중에 적용된 변경부터 되돌려야 FK/의존 순서가 안전.
-      for (const id of [...lastAppliedAuditIds].reverse()) {
-        await rollbackAudit(id);
-      }
+      // 단일 배치 롤백 — 백엔드가 역순으로 단일 target TX에서 all-or-nothing 처리.
+      // (순차 호출 시 중간 실패로 부분 롤백되던 문제를 구조적으로 차단.)
+      await rollbackAuditBatch(lastAppliedAuditIds);
       // 성공 — 로딩 해제 후 복원. 이걸 빼먹으면 컴포넌트가 살아있는 채로 rollingBack=true가 남아
       // 재적용(applied 재진입) 시 버튼이 "되돌리는 중…"으로 영구 고정된다.
       setRollingBack(false);

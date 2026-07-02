@@ -1,4 +1,4 @@
-"""GET /api/audit, POST /api/audit/{id}/rollback."""
+"""GET /api/audit, POST /api/audit/{id}/rollback, POST /api/audit/rollback-batch."""
 
 from __future__ import annotations
 
@@ -6,9 +6,14 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.db import get_meta_session, get_target_engine
-from app.pipeline.executor import rollback
+from app.pipeline.executor import rollback, rollback_batch
 from app.pipeline.validation import ValidationError
-from app.schemas.analysis import AuditEntry, RollbackResult
+from app.schemas.analysis import (
+    AuditEntry,
+    RollbackBatchRequest,
+    RollbackBatchResult,
+    RollbackResult,
+)
 
 router = APIRouter(prefix="/api/audit", tags=["audit"])
 
@@ -56,6 +61,32 @@ async def list_audit(
             )
         )
     return entries
+
+
+@router.post("/rollback-batch", response_model=RollbackBatchResult)
+async def api_rollback_batch(
+    req: RollbackBatchRequest,
+    session: Session = Depends(get_meta_session),
+):
+    """apply-all로 적용한 auditIds 전체를 단일 target TX로 일괄 롤백(all-or-nothing).
+
+    정적 경로라 동적 경로(/{audit_id}/rollback)보다 먼저 정의해 라우팅 모호성을 없앤다.
+    """
+    # apply/apply-all/rollback과 대칭 가드 — target 미연결 시 롤백 SQL이 메타 DB에서
+    # 실행되는 것을 차단(메타 DB 오염 방지).
+    engine = get_target_engine()
+    if engine is None:
+        raise HTTPException(status_code=503, detail="Database not connected.")
+    try:
+        result = rollback_batch(req.auditIds, session, target_engine=engine)
+        session.commit()
+        return result
+    except ValidationError as e:
+        session.rollback()
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=500, detail=f"Rollback failed: {e}")
 
 
 @router.post("/{audit_id}/rollback", response_model=RollbackResult)

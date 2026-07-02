@@ -66,6 +66,8 @@ def build_graph(engine: Engine, schema: str | None = "public") -> SchemaGraph:
                     pk=col_name in pk_cols,
                     fk=fk_target,
                     nullable=col.get("nullable", True),
+                    # reflection의 DEFAULT 표현식(예: "'pending'::text"). SET/DROP DEFAULT 롤백 복원용.
+                    columnDefault=col.get("default"),
                     diff="unchanged",
                 )
             )

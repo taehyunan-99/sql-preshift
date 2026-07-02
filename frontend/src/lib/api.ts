@@ -101,6 +101,11 @@ export interface RollbackResponse {
   rolledBackAt: string;
 }
 
+export interface RollbackBatchResponse {
+  rolledBackAuditIds: string[];
+  rolledBackAt: string;
+}
+
 export interface AnalyzeRequest {
   input: string;
   mode?: 'auto' | 'nl' | 'sql';
@@ -183,6 +188,18 @@ export async function fetchAuditLog(): Promise<AuditEntry[]> {
 
 export async function rollbackAudit(id: string): Promise<RollbackResponse> {
   const res = await fetch(`${API_BASE}/api/audit/${id}/rollback`, { method: 'POST' });
+  if (!res.ok) throw new Error(`rollback failed: ${res.status}`);
+  return res.json();
+}
+
+// apply-all로 적용한 auditIds 전체를 단일 target TX로 일괄 롤백(all-or-nothing).
+// 역순 처리는 백엔드가 담당하므로 적용 순서 그대로 넘긴다.
+export async function rollbackAuditBatch(ids: string[]): Promise<RollbackBatchResponse> {
+  const res = await fetch(`${API_BASE}/api/audit/rollback-batch`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ auditIds: ids }),
+  });
   if (!res.ok) throw new Error(`rollback failed: ${res.status}`);
   return res.json();
 }

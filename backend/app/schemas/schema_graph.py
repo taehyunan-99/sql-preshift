@@ -23,6 +23,9 @@ class ColumnNode(BaseModel):
     pk: bool
     fk: Optional[str]  # "target_table.target_column" 형식, 없으면 null
     nullable: bool
+    # 컬럼 DEFAULT 표현식(reflection 캡처). SET/DROP DEFAULT 롤백 시 이전 값 정확 복원용.
+    # 없으면 null. UI 미표시(롤백 down_script 생성에만 사용) — camelCase 불필요.
+    columnDefault: Optional[str] = None
     diff: DiffStatus
     change: Optional[ColumnChange] = None
     # 무결성 진단(read-only, metadata-only). 필드명은 TS 미러와 동일한 camelCase로 둬 alias 불필요.
