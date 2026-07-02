@@ -373,9 +373,9 @@ def deterministic_rules(
         )
 
     # VACUUM FULL — 테이블 전체를 ACCESS EXCLUSIVE 락으로 재작성(읽기/쓰기 전면 차단).
+    # NOTE: VACUUM/CLUSTER는 sqlglot이 Command/Alias로 폴백하는데, C1 이후 parse()가 화이트리스트로
+    # 이 폴백 노드를 거부한다. 따라서 이 블록은 실행 경로에서 도달 불가지만 방어적으로 유지한다.
     # sqlglot은 VACUUM을 Command(this='VACUUM', expression='FULL <table>')로 파싱한다.
-    # (CLUSTER는 parse 단계에서 ValidationError로 이미 거부되므로 여기 도달 안 함.)
-    # NOTE: VACUUM FULL은 이제 parse()가 Command로 거부한다(C1). 이 블록은 도달 불가지만 방어적으로 유지.
     for cmd in ast.find_all(exp.Command):
         if str(cmd.args.get("this", "")).upper() != "VACUUM":
             continue

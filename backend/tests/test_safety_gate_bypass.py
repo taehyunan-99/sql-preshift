@@ -50,6 +50,41 @@ def _columns(engine, table: str):
     return [c["name"] for c in inspect(engine).get_columns(table)]
 
 
+# apply_all은 내부에서 build_graph(engine)를 public 스키마로 호출하므로 실제 PostgreSQL이 필요하다
+# (SQLite에는 public 스키마가 없어 성공 경로가 build_graph에서 터진다 — 운영 target은 항상 PG).
+# 데모 DB가 없는 환경에서는 성공/원자성 경로를 건너뛴다(선검사 테스트는 SQLite로 검증 가능).
+_PG_URL = "postgresql+psycopg://sqlpreshift:sqlpreshift@postgres:5432/sqlpreshift"
+
+
+def _pg_available() -> bool:
+    try:
+        eng = create_engine(_PG_URL, connect_args={"connect_timeout": 2})
+        with eng.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        eng.dispose()
+        return True
+    except Exception:
+        return False
+
+
+_pg_skip = pytest.mark.skipif(
+    not _pg_available(), reason="apply_all 성공/원자성 경로는 public 스키마가 있는 PostgreSQL 필요"
+)
+
+
+@pytest.fixture()
+def pg_target():
+    """실 PostgreSQL target — 테스트용 임시 테이블을 만들고 끝나면 정리한다."""
+    eng = create_engine(_PG_URL)
+    with eng.begin() as conn:
+        conn.execute(text("DROP TABLE IF EXISTS _t_safety_applyall"))
+        conn.execute(text("CREATE TABLE _t_safety_applyall (id INTEGER PRIMARY KEY, x INTEGER)"))
+    yield eng
+    with eng.begin() as conn:
+        conn.execute(text("DROP TABLE IF EXISTS _t_safety_applyall"))
+    eng.dispose()
+
+
 # ─────────────────────────────────────────────
 # C1 — 파서 폴백 노드 화이트리스트 거부
 # ─────────────────────────────────────────────
@@ -274,3 +309,61 @@ def test_h1_non_public_schema_rejected(sql):
 def test_h1_public_schema_allowed(sql):
     """수식자 없음 / 명시 public은 통과한다(과차단 없음)."""
     assert "NON_PUBLIC_SCHEMA" not in _violation_rules(sql)
+
+
+# ─────────────────────────────────────────────
+# apply_all — all-or-nothing 단일 트랜잭션 ("부분 적용 없음" 주장)
+# ─────────────────────────────────────────────
+
+def test_apply_all_prescreen_rejects_before_any_execution(session, target_engine):
+    """전수 선검사 — 하나라도 위반이면 TX 진입 전 전체 거부(아무것도 실행 안 됨).
+
+    선검사(parse+check_forbidden)는 build_graph/TX 이전이라 SQLite로도 검증 가능하다.
+    """
+    sqls = [
+        "ALTER TABLE users ADD COLUMN a INTEGER",   # 정상
+        "DO $$ BEGIN DROP TABLE users; END $$",     # C1 폴백 노드 — 선검사에서 거부
+    ]
+    with pytest.raises(ValidationError):
+        apply_all(sqls, session, target_engine, confirm_critical=True)
+    # 정상이던 첫 구문도 실행되지 않아야 한다(선검사가 TX 앞).
+    assert "a" not in _columns(target_engine, "users")
+    assert session.query(AuditLog).count() == 0
+
+
+def test_apply_all_empty_rejected(session, target_engine):
+    """빈 SQL 목록은 거부된다."""
+    with pytest.raises(ValidationError):
+        apply_all([], session, target_engine)
+
+
+@_pg_skip
+def test_apply_all_atomic_rollback_on_midway_failure(session, pg_target):
+    """중간 구문이 실패하면 앞 구문까지 전부 롤백된다(부분 적용 없음). PostgreSQL 전용."""
+    sqls = [
+        "ALTER TABLE _t_safety_applyall ADD COLUMN a INTEGER",   # 성공할 구문
+        "ALTER TABLE _t_safety_applyall ADD COLUMN a INTEGER",   # 중복 컬럼 — 두 번째에서 실패
+    ]
+    with pytest.raises(Exception):
+        apply_all(sqls, session, pg_target, confirm_critical=True)
+    # 첫 구문도 롤백돼 컬럼 a가 남지 않아야 한다(all-or-nothing).
+    assert "a" not in _columns(pg_target, "_t_safety_applyall")
+    # 메타 기록도 없어야 한다(target TX 실패 시 감사 로그 미생성).
+    assert session.query(AuditLog).count() == 0
+
+
+@_pg_skip
+def test_apply_all_success_records_audit_per_statement(session, pg_target):
+    """성공 시 SQL당 감사 로그 1건 + 순서 보존. PostgreSQL 전용."""
+    sqls = [
+        "ALTER TABLE _t_safety_applyall ADD COLUMN a INTEGER",
+        "ALTER TABLE _t_safety_applyall ADD COLUMN b INTEGER",
+    ]
+    result = apply_all(sqls, session, pg_target, confirm_critical=True)
+    session.commit()
+
+    cols = _columns(pg_target, "_t_safety_applyall")
+    assert "a" in cols and "b" in cols
+    assert result.count == 2
+    assert len(result.auditIds) == 2
+    assert session.query(AuditLog).filter_by(action="apply").count() == 2
